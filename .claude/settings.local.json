@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebSearch",
+      "mcp__Framelink_Figma_MCP__get_figma_data",
+      "Bash(mkdir:*)",
+      "mcp__Framelink_Figma_MCP__download_figma_images",
+      "Bash(mv:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(rm:*)",
+      "Bash(npx expo start:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "Framelink Figma MCP"
+  ]
+}

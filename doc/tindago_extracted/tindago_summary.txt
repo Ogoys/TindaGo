@@ -1,0 +1,29 @@
+TINDA-GO PROJECT SUMMARY
+==============================
+
+PROJECT OVERVIEW:
+INTRODUCTION Project Context In the Philippines, sari-sari stores have long been the foundation of neighborhood commerce, offering accessible and affordable goods to everyday customers. These small, family-run businesses are deeply rooted in Filipino culture and are often the first choice for household needs. Despite their importance, most sari-sari stores still rely on traditional, manual methods—like handwritten inventory, verbal sales recording, and cash-based transactions. This lack of digit...
+
+MAIN OBJECTIVES:
+Objectives General Objective TindaGo's main objective is to develop a mobile ordering and inventory management application tailored for sari-sari stores, providing a streamlined platform that simplifies business processes such as stock monitoring, sales tracking, and customer order handling, while promoting accessibility and digital empowerment for local store owners. Specific Objectives  To deve...
+
+TECHNICAL STACK IDENTIFIED:
+- Frontend: React Native
+- Backend: Firebase Firestore
+- Local Storage: AsyncStorage / SQLite
+- Authentication: Firebase Auth
+- Target Platform: Android & iOS
+- State Management: Zustand (recommended) / Redux Toolkit
+- Navigation: React Navigation
+- Maps: React Native Maps
+- Push Notifications: Firebase Cloud Messaging
+- Testing: Jest
+- Admin Dashboard: Node.js + Express.js
+
+KEY FEATURES:
+- Inventory management for sari-sari stores
+- Customer ordering system (pickup only)
+- Sales tracking and reporting
+- Store registration and verification
+- Admin dashboard for store approval
+

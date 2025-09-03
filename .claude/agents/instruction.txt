@@ -1,0 +1,69 @@
+🎯 Example Usage
+
+Simple Activation (Figma Conversion):
+
+@tindago-design-to-code
+
+Convert this Figma design to React Native:
+https://www.figma.com/design/8I1Nr3vQZllDDknSevstvH/TindaGo-Share?node-id=102-123&t=vt1DdLoecuG6NBUJ-4
+
+This is the sign-in screen for TindaGo.
+
+Complex Request:
+
+@tindago-design-to-code
+
+I need help with this Figma design:
+https://www.figma.com/design/8I1Nr3vQZllDDknSevstvH/TindaGo-Share?node-id=102-456
+
+It's a product listing screen with:
+- Search bar at top
+- Filter buttons
+- Product grid layout
+- Add to cart functionality
+
+Please create the React Native components with proper navigation.
+
+Error Handling Example:
+
+@tindago-design-to-code
+
+I'm getting this error when implementing your previous solution:
+
+ERROR: Module not found: react-native-vector-icons
+at ProductListScreen.tsx:15
+
+The screen should show product cards with heart icons for favorites.
+Can you fix this and update the component?
+
+Follow-up Work:
+
+@tindago-design-to-code
+
+Can you add form validation to the login screen you created earlier?
+I need:
+- Email validation
+- Password strength check
+- Error messages below inputs
+- Disable submit button until valid
+
+🚀 Pro Tips
+
+For Best Results:
+
+1. Always include Figma URL when converting designs
+2. Describe the screen purpose (login, product list, etc.)
+3. Mention any special functionality needed
+4. Paste full error messages when you encounter issues
+5. Reference previous work the agent did for you
+
+The Agent Will:
+
+- ✅ Extract Figma data automatically
+- ✅ Download all required assets
+- ✅ Create pixel-perfect React Native code
+- ✅ Follow all TindaGo patterns
+- ✅ Learn from any errors you share
+
+Just @mention the agent and describe what you need. It has all our established knowledge and will
+learn from anything new you encounter.
