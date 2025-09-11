@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
 import { auth, database } from '../../FirebaseConfig';
 import { Button } from "../../src/components/ui/Button";
 import { FormInput } from "../../src/components/ui/FormInput";
@@ -24,29 +24,108 @@ export default function SignInScreen() {
     setLoading(true);
     
     try {
-      // Firebase only supports email authentication, so we'll treat phone as email for now
-      let email = emailOrPhone.trim();
+      const input = emailOrPhone.trim();
       
-      // If it looks like a phone number, we'll need to convert or handle differently
-      // For now, we'll assume it's an email or show an error
+      // Detect if input is email or phone number
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        Alert.alert("Error", "Please enter a valid email address");
+      const phoneRegex = /^[0-9+\-\s()]{10,}$/;
+      
+      const isEmail = emailRegex.test(input);
+      const isPhone = phoneRegex.test(input);
+      
+      if (!isEmail && !isPhone) {
+        Alert.alert("Error", "Please enter a valid email address or phone number");
         setLoading(false);
         return;
       }
 
-      // Sign in with Firebase
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      let userCredential;
+      let userData = null;
+      
+      if (isEmail) {
+        // Direct email sign-in
+        userCredential = await signInWithEmailAndPassword(auth, input, password);
+      } else {
+        // Phone number sign-in - find user by phone number in database
+        console.log("Looking up user by phone number:", input);
+        
+        // Clean phone number for consistent searching
+        const cleanedPhone = input.replace(/\D/g, '');
+        
+        // Query database for user with this phone number
+        const usersRef = ref(database, 'users');
+        const phoneQuery = query(usersRef, orderByChild('phoneNumber'), equalTo(input));
+        const phoneSnapshot = await get(phoneQuery);
+        
+        // Also try with different phone formats
+        let foundUser = null;
+        if (phoneSnapshot.exists()) {
+          const users = phoneSnapshot.val();
+          const userId = Object.keys(users)[0];
+          foundUser = { uid: userId, ...users[userId] };
+        } else {
+          // Try with +63 format if user entered 09 format
+          const altPhone = input.startsWith('09') ? '+63' + input.substring(1) : input;
+          if (altPhone !== input) {
+            const altQuery = query(usersRef, orderByChild('phoneNumber'), equalTo(altPhone));
+            const altSnapshot = await get(altQuery);
+            if (altSnapshot.exists()) {
+              const users = altSnapshot.val();
+              const userId = Object.keys(users)[0];
+              foundUser = { uid: userId, ...users[userId] };
+            }
+          }
+        }
+        
+        if (!foundUser) {
+          Alert.alert(
+            "Phone Number Not Found", 
+            "No account found with this phone number. Please check the number or register first.",
+            [{ text: "OK" }]
+          );
+          setLoading(false);
+          return;
+        }
+        
+        // Sign in using the email associated with this phone number
+        userData = foundUser;
+        userCredential = await signInWithEmailAndPassword(auth, foundUser.email, password);
+      }
+
       const user = userCredential.user;
 
+      // Check if email is verified
+      if (!user.emailVerified) {
+        Alert.alert(
+          "Email Not Verified", 
+          "Please verify your email address before signing in. We'll redirect you to the verification screen.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                router.push({
+                  pathname: "/(auth)/verify-email",
+                  params: { email: input }
+                });
+              }
+            }
+          ]
+        );
+        return;
+      }
+
       // Get user data from Realtime Database to determine user type
-      const userRef = ref(database, `users/${user.uid}`);
-      const userSnapshot = await get(userRef);
-      
-      if (userSnapshot.exists()) {
-        const userData = userSnapshot.val();
+      // If we already have userData from phone lookup, use it, otherwise fetch from database
+      if (!userData) {
+        const userRef = ref(database, `users/${user.uid}`);
+        const userSnapshot = await get(userRef);
         
+        if (userSnapshot.exists()) {
+          userData = userSnapshot.val();
+        }
+      }
+      
+      if (userData) {
         // Navigate based on user type
         if (userData.userType === 'store_owner') {
           router.replace("/(main)/store-home");
@@ -54,7 +133,9 @@ export default function SignInScreen() {
           router.replace("/(main)/home");
         }
         
-        Alert.alert("Success", `Welcome back, ${userData.name || user.email}!`);
+        // Show welcome message with phone or email
+        const welcomeIdentifier = userData.phoneNumber || userData.email || user.email;
+        Alert.alert("Success", `Welcome back, ${userData.name}! (${welcomeIdentifier})`);
       } else {
         // User document doesn't exist, navigate to home by default
         router.replace("/(main)/home");
@@ -66,7 +147,7 @@ export default function SignInScreen() {
       
       switch (error.code) {
         case 'auth/user-not-found':
-          errorMessage = "No account found with this email.";
+          errorMessage = "No account found with this email or phone number.";
           break;
         case 'auth/wrong-password':
           errorMessage = "Incorrect password.";

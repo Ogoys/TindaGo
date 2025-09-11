@@ -1,5 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { Image, ImageBackground, Pressable, StyleSheet, View } from "react-native";
+import { Image, ImageBackground, Pressable, StyleSheet, View, Alert } from "react-native";
+import { sendEmailVerification } from 'firebase/auth';
+import { auth } from '../../FirebaseConfig';
 import { Button } from "../../src/components/ui/Button";
 import { Typography } from "../../src/components/ui/Typography";
 import { Colors } from "../../src/constants/Colors";
@@ -15,13 +17,52 @@ export default function VerifyEmailScreen() {
     router.back();
   };
 
-  const handleConfirmPress = () => {
-    // TODO: Implement email sending logic
-    // Navigate to verify email code screen with email parameter
-    router.push({
-      pathname: "/(auth)/verify-email-code",
-      params: { email: displayEmail }
-    });
+  const handleConfirmPress = async () => {
+    try {
+      // Check if user is authenticated
+      if (!auth.currentUser) {
+        Alert.alert("Error", "Please sign in first to verify your email.");
+        router.push("/(auth)/signin");
+        return;
+      }
+
+      // Send email verification
+      await sendEmailVerification(auth.currentUser);
+      
+      Alert.alert(
+        "Verification Email Sent", 
+        "We've sent a verification email to your address. Please check your email and click the verification link.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              // Navigate to verify email code screen with email parameter
+              router.push({
+                pathname: "/(auth)/verify-email-code",
+                params: { email: displayEmail }
+              });
+            }
+          }
+        ]
+      );
+      
+    } catch (error: any) {
+      let errorMessage = "Failed to send verification email.";
+      
+      switch (error.code) {
+        case 'auth/too-many-requests':
+          errorMessage = "Too many requests. Please wait a moment before trying again.";
+          break;
+        case 'auth/user-not-found':
+          errorMessage = "User not found. Please sign up first.";
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = "Network error. Please check your connection.";
+          break;
+      }
+      
+      Alert.alert("Email Verification Error", errorMessage);
+    }
   };
 
   return (

@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { ref, set, serverTimestamp } from 'firebase/database';
 import { auth, database } from '../../FirebaseConfig';
 import { Button } from "../../src/components/ui/Button";
@@ -97,10 +97,48 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      // Firebase only supports email authentication
+      // Detect if input is email or phone number
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.emailOrPhone)) {
-        Alert.alert("Error", "Please enter a valid email address for Firebase authentication");
+      const phoneRegex = /^[0-9+\-\s()]{10,}$/;
+      
+      const isEmail = emailRegex.test(formData.emailOrPhone.trim());
+      const isPhone = phoneRegex.test(formData.emailOrPhone.trim());
+      
+      if (!isEmail && !isPhone) {
+        Alert.alert("Error", "Please enter a valid email address or phone number");
+        setLoading(false);
+        return;
+      }
+
+      // If phone number, redirect to phone verification without creating Firebase account yet
+      if (isPhone) {
+        Alert.alert(
+          "Phone Registration", 
+          "Phone number detected! You'll verify your phone number with SMS, then complete registration. After that, you can sign in with either your phone number OR email.",
+          [
+            {
+              text: "Continue",
+              onPress: () => {
+                router.push({
+                  pathname: "/(auth)/verify-phone",
+                  params: { 
+                    phoneNumber: formData.emailOrPhone.trim(),
+                    // Pass other form data for later use
+                    name: formData.name,
+                    userType: formData.userType 
+                  }
+                });
+              }
+            },
+            {
+              text: "Use Email Instead",
+              onPress: () => {
+                // Clear the phone number and let user enter email
+                setFormData({ ...formData, emailOrPhone: "" });
+              }
+            }
+          ]
+        );
         setLoading(false);
         return;
       }
@@ -144,23 +182,50 @@ export default function RegisterScreen() {
       const userRef = ref(database, `users/${user.uid}`);
       await set(userRef, userData);
 
-      Alert.alert(
-        "Account Created!", 
-        "Your TindaGo account has been created successfully. Please verify your email to continue.",
-        [
-          {
-            text: "OK", 
-            onPress: () => {
-              // Navigate based on user type
-              if (formData.userType === 'store_owner') {
-                router.replace("/(main)/store-home");
-              } else {
-                router.replace("/(main)/home");
+      // Send email verification
+      await user.reload();
+      if (!user.emailVerified) {
+        try {
+          await sendEmailVerification(user);
+          Alert.alert(
+            "Account Created!", 
+            "Your TindaGo account has been created successfully. A verification email has been sent to your email address. Please verify your email to continue.",
+            [
+              {
+                text: "OK", 
+                onPress: () => {
+                  // Navigate to email verification screen
+                  router.push({
+                    pathname: "/(auth)/verify-email",
+                    params: { email: formData.emailOrPhone.trim() }
+                  });
+                }
               }
-            }
-          }
-        ]
-      );
+            ]
+          );
+        } catch (emailError: any) {
+          console.log("Email verification error:", emailError);
+          Alert.alert(
+            "Account Created!", 
+            "Your account has been created but we couldn't send a verification email. You can still sign in.",
+            [
+              {
+                text: "OK", 
+                onPress: () => {
+                  router.push("/(auth)/signin");
+                }
+              }
+            ]
+          );
+        }
+      } else {
+        // Email already verified, proceed to app
+        if (formData.userType === 'store_owner') {
+          router.replace("/(main)/store-home");
+        } else {
+          router.replace("/(main)/home");
+        }
+      }
 
     } catch (error: any) {
       let errorMessage = "Account creation failed. Please try again.";

@@ -1,6 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Image, ImageBackground, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Alert, Image, ImageBackground, Pressable, StyleSheet, TextInput, TouchableOpacity, Text, View } from "react-native";
+import { sendEmailVerification } from 'firebase/auth';
+import { auth } from '../../FirebaseConfig';
 import { Typography } from "../../src/components/ui/Typography";
 import { Colors } from "../../src/constants/Colors";
 import { Fonts } from "../../src/constants/Fonts";
@@ -49,28 +51,66 @@ export default function VerifyEmailCodeScreen() {
     }
   };
 
-  const handleVerifyCode = (verificationCode: string) => {
-    // TODO: Implement actual OTP verification logic with API
-    console.log("Verifying code:", verificationCode);
+  const handleVerifyCode = async (verificationCode: string) => {
+    console.log("Checking email verification status...");
     
-    // For demo purposes, accept any 4-digit code
-    if (verificationCode.length === 4) {
-      // Navigate to main app or success screen
-      Alert.alert("Success", "Email verified successfully!", [
-        {
-          text: "OK",
-          onPress: () => router.push("/(auth)/signin")
-        }
-      ]);
+    try {
+      if (!auth.currentUser) {
+        Alert.alert("Error", "Please sign in first.");
+        router.push("/(auth)/signin");
+        return;
+      }
+
+      // Reload user to get latest email verification status
+      await auth.currentUser.reload();
+      
+      if (auth.currentUser.emailVerified) {
+        Alert.alert("Success", "Email verified successfully! You can now sign in.", [
+          {
+            text: "OK",
+            onPress: () => router.push("/(auth)/signin")
+          }
+        ]);
+      } else {
+        Alert.alert(
+          "Email Not Verified Yet", 
+          "Please check your email (including spam folder) and click the verification link. After clicking the link, come back and tap 'Check Verification Status'.",
+          [
+            { text: "Check Verification Status", onPress: () => handleVerifyCode("") },
+            { text: "Resend Email", onPress: () => handleResendCode() }
+          ]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert("Verification Error", "Failed to check verification status. Please try again.");
     }
   };
 
-  const handleResendCode = () => {
-    // TODO: Implement resend OTP logic
-    Alert.alert("Code Sent", "A new verification code has been sent to your email.");
-    // Clear current code inputs
-    setCode(["", "", "", ""]);
-    inputRefs[0].current?.focus();
+  const handleResendCode = async () => {
+    try {
+      if (!auth.currentUser) {
+        Alert.alert("Error", "Please sign in first.");
+        router.push("/(auth)/signin");
+        return;
+      }
+
+      await sendEmailVerification(auth.currentUser);
+      Alert.alert("Verification Email Sent", "A new verification email has been sent to your address.");
+      
+      // Clear current code inputs
+      setCode(["", "", "", ""]);
+      inputRefs[0].current?.focus();
+    } catch (error: any) {
+      let errorMessage = "Failed to send verification email.";
+      
+      switch (error.code) {
+        case 'auth/too-many-requests':
+          errorMessage = "Too many requests. Please wait a moment before trying again.";
+          break;
+      }
+      
+      Alert.alert("Error", errorMessage);
+    }
   };
 
   // Focus first input on mount
@@ -109,56 +149,29 @@ export default function VerifyEmailCodeScreen() {
       {/* Description Text - Figma: x:20, y:150, width:207, height:22 */}
       <View style={styles.descriptionContainer}>
         <Typography variant="body" color="textSecondary" style={styles.description}>
-          Enter your OTP code here
+          Check your email and click the verification link
         </Typography>
       </View>
 
-      {/* Code Input Fields - Figma: x:29, y:272, width:382, height:70 */}
-      {/* Individual inputs at exact Figma positions: x=29, 133, 237, 341 */}
-      <View style={styles.codeContainer}>
-        {code.map((digit, index) => {
-          // Calculate exact position based on Figma coordinates
-          const inputPositions = [29, 133, 237, 341];
-          return (
-            <View
-              key={index}
-              style={[
-                styles.codeInput,
-                { left: s(inputPositions[index] - 29) }, // Offset from container position
-                // First input has red background with white text (as shown in Figma)
-                digit ? styles.codeInputFilled : styles.codeInputEmpty
-              ]}
-            >
-              <TextInput
-                ref={inputRefs[index]}
-                style={[
-                  styles.codeText,
-                  digit ? styles.codeTextFilled : styles.codeTextEmpty
-                ]}
-                value={digit}
-                onChangeText={(value) => handleCodeChange(value, index)}
-                onKeyPress={({ nativeEvent: { key } }) => handleKeyPress(key, index)}
-                keyboardType="numeric"
-                maxLength={1}
-                textAlign="center"
-                selectTextOnFocus
-              />
-            </View>
-          );
-        })}
-      </View>
+      {/* Check Verification Button */}
+      <TouchableOpacity 
+        style={styles.checkButton} 
+        onPress={() => handleVerifyCode("")}
+      >
+        <Text style={styles.checkButtonText}>Check Verification Status</Text>
+      </TouchableOpacity>
 
-      {/* Didn't receive code text - Figma: x:20, y:382, width:238, height:22 */}
+      {/* Didn't receive email text - Figma: x:20, y:382, width:238, height:22 */}
       <View style={styles.noCodeContainer}>
         <Typography variant="body" color="textSecondary" style={styles.noCodeText}>
-          Didn't you received any code?
+          Didn't receive the verification email?
         </Typography>
       </View>
 
-      {/* Resend code text - Figma: x:20, y:409, width:153, height:22 */}
+      {/* Resend email text - Figma: x:20, y:409, width:153, height:22 */}
       <Pressable style={styles.resendContainer} onPress={handleResendCode}>
         <Typography variant="body" style={styles.resendText}>
-          Resend a new code
+          Resend verification email
         </Typography>
       </Pressable>
     </View>
@@ -242,22 +255,14 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
-  // Code Container - Figma: x:29, y:272, width:382, height:70
-  // Individual inputs at exact Figma positions: x=29, 133, 237, 341
-  codeContainer: {
+  // Check Button - positioned where code inputs were
+  checkButton: {
     position: "absolute",
-    left: s(29),
+    left: s(60),
     top: vs(272),
-    width: s(382),
+    right: s(60),
     height: vs(70),
-  },
-  
-  // Individual Code Input - Figma: width:70, height:70, borderRadius:20px
-  // Positioned absolutely within container at exact Figma coordinates
-  codeInput: {
-    position: "absolute",
-    width: s(70),
-    height: vs(70),
+    backgroundColor: '#E92B45',
     borderRadius: s(20),
     justifyContent: "center",
     alignItems: "center",
@@ -267,28 +272,12 @@ const styles = StyleSheet.create({
     shadowRadius: s(10),
     elevation: 8,
   },
-  codeInputEmpty: {
-    backgroundColor: Colors.white,
-  },
-  codeInputFilled: {
-    backgroundColor: '#E92B45', // Red color from Figma (fill_W1J10I)
-  },
-  
-  codeText: {
+  checkButtonText: {
     fontFamily: Fonts.primary,
-    fontSize: s(40), // Figma: fontSize 40 (style_3CCJIM)
-    fontWeight: Fonts.weights.medium, // Figma: fontWeight 500
-    lineHeight: vs(22), // Figma: lineHeight 0.55em = 22px
-    textAlign: "center",
-    width: "100%",
-    height: "100%",
-    textAlignVertical: "center",
-  },
-  codeTextEmpty: {
-    color: Colors.black,
-  },
-  codeTextFilled: {
+    fontSize: s(18),
+    fontWeight: Fonts.weights.medium,
     color: Colors.white,
+    textAlign: "center",
   },
 
   // No Code Container - Figma: x:20, y:382, width:238, height:22

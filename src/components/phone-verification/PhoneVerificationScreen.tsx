@@ -9,12 +9,14 @@ interface PhoneVerificationScreenProps {
   phoneNumber?: string;
   onBack?: () => void;
   onConfirm?: () => void;
+  loading?: boolean;
 }
 
 export function PhoneVerificationScreen({
   phoneNumber = "123456789",
   onBack,
   onConfirm,
+  loading = false,
 }: PhoneVerificationScreenProps) {
 
   return (
@@ -59,8 +61,14 @@ export function PhoneVerificationScreen({
       </View>
       
       {/* Confirm Button - Figma position: x: 20, y: 343, width: 400, height: 50 */}
-      <Pressable style={styles.confirmButton} onPress={onConfirm || (() => {})}>
-        <Text style={styles.confirmButtonText}>Confirm</Text>
+      <Pressable 
+        style={[styles.confirmButton, loading && styles.confirmButtonDisabled]} 
+        onPress={loading ? undefined : (onConfirm || (() => {}))}
+        disabled={loading}
+      >
+        <Text style={styles.confirmButtonText}>
+          {loading ? "Sending Code..." : "Confirm"}
+        </Text>
       </Pressable>
     </SafeAreaView>
   );
@@ -193,5 +201,8 @@ const styles = StyleSheet.create({
     lineHeight: s(20) * Fonts.lineHeights.tight, // Figma style_G12ON8
     color: Colors.white, // Figma fill_IZNMMX
     textAlign: "center",
+  },
+  confirmButtonDisabled: {
+    opacity: 0.7,
   },
 });
