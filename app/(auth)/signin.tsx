@@ -1,6 +1,9 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { ref, get } from 'firebase/database';
+import { auth, database } from '../../FirebaseConfig';
 import { Button } from "../../src/components/ui/Button";
 import { FormInput } from "../../src/components/ui/FormInput";
 import { SignInGlassCard } from "../../src/components/ui/SignInGlassCard";
@@ -10,13 +13,79 @@ import { s, vs } from "../../src/constants/responsive";
 export default function SignInScreen() {
   const [emailOrPhone, setEmailOrPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    console.log("Login pressed", { emailOrPhone, password });
+  const handleLogin = async () => {
+    if (!emailOrPhone.trim() || !password.trim()) {
+      Alert.alert("Error", "Please enter both email/phone and password");
+      return;
+    }
+
+    setLoading(true);
     
-    // For now, assume all users are regular users and redirect to home page
-    // In a real app, this would check user type from authentication response
-    router.replace("/(main)/home");
+    try {
+      // Firebase only supports email authentication, so we'll treat phone as email for now
+      let email = emailOrPhone.trim();
+      
+      // If it looks like a phone number, we'll need to convert or handle differently
+      // For now, we'll assume it's an email or show an error
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        Alert.alert("Error", "Please enter a valid email address");
+        setLoading(false);
+        return;
+      }
+
+      // Sign in with Firebase
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Get user data from Realtime Database to determine user type
+      const userRef = ref(database, `users/${user.uid}`);
+      const userSnapshot = await get(userRef);
+      
+      if (userSnapshot.exists()) {
+        const userData = userSnapshot.val();
+        
+        // Navigate based on user type
+        if (userData.userType === 'store_owner') {
+          router.replace("/(main)/store-home");
+        } else {
+          router.replace("/(main)/home");
+        }
+        
+        Alert.alert("Success", `Welcome back, ${userData.name || user.email}!`);
+      } else {
+        // User document doesn't exist, navigate to home by default
+        router.replace("/(main)/home");
+        Alert.alert("Success", "Signed in successfully!");
+      }
+      
+    } catch (error: any) {
+      let errorMessage = "Login failed. Please try again.";
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = "No account found with this email.";
+          break;
+        case 'auth/wrong-password':
+          errorMessage = "Incorrect password.";
+          break;
+        case 'auth/invalid-email':
+          errorMessage = "Invalid email address.";
+          break;
+        case 'auth/user-disabled':
+          errorMessage = "This account has been disabled.";
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = "Too many failed attempts. Please try again later.";
+          break;
+      }
+      
+      Alert.alert("Login Error", errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRegister = () => {
@@ -70,9 +139,10 @@ export default function SignInScreen() {
         {/* Sign In Button */}
         <View style={styles.buttonSection}>
           <Button
-            title="Login"
+            title={loading ? "Signing In..." : "Login"}
             variant="primary"
             onPress={handleLogin}
+            disabled={loading}
           />
         </View>
 

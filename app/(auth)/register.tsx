@@ -1,6 +1,9 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { ref, set, serverTimestamp } from 'firebase/database';
+import { auth, database } from '../../FirebaseConfig';
 import { Button } from "../../src/components/ui/Button";
 import { CheckboxWithText } from "../../src/components/ui/CheckboxWithText";
 import { FormInput } from "../../src/components/ui/FormInput";
@@ -26,6 +29,8 @@ export default function RegisterScreen() {
     password: "",
     terms: "",
   });
+
+  const [loading, setLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors = {
@@ -72,44 +77,115 @@ export default function RegisterScreen() {
     return Object.values(newErrors).every(error => error === "");
   };
 
-  const handleSignUp = () => {
-    if (validateForm()) {
-      // Check if user selected store owner type
-      if (formData.userType === "store_owner") {
-        // Navigate to store owner specific signup form
-        router.push({
-          pathname: "/(auth)/store-owner-signup",
-          params: { 
-            name: formData.name,
-            emailOrPhone: formData.emailOrPhone,
-            password: formData.password
-          }
-        });
-        return;
-      }
-      
-      // TODO: Implement actual sign up logic with API for regular users
-      
-      // Check if input is phone number or email
-      const phoneRegex = /^[0-9]{10,}$/;
-      const isPhone = phoneRegex.test(formData.emailOrPhone.replace(/\D/g, ''));
-      
-      if (isPhone) {
-        // Navigate to verify phone screen with phone parameter
-        router.push({
-          pathname: "/(auth)/verify-phone",
-          params: { phoneNumber: formData.emailOrPhone }
-        });
-      } else {
-        // Navigate to verify email screen with email parameter
-        router.push({
-          pathname: "/(auth)/verify-email",
-          params: { email: formData.emailOrPhone }
-        });
-      }
-    } else {
+  const handleSignUp = async () => {
+    if (!validateForm()) {
       const errorMessage = Object.values(errors).filter(error => error).join("\n");
       Alert.alert("Validation Error", errorMessage);
+      return;
+    }
+
+    // Check if user selected store owner type - handle this flow later
+    if (formData.userType === "store_owner") {
+      // For now, show a message that store owner registration will be implemented
+      Alert.alert(
+        "Store Owner Registration", 
+        "Store owner registration will be completed in the next flow. For now, creating as regular user.",
+        [{ text: "OK", onPress: () => {} }]
+      );
+    }
+
+    setLoading(true);
+
+    try {
+      // Firebase only supports email authentication
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.emailOrPhone)) {
+        Alert.alert("Error", "Please enter a valid email address for Firebase authentication");
+        setLoading(false);
+        return;
+      }
+
+      // Create Firebase user
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        formData.emailOrPhone.trim(), 
+        formData.password
+      );
+      
+      const user = userCredential.user;
+
+      // Update user profile with display name
+      await updateProfile(user, {
+        displayName: formData.name.trim()
+      });
+
+      // Create user document in Realtime Database
+      const userData = {
+        uid: user.uid,
+        name: formData.name.trim(),
+        email: formData.emailOrPhone.trim(),
+        userType: formData.userType,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        emailVerified: user.emailVerified,
+        // Additional fields for TindaGo
+        profile: {
+          avatar: null,
+          phone: null,
+          address: null,
+        },
+        preferences: {
+          notifications: true,
+          theme: 'light'
+        }
+      };
+
+      // Save user data to Realtime Database
+      const userRef = ref(database, `users/${user.uid}`);
+      await set(userRef, userData);
+
+      Alert.alert(
+        "Account Created!", 
+        "Your TindaGo account has been created successfully. Please verify your email to continue.",
+        [
+          {
+            text: "OK", 
+            onPress: () => {
+              // Navigate based on user type
+              if (formData.userType === 'store_owner') {
+                router.replace("/(main)/store-home");
+              } else {
+                router.replace("/(main)/home");
+              }
+            }
+          }
+        ]
+      );
+
+    } catch (error: any) {
+      let errorMessage = "Account creation failed. Please try again.";
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = "An account with this email already exists.";
+          break;
+        case 'auth/invalid-email':
+          errorMessage = "Invalid email address.";
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = "Email/password accounts are not enabled.";
+          break;
+        case 'auth/weak-password':
+          errorMessage = "Password should be at least 6 characters.";
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = "Network error. Please check your connection.";
+          break;
+      }
+      
+      Alert.alert("Registration Error", errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -181,9 +257,10 @@ export default function RegisterScreen() {
           {/* Sign Up Button */}
           <View style={styles.buttonSection}>
             <Button
-              title="Sign up"
+              title={loading ? "Creating Account..." : "Sign up"}
               variant="primary"
               onPress={handleSignUp}
+              disabled={loading}
             />
           </View>
 
