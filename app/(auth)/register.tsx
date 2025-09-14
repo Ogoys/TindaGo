@@ -55,7 +55,7 @@ export default function RegisterScreen() {
       const phoneRegex = /^[0-9]{10,}$/;
       const isEmail = emailRegex.test(formData.emailOrPhone);
       const isPhone = phoneRegex.test(formData.emailOrPhone.replace(/\D/g, ''));
-      
+
       if (!isEmail && !isPhone) {
         newErrors.emailOrPhone = "Please enter a valid email or phone number";
       }
@@ -84,152 +84,171 @@ export default function RegisterScreen() {
       return;
     }
 
-    // Check if user selected store owner type - handle this flow later
-    if (formData.userType === "store_owner") {
-      // For now, show a message that store owner registration will be implemented
-      Alert.alert(
-        "Store Owner Registration", 
-        "Store owner registration will be completed in the next flow. For now, creating as regular user.",
-        [{ text: "OK", onPress: () => {} }]
-      );
-    }
-
     setLoading(true);
 
     try {
       // Detect if input is email or phone number
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const phoneRegex = /^[0-9+\-\s()]{10,}$/;
-      
+
       const isEmail = emailRegex.test(formData.emailOrPhone.trim());
       const isPhone = phoneRegex.test(formData.emailOrPhone.trim());
-      
+
       if (!isEmail && !isPhone) {
         Alert.alert("Error", "Please enter a valid email address or phone number");
         setLoading(false);
         return;
       }
 
-      // If phone number, redirect to phone verification without creating Firebase account yet
-      if (isPhone) {
+      // DIFFERENT LOGIC BASED ON USER TYPE:
+
+      if (formData.userType === "user") {
+        // CUSTOMER REGISTRATION - Simple flow with email/phone only
+
+        if (isPhone) {
+          // Phone registration for customers
+          Alert.alert(
+            "Phone Registration",
+            "You'll verify your phone number with SMS, then complete registration.",
+            [
+              {
+                text: "Continue",
+                onPress: () => {
+                  router.push({
+                    pathname: "/(auth)/verify-phone",
+                    params: {
+                      phoneNumber: formData.emailOrPhone.trim(),
+                      name: formData.name,
+                      userType: 'user'
+                    }
+                  });
+                }
+              },
+              {
+                text: "Use Email Instead",
+                onPress: () => {
+                  setFormData({ ...formData, emailOrPhone: "" });
+                }
+              }
+            ]
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Email registration for customers - proceed directly
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          formData.emailOrPhone.trim(),
+          formData.password
+        );
+
+        const user = userCredential.user;
+
+        await updateProfile(user, {
+          displayName: formData.name.trim()
+        });
+
+        // Save customer data to database
+        const userData = {
+          uid: user.uid,
+          name: formData.name.trim(),
+          email: formData.emailOrPhone.trim(),
+          userType: 'user',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          emailVerified: user.emailVerified,
+          profile: {
+            avatar: null,
+            phone: null,
+            address: null,
+          },
+          preferences: {
+            notifications: true,
+            theme: 'light'
+          }
+        };
+
+        const userRef = ref(database, `users/${user.uid}`);
+        await set(userRef, userData);
+
+        // Send email verification
+        await sendEmailVerification(user);
         Alert.alert(
-          "Phone Registration", 
-          "Phone number detected! You'll verify your phone number with SMS, then complete registration. After that, you can sign in with either your phone number OR email.",
+          "Account Created!",
+          "Your customer account has been created! Please check your email for verification.",
           [
             {
-              text: "Continue",
+              text: "OK",
               onPress: () => {
                 router.push({
-                  pathname: "/(auth)/verify-phone",
-                  params: { 
-                    phoneNumber: formData.emailOrPhone.trim(),
-                    // Pass other form data for later use
-                    name: formData.name,
-                    userType: formData.userType 
-                  }
+                  pathname: "/(auth)/verify-email",
+                  params: { email: formData.emailOrPhone.trim() }
                 });
-              }
-            },
-            {
-              text: "Use Email Instead",
-              onPress: () => {
-                // Clear the phone number and let user enter email
-                setFormData({ ...formData, emailOrPhone: "" });
               }
             }
           ]
         );
-        setLoading(false);
-        return;
-      }
 
-      // Create Firebase user
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        formData.emailOrPhone.trim(), 
-        formData.password
-      );
-      
-      const user = userCredential.user;
-
-      // Update user profile with display name
-      await updateProfile(user, {
-        displayName: formData.name.trim()
-      });
-
-      // Create user document in Realtime Database
-      const userData = {
-        uid: user.uid,
-        name: formData.name.trim(),
-        email: formData.emailOrPhone.trim(),
-        userType: formData.userType,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        emailVerified: user.emailVerified,
-        // Additional fields for TindaGo
-        profile: {
-          avatar: null,
-          phone: null,
-          address: null,
-        },
-        preferences: {
-          notifications: true,
-          theme: 'light'
-        }
-      };
-
-      // Save user data to Realtime Database
-      const userRef = ref(database, `users/${user.uid}`);
-      await set(userRef, userData);
-
-      // Send email verification
-      await user.reload();
-      if (!user.emailVerified) {
-        try {
-          await sendEmailVerification(user);
-          Alert.alert(
-            "Account Created!", 
-            "Your TindaGo account has been created successfully. A verification email has been sent to your email address. Please verify your email to continue.",
-            [
-              {
-                text: "OK", 
-                onPress: () => {
-                  // Navigate to email verification screen
-                  router.push({
-                    pathname: "/(auth)/verify-email",
-                    params: { email: formData.emailOrPhone.trim() }
-                  });
-                }
-              }
-            ]
-          );
-        } catch (emailError: any) {
-          console.log("Email verification error:", emailError);
-          Alert.alert(
-            "Account Created!", 
-            "Your account has been created but we couldn't send a verification email. You can still sign in.",
-            [
-              {
-                text: "OK", 
-                onPress: () => {
-                  router.push("/(auth)/signin");
-                }
-              }
-            ]
-          );
-        }
       } else {
-        // Email already verified, proceed to app
-        if (formData.userType === 'store_owner') {
-          router.replace("/(main)/store-home");
-        } else {
-          router.replace("/(main)/home");
+        // STORE OWNER REGISTRATION - Different flow, redirect to store owner signup with documents
+
+        // For store owners, require email for business communications
+        if (!isEmail) {
+          Alert.alert(
+            "Store Owner Registration",
+            "Store owners must provide a valid email address for business communications. Phone registration is not available for store owners.",
+            [
+              {
+                text: "OK",
+                onPress: () => {
+                  setFormData({ ...formData, emailOrPhone: "" });
+                }
+              }
+            ]
+          );
+          setLoading(false);
+          return;
         }
+
+        // Redirect to store owner registration flow (which you'll provide the design for)
+        Alert.alert(
+          "Store Owner Registration",
+          "You'll be redirected to complete your store registration with business documents and verification.",
+          [
+            {
+              text: "Continue",
+              onPress: () => {
+                // Navigate to your store owner signup design
+                // TODO: Navigate to store owner signup when design is provided
+                console.log("Store owner signup flow - design needed", {
+                  name: formData.name.trim(),
+                  email: formData.emailOrPhone.trim(),
+                  password: formData.password
+                });
+                // router.push({
+                //   pathname: "/(auth)/store-owner-signup", // You'll provide this design
+                //   params: {
+                //     name: formData.name.trim(),
+                //     email: formData.emailOrPhone.trim(),
+                //     password: formData.password
+                //   }
+                // });
+              }
+            },
+            {
+              text: "Register as Customer Instead",
+              onPress: () => {
+                setFormData({ ...formData, userType: "user" });
+              }
+            }
+          ]
+        );
       }
 
     } catch (error: any) {
       let errorMessage = "Account creation failed. Please try again.";
-      
+
       switch (error.code) {
         case 'auth/email-already-in-use':
           errorMessage = "An account with this email already exists.";
@@ -247,7 +266,7 @@ export default function RegisterScreen() {
           errorMessage = "Network error. Please check your connection.";
           break;
       }
-      
+
       Alert.alert("Registration Error", errorMessage);
     } finally {
       setLoading(false);
@@ -261,7 +280,7 @@ export default function RegisterScreen() {
   return (
     <View style={styles.container}>
       <GlassMorphismCard>
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -286,7 +305,7 @@ export default function RegisterScreen() {
             />
 
             <FormInput
-              placeholder="Email or Phone"
+              placeholder={formData.userType === "store_owner" ? "Business Email" : "Email or Phone"}
               value={formData.emailOrPhone}
               onChangeText={(text) => setFormData({ ...formData, emailOrPhone: text })}
               keyboardType="email-address"
@@ -356,7 +375,7 @@ const styles = StyleSheet.create({
     paddingTop: vs(10),
     paddingBottom: vs(40),
   },
-  
+
   // Header Section (Figma: x:140, y:322)
   headerSection: {
     alignItems: "center",
@@ -369,7 +388,7 @@ const styles = StyleSheet.create({
     marginBottom: vs(10),
   },
   subtitle: {
-    // Figma: fontSize:16, centered  
+    // Figma: fontSize:16, centered
     color: "rgba(255, 255, 255, 0.5)",
   },
 

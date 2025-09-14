@@ -9,11 +9,14 @@ import { FormInput } from "../../src/components/ui/FormInput";
 import { SignInGlassCard } from "../../src/components/ui/SignInGlassCard";
 import { Colors } from "../../src/constants/Colors";
 import { s, vs } from "../../src/constants/responsive";
+import { useUser, User, UserRole } from "../../src/contexts/UserContext";
 
 export default function SignInScreen() {
   const [emailOrPhone, setEmailOrPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { setUser } = useUser();
 
   const handleLogin = async () => {
     if (!emailOrPhone.trim() || !password.trim()) {
@@ -126,20 +129,52 @@ export default function SignInScreen() {
       }
       
       if (userData) {
-        // Navigate based on user type
-        if (userData.userType === 'store_owner') {
-          router.replace("/(main)/store-home");
-        } else {
-          router.replace("/(main)/home");
-        }
-        
+        // Create user object for context
+        const loggedInUser: User = {
+          id: user.uid,
+          email: userData.email || user.email || '',
+          role: userData.userType === 'store_owner' ? 'store-owner' : 'customer',
+          phoneNumber: userData.phoneNumber,
+          isEmailVerified: user.emailVerified,
+          isPhoneVerified: userData.phoneVerified || false,
+          profileComplete: true,
+        };
+
+        // Set user in context (this will automatically handle navigation)
+        await setUser(loggedInUser);
+
         // Show welcome message with phone or email
         const welcomeIdentifier = userData.phoneNumber || userData.email || user.email;
-        Alert.alert("Success", `Welcome back, ${userData.name}! (${welcomeIdentifier})`);
+        Alert.alert("Success", `Welcome back, ${userData.name}! (${welcomeIdentifier})`, [
+          {
+            text: "OK",
+            onPress: () => {
+              if (userData.userType === 'store_owner') {
+                router.replace("/(main)/(store-owner)/home");
+              } else {
+                router.replace("/(main)/(customer)/home");
+              }
+            }
+          }
+        ]);
       } else {
-        // User document doesn't exist, navigate to home by default
-        router.replace("/(main)/home");
-        Alert.alert("Success", "Signed in successfully!");
+        // User document doesn't exist, redirect to role selection
+        const basicUser: User = {
+          id: user.uid,
+          email: user.email || '',
+          role: 'customer', // Default role
+          isEmailVerified: user.emailVerified,
+          isPhoneVerified: false,
+          profileComplete: false,
+        };
+
+        await setUser(basicUser);
+        Alert.alert("Success", "Signed in successfully!", [
+          {
+            text: "OK",
+            onPress: () => router.push("/role-selection")
+          }
+        ]);
       }
       
     } catch (error: any) {

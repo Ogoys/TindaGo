@@ -2,62 +2,58 @@ import { View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Colors } from "../../constants/Colors";
-import { responsive, s, vs } from "../../constants/responsive";
+import { s, vs } from "../../constants/responsive";
 
 export function HeroImageStack() {
   return (
     <View style={styles.container}>
-      {/* Background blur rectangles */}
-      <BlurView intensity={50} style={styles.blurRect1} />
-      <BlurView intensity={50} style={styles.blurRect2} />
-      
-      {/* Main images */}
-      <View style={styles.mainImage1}>
+      {/* Background blur rectangles - Exact Figma positions */}
+      <BlurView intensity={10} style={styles.blurRect1} />
+      <BlurView intensity={10} style={styles.blurRect2} />
+
+      {/* Main hero images - Exact Figma positions */}
+      <View style={styles.heroImage1}>
         <Image
-          source={require("../../assets/images/onboarding/hero-image-1.png")}
+          source={require("../../assets/images/onboarding/hero-image-3.png")}
           style={styles.image}
           contentFit="cover"
         />
       </View>
-      
-      <View style={styles.mainImage2}>
+
+      <View style={styles.heroImage2}>
         <Image
-          source={require("../../assets/images/onboarding/hero-image-2.png")}
+          source={require("../../assets/images/onboarding/hero-image-4.png")}
           style={styles.image}
           contentFit="cover"
         />
       </View>
-      
-      {/* Profile circles */}
+
+      {/* Profile image circles - Aligned with arrows from square pictures */}
       <View style={styles.profileCircle1}>
         <Image
-          source={require("../../assets/images/onboarding/profile-image-1.png")}
+          source={require("../../assets/images/onboarding/profile-circle-1.png")}
           style={styles.profileImage}
           contentFit="cover"
         />
       </View>
-      
+
       <View style={styles.profileCircle2}>
         <Image
-          source={require("../../assets/images/onboarding/profile-image-2.png")}
+          source={require("../../assets/images/onboarding/profile-circle-2.png")}
           style={styles.profileImage}
           contentFit="cover"
         />
       </View>
-      
-      {/* Decorative elements */}
-      <View style={styles.decorCircle1} />
-      <View style={styles.decorCircle2} />
-      
-      {/* Vector graphics */}
+
+      {/* Vector arrow graphics - Exact Figma positions */}
       <Image
-        source={require("../../assets/images/onboarding/vector-1.svg")}
+        source={require("../../assets/images/onboarding/arrow-vector-1.svg")}
         style={styles.vector1}
         contentFit="contain"
       />
-      
+
       <Image
-        source={require("../../assets/images/onboarding/vector-2.svg")}
+        source={require("../../assets/images/onboarding/arrow-vector-2.svg")}
         style={styles.vector2}
         contentFit="contain"
       />
@@ -67,17 +63,17 @@ export function HeroImageStack() {
 
 const styles = StyleSheet.create({
   container: {
-    // Figma container: x:35, y:75, width:369.4, height:477.86
+    // Figma Pictures group: x:35, y:75, width:369.4, height:477.86
     width: s(369.4),
     height: vs(477.86),
     position: "relative",
     marginTop: vs(75),
     marginHorizontal: s(35),
   },
-  
-  // Blur background rectangles (exact Figma positions)
+
+  // Background blur rectangles (exact Figma positions relative to Pictures group)
   blurRect1: {
-    // Figma: left:73, top:12, width:201.59, height:251.27
+    // Figma Rectangle 3: x:108, y:87 -> relative to Pictures group: x:73, y:12
     position: "absolute",
     left: s(73),
     top: vs(12),
@@ -85,9 +81,10 @@ const styles = StyleSheet.create({
     height: vs(251.27),
     borderRadius: s(15),
     backgroundColor: Colors.lightGreen,
+    zIndex: 1, // Behind arrows (zIndex: 2) - arrows will show in front of green squares
   },
   blurRect2: {
-    // Figma: left:57.33, top:189.41, width:250.93, height:288.46
+    // Figma Rectangle 4: x:92.33, y:264.41 -> relative to Pictures group: x:57.33, y:189.41
     position: "absolute",
     left: s(57.33),
     top: vs(189.41),
@@ -95,11 +92,12 @@ const styles = StyleSheet.create({
     height: vs(288.46),
     borderRadius: s(15),
     backgroundColor: Colors.lightGreen,
+    zIndex: 1, // Behind arrows (zIndex: 2) - arrows will show in front of green squares
   },
-  
-  // Main images (exact Figma positions)
-  mainImage1: {
-    // Figma: left:0, top:0, width:274.72, height:304.11
+
+  // Hero images with exact Figma positioning and shadows
+  heroImage1: {
+    // Figma Rectangle 1: x:35, y:75 -> relative to Pictures group: x:0, y:0
     position: "absolute",
     left: 0,
     top: 0,
@@ -111,10 +109,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: s(10),
     elevation: 8,
+    zIndex: 3, // Above arrows (zIndex: 2) - arrows will be behind colored hero images
     overflow: "hidden",
   },
-  mainImage2: {
-    // Figma: left:120, top:152, width:249.4, height:287.38
+  heroImage2: {
+    // Figma Rectangle 2: x:155, y:227 -> relative to Pictures group: x:120, y:152
     position: "absolute",
     left: s(120),
     top: vs(152),
@@ -126,93 +125,67 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: s(10),
     elevation: 8,
+    zIndex: 3, // Above arrows (zIndex: 2) - arrows will be behind colored hero images
     overflow: "hidden",
   },
-  
-  // Profile circles (exact Figma positions)
+
+
+  // Profile circles - Exact Figma positions
   profileCircle1: {
-    // Figma: right:0, top:88, width:50, height:50 (313, 88 from left)
+    // Figma: x:332, y:167 (relative to Pictures group)
     position: "absolute",
-    left: s(313),
-    top: vs(88),
+    left: s(297), // Figma: 332 - 35 (Pictures group offset) = 297
+    top: vs(92), // Figma: 167 - 75 (Pictures group offset) = 92
     width: s(50),
     height: s(50),
     borderRadius: s(25),
-    backgroundColor: Colors.lightGreen,
+    backgroundColor: Colors.primary,
     shadowColor: Colors.shadow,
     shadowOffset: { width: s(4), height: vs(4) },
     shadowOpacity: 0.25,
     shadowRadius: s(4),
-    elevation: 5,
+    elevation: 10,
+    zIndex: 10,
     overflow: "hidden",
   },
   profileCircle2: {
-    // Figma: left:17, bottom:63, width:50, height:50 (bottom:63 = top:365 aprox)
+    // Figma: x:52, y:390 (relative to Pictures group)
     position: "absolute",
-    left: s(17),
-    top: vs(365),
+    left: s(17), // Figma: 52 - 35 (Pictures group offset) = 17
+    top: vs(315), // Figma: 390 - 75 (Pictures group offset) = 315
     width: s(50),
     height: s(50),
     borderRadius: s(25),
-    backgroundColor: Colors.lightGreen,
+    backgroundColor: Colors.primary,
     shadowColor: Colors.shadow,
     shadowOffset: { width: s(4), height: vs(4) },
     shadowOpacity: 0.25,
     shadowRadius: s(4),
-    elevation: 5,
+    elevation: 10,
+    zIndex: 10,
     overflow: "hidden",
   },
-  
-  // Decorative circles (exact Figma positions)
-  decorCircle1: {
-    // Figma: right:10, top:92 (left:297, top:92)
-    position: "absolute",
-    left: s(297),
-    top: vs(92),
-    width: s(50),
-    height: s(50),
-    borderRadius: s(25),
-    backgroundColor: Colors.lightGreen,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: s(4), height: vs(4) },
-    shadowOpacity: 0.25,
-    shadowRadius: s(10),
-    elevation: 3,
-  },
-  decorCircle2: {
-    // Figma: left:7, bottom:59 (left:7, top:361)
-    position: "absolute",
-    left: s(7),
-    top: vs(361),
-    width: s(50),
-    height: s(50),
-    borderRadius: s(25),
-    backgroundColor: Colors.lightGreen,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: s(4), height: vs(4) },
-    shadowOpacity: 0.25,
-    shadowRadius: s(10),
-    elevation: 3,
-  },
-  
-  // Vector graphics (exact Figma positions)
+
+  // Vector arrows - Behind colored hero images but in front of green blur squares
   vector1: {
-    // Figma: left:205.5, top:37.5, width:116.5, height:47
+    // Figma Vector 1: x:240.5, y:112.5, width:116.5, height:47
     position: "absolute",
-    left: s(205.5),
-    top: vs(37.5),
-    width: s(116.5),
-    height: vs(47),
+    left: s(205.5), // Figma: 240.5 - 35 (Pictures group offset) = 205.5
+    top: vs(37.5), // Figma: 112.5 - 75 (Pictures group offset) = 37.5
+    width: s(116.5), // Exact Figma width
+    height: vs(47), // Exact Figma height
+    zIndex: 2, // Behind colored hero images (zIndex: 3) but in front of green squares (zIndex: 1)
   },
   vector2: {
-    // Figma: left:43.5, bottom:24 (left:43.5, top:407)
+    // Figma Vector 2: x:78.5, y:454, width:102, height:55
     position: "absolute",
-    left: s(43.5),
-    top: vs(407),
-    width: s(102),
-    height: vs(55),
+    left: s(43.5), // Figma: 78.5 - 35 (Pictures group offset) = 43.5
+    top: vs(379), // Figma: 454 - 75 (Pictures group offset) = 379
+    width: s(102), // Exact Figma width
+    height: vs(55), // Exact Figma height
+    zIndex: 2, // Behind colored hero images (zIndex: 3) but in front of green squares (zIndex: 1)
   },
-  
+
   // Image styles
   image: {
     width: "100%",

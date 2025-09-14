@@ -13,13 +13,16 @@ import { UserTypePicker } from "../../src/components/ui/UserTypePicker";
 import { Colors } from "../../src/constants/Colors";
 import { Fonts } from "../../src/constants/Fonts";
 import { responsive, s, vs } from "../../src/constants/responsive";
+import { useUser, User, UserRole } from "../../src/contexts/UserContext";
 
 export default function CompletePhoneRegistrationScreen() {
-  const { phoneNumber, name, userType } = useLocalSearchParams<{ 
+  const { phoneNumber, name, userType } = useLocalSearchParams<{
     phoneNumber: string;
     name?: string;
     userType?: string;
   }>();
+
+  const { setUser } = useUser();
 
   const [formData, setFormData] = useState({
     name: name || "",
@@ -111,6 +114,20 @@ export default function CompletePhoneRegistrationScreen() {
       const userRef = ref(database, `users/${user.uid}`);
       await set(userRef, userData);
 
+      // Create user object for context
+      const newUser: User = {
+        id: user.uid,
+        email: formData.email.trim(),
+        role: formData.userType === 'store_owner' ? 'store-owner' : 'customer',
+        phoneNumber: phoneNumber,
+        isEmailVerified: user.emailVerified,
+        isPhoneVerified: true,
+        profileComplete: true,
+      };
+
+      // Set user in context (this will automatically handle navigation)
+      await setUser(newUser);
+
       Alert.alert(
         "Account Created!",
         `Your TindaGo account has been created successfully!\n\n📱 Phone: ${phoneNumber}\n📧 Sign in with: ${formData.email.trim()}\n\nRemember: Use your email address to sign in next time.`,
@@ -118,7 +135,7 @@ export default function CompletePhoneRegistrationScreen() {
           {
             text: "OK",
             onPress: () => {
-              // Navigate based on user type
+              // Navigation will be handled automatically by UserContext
               if (formData.userType === 'store_owner') {
                 router.replace("/(main)/(store-owner)/home");
               } else {
