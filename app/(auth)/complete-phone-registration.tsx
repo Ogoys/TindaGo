@@ -120,9 +120,9 @@ export default function CompletePhoneRegistrationScreen() {
             onPress: () => {
               // Navigate based on user type
               if (formData.userType === 'store_owner') {
-                router.replace("/(main)/store-home");
+                router.replace("/(main)/(store-owner)/home");
               } else {
-                router.replace("/(main)/home");
+                router.replace("/(main)/(customer)/home");
               }
             }
           }
@@ -254,15 +254,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: vs(10),
+    paddingTop: vs(20),
     paddingBottom: vs(40),
   },
-  
+
   // Header Section
   headerSection: {
     alignItems: "center",
-    marginTop: vs(120),
-    marginBottom: vs(30),
+    marginTop: vs(40), // Reduced from 120 to avoid logo overlap
+    marginBottom: vs(25),
   },
   title: {
     color: Colors.white,
@@ -273,16 +273,23 @@ const styles = StyleSheet.create({
     marginBottom: vs(10),
   },
   phoneDisplay: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#4ECDC4",
+    fontFamily: Fonts.primary,
+    fontSize: responsive.fontSize.md,
+    fontWeight: Fonts.weights.semiBold,
+    color: Colors.primary, // Use TindaGo primary color
+    backgroundColor: "rgba(59, 183, 126, 0.1)", // Light green background
+    paddingHorizontal: s(15),
+    paddingVertical: vs(8),
+    borderRadius: s(15),
+    textAlign: "center",
+    marginTop: vs(5),
   },
 
   // Form Section
   formSection: {
     alignItems: "center",
-    gap: vs(15),
-    marginBottom: vs(20),
+    gap: vs(12), // Slightly reduced gap
+    marginBottom: vs(15),
   },
   nameInput: {
     marginTop: 0,
@@ -297,30 +304,30 @@ const styles = StyleSheet.create({
   // Picker Section
   pickerSection: {
     alignItems: "center",
-    marginTop: vs(15),
-    marginBottom: vs(15),
+    marginTop: vs(10),
+    marginBottom: vs(12),
   },
 
   // Terms Section
   termsSection: {
     alignItems: "center",
-    marginTop: vs(15),
+    marginTop: vs(10),
     paddingHorizontal: s(7),
-    marginBottom: vs(15),
+    marginBottom: vs(12),
   },
 
   // Button Section
   buttonSection: {
-    marginTop: vs(15),
+    marginTop: vs(12),
     paddingHorizontal: s(30),
-    marginBottom: vs(20),
+    marginBottom: vs(15),
   },
 
   // Footer Section
   footerSection: {
     alignItems: "center",
-    marginTop: vs(10),
-    marginBottom: vs(30),
+    marginTop: vs(8),
+    marginBottom: vs(20), // Reduced from 30
   },
   footerText: {
     fontFamily: Fonts.primary,

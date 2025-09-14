@@ -34,7 +34,7 @@ export function PhoneVerificationScreen({
       {/* Back Button - Figma position: x: 20, y: 94, width: 30, height: 30 */}
       <Pressable style={styles.backButton} onPress={onBack || (() => {})}>
         <Image
-          source={require("../../assets/images/phone-verification/chevron-left.svg")}
+          source={require("../../assets/images/phone-verification/chevron-left.png")}
           style={styles.backIcon}
         />
       </Pressable>

@@ -96,7 +96,7 @@ export function PhoneVerificationCodeScreen({
       </View>
       
       {/* Didn't receive code text - Figma position: x: 20, y: 382, width: 238, height: 22 */}
-      <Text style={styles.didntReceiveText}>Didn't you received any code?</Text>
+      <Text style={styles.didntReceiveText}>Didn&apos;t you received any code?</Text>
       
       {/* Resend code link - Figma position: x: 20, y: 409, width: 153, height: 22 */}
       <Pressable onPress={onResendCode || (() => {})}>
