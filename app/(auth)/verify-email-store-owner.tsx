@@ -11,10 +11,11 @@ import { s, vs } from "../../src/constants/responsive";
 
 export default function VerifyEmailStoreOwnerScreen() {
   // Get store owner details from navigation params
-  const { email, name, uid } = useLocalSearchParams<{
+  const { email, name, uid, password } = useLocalSearchParams<{
     email?: string;
     name?: string;
     uid?: string;
+    password?: string;
   }>();
   const displayEmail = email || "Test123@gmail.com";
 
@@ -49,7 +50,14 @@ export default function VerifyEmailStoreOwnerScreen() {
               onPress: () => {
                 router.push({
                   pathname: "/(auth)/(store-owner)/StoreRegistration",
-                  params: { name, email: displayEmail, uid }
+                  params: {
+                    name,
+                    email: displayEmail,
+                    uid,
+                    prefilledName: name,
+                    prefilledEmail: displayEmail,
+                    prefilledPassword: password
+                  }
                 });
               }
             }
@@ -160,7 +168,7 @@ export default function VerifyEmailStoreOwnerScreen() {
       {/* Resend Email Link */}
       <View style={styles.resendContainer}>
         <Pressable onPress={handleResendEmail} style={styles.resendButton}>
-          <Text style={styles.resendText}>Didn't receive the email? Resend</Text>
+          <Text style={styles.resendText}>Didn&apos;t receive the email? Resend</Text>
         </Pressable>
       </View>
 

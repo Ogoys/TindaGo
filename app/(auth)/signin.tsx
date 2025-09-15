@@ -150,8 +150,17 @@ export default function SignInScreen() {
             text: "OK",
             onPress: () => {
               if (userData.userType === 'store_owner') {
-                router.replace("/(main)/(store-owner)/home");
+                // Check if store owner has completed business registration
+                if (userData.profile?.businessComplete) {
+                  // Navigate to store owner dashboard (index.tsx)
+                  router.replace("/(main)/(store-owner)");
+                } else {
+                  // Store owner hasn't completed registration, continue registration flow
+                  console.log("Store owner needs to complete registration");
+                  router.replace("/(auth)/(store-owner)/StoreRegistration");
+                }
               } else {
+                // Navigate to customer dashboard
                 router.replace("/(main)/(customer)/home");
               }
             }

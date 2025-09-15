@@ -40,7 +40,7 @@ export default function StoreHomeScreen() {
         {/* Stats Cards Section */}
         <View style={styles.statsSection}>
           <Typography variant="h2" style={styles.sectionTitle}>
-            Today's Overview
+            Today&apos;s Overview
           </Typography>
           
           <View style={styles.statsGrid}>

@@ -263,7 +263,8 @@ export default function RegisterScreen() {
                   params: {
                     email: formData.emailOrPhone.trim(),
                     name: formData.name.trim(),
-                    uid: user.uid
+                    uid: user.uid,
+                    password: formData.password
                   }
                 });
               }
