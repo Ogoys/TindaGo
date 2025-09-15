@@ -211,35 +211,61 @@ export default function RegisterScreen() {
           return;
         }
 
-        // Redirect to store owner registration flow (which you'll provide the design for)
+        // Create Firebase account for Store Owner first, then redirect to business registration
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          formData.emailOrPhone.trim(),
+          formData.password
+        );
+
+        const user = userCredential.user;
+
+        await updateProfile(user, {
+          displayName: formData.name.trim()
+        });
+
+        // Save basic store owner data to database
+        const userData = {
+          uid: user.uid,
+          name: formData.name.trim(),
+          email: formData.emailOrPhone.trim(),
+          userType: 'store_owner',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          emailVerified: user.emailVerified,
+          profile: {
+            avatar: null,
+            phone: null,
+            businessComplete: false, // Will be set to true after completing StoreRegistration
+          },
+          preferences: {
+            notifications: true,
+            theme: 'light'
+          }
+        };
+
+        const userRef = ref(database, `users/${user.uid}`);
+        await set(userRef, userData);
+
+        // Send email verification
+        await sendEmailVerification(user);
+
         Alert.alert(
-          "Store Owner Registration",
-          "You'll be redirected to complete your store registration with business documents and verification.",
+          "Account Created!",
+          "Your store owner account has been created! Please verify your email before completing your business registration.",
           [
             {
-              text: "Continue",
+              text: "Verify Email Now",
               onPress: () => {
-                // Navigate to your store owner signup design
-                // TODO: Navigate to store owner signup when design is provided
-                console.log("Store owner signup flow - design needed", {
-                  name: formData.name.trim(),
-                  email: formData.emailOrPhone.trim(),
-                  password: formData.password
+                // Navigate to email verification screen first
+                router.push({
+                  pathname: "/(auth)/verify-email-store-owner",
+                  params: {
+                    email: formData.emailOrPhone.trim(),
+                    name: formData.name.trim(),
+                    uid: user.uid
+                  }
                 });
-                // router.push({
-                //   pathname: "/(auth)/store-owner-signup", // You'll provide this design
-                //   params: {
-                //     name: formData.name.trim(),
-                //     email: formData.emailOrPhone.trim(),
-                //     password: formData.password
-                //   }
-                // });
-              }
-            },
-            {
-              text: "Register as Customer Instead",
-              onPress: () => {
-                setFormData({ ...formData, userType: "user" });
               }
             }
           ]

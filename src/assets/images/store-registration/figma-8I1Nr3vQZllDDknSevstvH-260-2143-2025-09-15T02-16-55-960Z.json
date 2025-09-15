@@ -1,0 +1,149 @@
+{
+  "metadata": {
+    "name": "TindaGo Share",
+    "lastModified": "2025-09-15T02:16:48Z",
+    "thumbnailUrl": "https://s3-alpha.figma.com/thumbnails/4f5a5315-9b8c-4b70-8915-808d81e18ae7?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQ4GOSFWC7HSFKW4W%2F20250914%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20250914T120000Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=9cff030eb204b67baebe7b7f24fef98306cd4a324e54b16b1c44d872f3182519"
+  },
+  "nodes": [
+    {
+      "id": "260:2143",
+      "name": "Reg Complete",
+      "type": "FRAME",
+      "boundingBox": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 380
+      },
+      "fills": "fill_84BIK6",
+      "effects": "effect_EGJT2Z",
+      "layout": "layout_U4BJXU",
+      "borderRadius": "20px",
+      "children": [
+        {
+          "id": "260:2144",
+          "name": "Register Complete",
+          "type": "TEXT",
+          "boundingBox": {
+            "x": 114,
+            "y": 59,
+            "width": 172,
+            "height": 22
+          },
+          "textStyle": "style_DC3P9H",
+          "fills": "fill_WK4FRJ",
+          "layout": "layout_99GZGW",
+          "text": "Register Complete"
+        },
+        {
+          "id": "260:2145",
+          "name": "image 12",
+          "type": "RECTANGLE",
+          "boundingBox": {
+            "x": 70,
+            "y": 81,
+            "width": 260,
+            "height": 260
+          },
+          "fills": "fill_1JLHVO",
+          "layout": "layout_O4PDQO"
+        },
+        {
+          "id": "260:2146",
+          "name": "Congratulation you create a account",
+          "type": "TEXT",
+          "boundingBox": {
+            "x": 101,
+            "y": 81,
+            "width": 198,
+            "height": 44
+          },
+          "textStyle": "style_ZF085C",
+          "fills": "fill_V5MTJT",
+          "layout": "layout_OKSAM5",
+          "text": "Congratulation you create a\naccount"
+        }
+      ]
+    }
+  ],
+  "globalVars": {
+    "styles": {
+      "fill_84BIK6": [
+        "#FFFFFF"
+      ],
+      "effect_EGJT2Z": {
+        "boxShadow": "0px 0px 5px 2px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_U4BJXU": {
+        "mode": "none",
+        "clipsContent": true,
+        "dimensions": {
+          "width": 400,
+          "height": 380
+        }
+      },
+      "style_DC3P9H": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 600,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_WK4FRJ": [
+        "#1E1E1E"
+      ],
+      "layout_99GZGW": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 114,
+          "y": 59
+        },
+        "dimensions": {
+          "width": 172,
+          "height": 22
+        }
+      },
+      "fill_1JLHVO": [
+        {
+          "type": "IMAGE",
+          "imageRef": "2ec58b70eb6d7b370edcff87fc0ce5b05cc32410",
+          "scaleMode": "FILL"
+        }
+      ],
+      "layout_O4PDQO": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 70,
+          "y": 81
+        },
+        "dimensions": {
+          "width": 260,
+          "height": 260
+        }
+      },
+      "style_ZF085C": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 16,
+        "lineHeight": "1.375em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_V5MTJT": [
+        "rgba(30, 30, 30, 0.5)"
+      ],
+      "layout_OKSAM5": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 101,
+          "y": 81
+        },
+        "dimensions": {
+          "width": 198,
+          "height": 44
+        }
+      }
+    }
+  }
+}
