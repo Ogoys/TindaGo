@@ -1,47 +1,56 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, Image, TextInput, TouchableOpacity } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { ref, update, serverTimestamp } from 'firebase/database';
+import { auth, database } from '../../../FirebaseConfig';
 import { s, vs } from "../../../src/constants/responsive";
 
 interface BankDetailsFormData {
+  paymentMethod: 'gcash' | 'paymaya' | 'bank_transfer';
   accountName: string;
   accountNumber: string;
-  email: string;
-  password: string;
 }
 
 interface BankDetailsErrors {
+  paymentMethod: string;
   accountName: string;
   accountNumber: string;
-  email: string;
-  password: string;
 }
 
 export default function BankDetailsScreen() {
+  // Get store info from previous screen
+  const { storeName, ownerName, ownerEmail } = useLocalSearchParams<{
+    storeName?: string;
+    ownerName?: string;
+    ownerEmail?: string;
+  }>();
+
   const [formData, setFormData] = useState<BankDetailsFormData>({
+    paymentMethod: 'gcash',
     accountName: "",
     accountNumber: "",
-    email: "",
-    password: "",
   });
 
   const [errors, setErrors] = useState<BankDetailsErrors>({
+    paymentMethod: "",
     accountName: "",
     accountNumber: "",
-    email: "",
-    password: "",
   });
 
   const [loading, setLoading] = useState(false);
 
   const validateForm = (): boolean => {
     const newErrors: BankDetailsErrors = {
+      paymentMethod: "",
       accountName: "",
       accountNumber: "",
-      email: "",
-      password: "",
     };
+
+    // Payment method validation
+    if (!formData.paymentMethod) {
+      newErrors.paymentMethod = "Payment method is required";
+    }
 
     // Account Name validation
     if (!formData.accountName.trim()) {
@@ -50,25 +59,21 @@ export default function BankDetailsScreen() {
       newErrors.accountName = "Account name must be at least 2 characters";
     }
 
-    // Account Number validation (Philippine GCash format: 11 digits starting with 09)
+    // Account Number validation based on payment method
     if (!formData.accountNumber.trim()) {
       newErrors.accountNumber = "Account number is required";
-    } else if (!/^09\d{9}$/.test(formData.accountNumber.trim().replace(/\s+/g, ''))) {
-      newErrors.accountNumber = "Please enter a valid 11-digit GCash number (09XXXXXXXXX)";
-    }
-
-    // Email validation
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    // Password validation
-    if (!formData.password.trim()) {
-      newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+    } else {
+      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'paymaya') {
+        // Philippine mobile number format: 11 digits starting with 09
+        if (!/^09\d{9}$/.test(formData.accountNumber.trim().replace(/\s+/g, ''))) {
+          newErrors.accountNumber = `Please enter a valid 11-digit ${formData.paymentMethod.toUpperCase()} number (09XXXXXXXXX)`;
+        }
+      } else if (formData.paymentMethod === 'bank_transfer') {
+        // Bank account number: at least 10 digits
+        if (!/^\d{10,}$/.test(formData.accountNumber.trim().replace(/\s+/g, ''))) {
+          newErrors.accountNumber = "Please enter a valid bank account number (at least 10 digits)";
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -82,26 +87,86 @@ export default function BankDetailsScreen() {
       return;
     }
 
+    if (!auth.currentUser) {
+      Alert.alert("Error", "Authentication required. Please sign in again.");
+      router.push("/(auth)/signin");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // For now, simulate successful bank details submission
+      const userId = auth.currentUser.uid;
+
+      // Save payment details to database
+      const paymentData = {
+        paymentInfo: {
+          method: formData.paymentMethod,
+          accountName: formData.accountName.trim(),
+          accountNumber: formData.accountNumber.trim(),
+          verified: false, // Will be verified by admin
+          addedAt: serverTimestamp()
+        },
+        status: 'pending_approval', // Ready for admin approval
+        bankDetailsComplete: true,
+        businessComplete: true, // All steps completed
+        registrationCompletedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      // Update store data
+      const storeRef = ref(database, `stores/${userId}`);
+      await update(storeRef, paymentData);
+
+      // Update user profile progress
+      const userProfileRef = ref(database, `users/${userId}/profile`);
+      await update(userProfileRef, {
+        bankDetailsComplete: true,
+        businessComplete: true, // All registration steps completed
+        updatedAt: serverTimestamp()
+      });
+
+      // Update store registration progress
+      const storeRegRef = ref(database, `store_registrations/${userId}`);
+      await update(storeRegRef, {
+        status: 'completed_pending_approval',
+        paymentDetailsAt: serverTimestamp(),
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
       Alert.alert(
-        "Bank Details Submitted!",
-        "Your payment details have been saved. You'll now proceed to the final verification step.",
+        "Registration Complete!",
+        "Your store registration has been completed successfully. We'll review your application and notify you once approved.",
         [
           {
-            text: "Continue",
+            text: "View Status",
             onPress: () => {
-              console.log("Bank details data:", formData);
-              // Navigate to next step (final verification/document upload)
-              router.push("/(auth)/(store-owner)/DocumentUpload");
+              console.log("Registration completed for:", storeName);
+              router.push({
+                pathname: "/(auth)/(store-owner)/RegistrationComplete",
+                params: {
+                  storeName: storeName || "",
+                  ownerName: ownerName || "",
+                  ownerEmail: ownerEmail || ""
+                }
+              });
             }
           }
         ]
       );
-    } catch {
-      Alert.alert("Error", "Something went wrong. Please try again.");
+
+    } catch (error: any) {
+      console.error("Error saving payment details:", error);
+      let errorMessage = "Failed to complete registration. Please try again.";
+
+      if (error.code === 'database/permission-denied') {
+        errorMessage = "Permission denied. Please check your authentication.";
+      } else if (error.code === 'database/network-error') {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
+      Alert.alert("Registration Error", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -184,51 +249,89 @@ export default function BankDetailsScreen() {
               <View style={[styles.progressSegment, styles.progressSegmentActive]} />
               <View style={[styles.progressSegment, styles.progressSegmentActive]} />
               <View style={[styles.progressSegment, styles.progressSegmentActive]} />
-              <View style={[styles.progressSegment, styles.progressSegmentActive]} />
+              <View style={[styles.progressSegment, styles.progressSegmentCurrent]} />
             </View>
 
-            {/* Figma: Section label "Add Gcash/Paypal" at x:20, y:272 */}
-            <Text style={styles.sectionLabel}>Add Gcash/Paypal</Text>
+            {/* Figma: Section label "Add Payment Details" at x:20, y:272 */}
+            <Text style={styles.sectionLabel}>Add Payment Details</Text>
+
+            {/* Payment Method Selector */}
+            <View style={styles.paymentMethodSection}>
+              <Text style={styles.paymentMethodLabel}>Payment Method</Text>
+              <View style={styles.paymentMethodContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentMethodButton,
+                    formData.paymentMethod === 'gcash' && styles.paymentMethodButtonActive
+                  ]}
+                  onPress={() => setFormData({ ...formData, paymentMethod: 'gcash' })}
+                >
+                  <Text style={[
+                    styles.paymentMethodText,
+                    formData.paymentMethod === 'gcash' && styles.paymentMethodTextActive
+                  ]}>GCash</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.paymentMethodButton,
+                    formData.paymentMethod === 'paymaya' && styles.paymentMethodButtonActive
+                  ]}
+                  onPress={() => setFormData({ ...formData, paymentMethod: 'paymaya' })}
+                >
+                  <Text style={[
+                    styles.paymentMethodText,
+                    formData.paymentMethod === 'paymaya' && styles.paymentMethodTextActive
+                  ]}>PayMaya</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.paymentMethodButton,
+                    formData.paymentMethod === 'bank_transfer' && styles.paymentMethodButtonActive
+                  ]}
+                  onPress={() => setFormData({ ...formData, paymentMethod: 'bank_transfer' })}
+                >
+                  <Text style={[
+                    styles.paymentMethodText,
+                    formData.paymentMethod === 'bank_transfer' && styles.paymentMethodTextActive
+                  ]}>Bank Transfer</Text>
+                </TouchableOpacity>
+              </View>
+              {errors.paymentMethod ? (
+                <Text style={styles.errorText}>{errors.paymentMethod}</Text>
+              ) : null}
+            </View>
 
             {/* Form Fields */}
             {/* Figma: Account Name field at x:20, y:314 */}
-            <FormInputField
-              label="Account Name"
-              placeholder="Enter account name"
-              value={formData.accountName}
-              onChangeText={(text) => setFormData({ ...formData, accountName: text })}
-              style={styles.accountNameField}
-            />
+            <View>
+              <FormInputField
+                label="Account Name"
+                placeholder="Enter account name"
+                value={formData.accountName}
+                onChangeText={(text) => setFormData({ ...formData, accountName: text })}
+                style={styles.accountNameField}
+              />
+              {errors.accountName ? (
+                <Text style={styles.errorText}>{errors.accountName}</Text>
+              ) : null}
+            </View>
 
             {/* Figma: Account Number field at x:22, y:411 */}
-            <FormInputField
-              label="Account Number"
-              placeholder="Enter account number"
-              value={formData.accountNumber}
-              onChangeText={(text) => setFormData({ ...formData, accountNumber: text })}
-              style={styles.accountNumberField}
-              keyboardType="numeric"
-            />
-
-            {/* Figma: Email field at x:22, y:508 */}
-            <FormInputField
-              label="Email"
-              placeholder="Enter your email"
-              value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
-              style={styles.emailField}
-              keyboardType="email-address"
-            />
-
-            {/* Figma: Password field at x:20, y:605 */}
-            <FormInputField
-              label="Password"
-              placeholder="Enter your password"
-              value={formData.password}
-              onChangeText={(text) => setFormData({ ...formData, password: text })}
-              style={styles.passwordField}
-              secureTextEntry={true}
-            />
+            <View>
+              <FormInputField
+                label={`${formData.paymentMethod === 'bank_transfer' ? 'Bank Account' : formData.paymentMethod.toUpperCase()} Number`}
+                placeholder={`Enter your ${formData.paymentMethod === 'bank_transfer' ? 'bank account' : formData.paymentMethod} number`}
+                value={formData.accountNumber}
+                onChangeText={(text) => setFormData({ ...formData, accountNumber: text })}
+                style={styles.accountNumberField}
+                keyboardType="numeric"
+              />
+              {errors.accountNumber ? (
+                <Text style={styles.errorText}>{errors.accountNumber}</Text>
+              ) : null}
+            </View>
 
             {/* Figma: Continue button at x:20, y:839, width:400, height:50 */}
             <TouchableOpacity
@@ -360,11 +463,15 @@ const styles = StyleSheet.create({
   },
 
   progressSegmentActive: {
-    backgroundColor: '#02545F', // stroke_1X6M6G
+    backgroundColor: '#02545F', // Completed steps
+  },
+
+  progressSegmentCurrent: {
+    backgroundColor: '#3BB77E', // Current step
   },
 
   progressSegmentInactive: {
-    backgroundColor: 'rgba(30, 30, 30, 0.5)', // stroke_N0XJ37
+    backgroundColor: 'rgba(30, 30, 30, 0.5)', // Future steps
   },
 
   // Figma: Section label "Add Gcash/Paypal" at x:20, y:272 (relative to screen, so y:122 relative to card)
@@ -462,5 +569,65 @@ const styles = StyleSheet.create({
 
   continueButtonDisabled: {
     backgroundColor: 'rgba(59, 183, 126, 0.5)',
+  },
+
+  // Payment Method Selector Styles
+  paymentMethodSection: {
+    marginHorizontal: s(20),
+    marginTop: vs(25),
+  },
+
+  paymentMethodLabel: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: vs(22),
+    color: '#1E1E1E',
+    marginBottom: vs(15),
+  },
+
+  paymentMethodContainer: {
+    flexDirection: 'row',
+    gap: s(10),
+    flexWrap: 'wrap',
+  },
+
+  paymentMethodButton: {
+    flex: 1,
+    minWidth: s(100),
+    paddingVertical: vs(12),
+    paddingHorizontal: s(16),
+    borderWidth: 2,
+    borderColor: '#02545F',
+    borderRadius: s(12),
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  paymentMethodButtonActive: {
+    backgroundColor: '#3BB77E',
+    borderColor: '#3BB77E',
+  },
+
+  paymentMethodText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(14),
+    color: '#02545F',
+  },
+
+  paymentMethodTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Error text styles
+  errorText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontSize: s(12),
+    fontWeight: '400',
+    color: '#E92B45',
+    marginTop: vs(5),
+    marginLeft: s(20),
   },
 });

@@ -1,73 +1,83 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as DocumentPicker from "expo-document-picker";
-import { ref, update } from "firebase/database";
-import { database } from "../../../FirebaseConfig";
+import { ref, update, serverTimestamp } from "firebase/database";
+import { auth, database } from "../../../FirebaseConfig";
 import { Button } from "../../../src/components/ui/Button";
 import { FormInput } from "../../../src/components/ui/FormInput";
 import { Colors } from "../../../src/constants/Colors";
 import { responsive, s, vs } from "../../../src/constants/responsive";
 
 interface DocumentUploadData {
-  accountName: string;
-  accountNumber: string;
+  barangayBusinessClearance: any;
   businessPermit: any;
+  dtiRegistration: any;
+  validId: any;
 }
 
 interface DocumentUploadErrors {
-  accountName: string;
-  accountNumber: string;
+  barangayBusinessClearance: string;
   businessPermit: string;
+  dtiRegistration: string;
+  validId: string;
 }
 
 export default function DocumentUploadScreen() {
+  // Get store info from previous screen
+  const { storeName, ownerName, ownerEmail } = useLocalSearchParams<{
+    storeName?: string;
+    ownerName?: string;
+    ownerEmail?: string;
+  }>();
+
   const [formData, setFormData] = useState<DocumentUploadData>({
-    accountName: "",
-    accountNumber: "",
+    barangayBusinessClearance: null,
     businessPermit: null,
+    dtiRegistration: null,
+    validId: null,
   });
 
   const [errors, setErrors] = useState<DocumentUploadErrors>({
-    accountName: "",
-    accountNumber: "",
+    barangayBusinessClearance: "",
     businessPermit: "",
+    dtiRegistration: "",
+    validId: "",
   });
 
   const [loading, setLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors: DocumentUploadErrors = {
-      accountName: "",
-      accountNumber: "",
+      barangayBusinessClearance: "",
       businessPermit: "",
+      dtiRegistration: "",
+      validId: "",
     };
 
-    // Account Name validation
-    if (!formData.accountName.trim()) {
-      newErrors.accountName = "Account name is required";
-    } else if (formData.accountName.trim().length < 2) {
-      newErrors.accountName = "Account name must be at least 2 characters";
+    // Required documents based on your capstone requirements
+    if (!formData.barangayBusinessClearance) {
+      newErrors.barangayBusinessClearance = "Barangay Business Clearance is required";
     }
 
-    // Account Number validation
-    if (!formData.accountNumber.trim()) {
-      newErrors.accountNumber = "Account number is required";
-    } else if (formData.accountNumber.trim().length < 5) {
-      newErrors.accountNumber = "Account number must be at least 5 characters";
-    }
-
-    // Business Permit validation
     if (!formData.businessPermit) {
-      newErrors.businessPermit = "Business permit document is required";
+      newErrors.businessPermit = "Business Permit is required";
+    }
+
+    if (!formData.dtiRegistration) {
+      newErrors.dtiRegistration = "DTI Registration is required";
+    }
+
+    if (!formData.validId) {
+      newErrors.validId = "Valid Government ID is required";
     }
 
     setErrors(newErrors);
     return Object.values(newErrors).every(error => error === "");
   };
 
-  const handleDocumentUpload = async () => {
+  const handleDocumentUpload = async (documentType: keyof DocumentUploadData) => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ["image/*", "application/pdf"],
@@ -75,8 +85,8 @@ export default function DocumentUploadScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setFormData({ ...formData, businessPermit: result.assets[0] });
-        setErrors({ ...errors, businessPermit: "" });
+        setFormData({ ...formData, [documentType]: result.assets[0] });
+        setErrors({ ...errors, [documentType]: "" });
       }
     } catch (error) {
       Alert.alert("Error", "Failed to pick document. Please try again.");
@@ -90,20 +100,106 @@ export default function DocumentUploadScreen() {
       return;
     }
 
+    if (!auth.currentUser) {
+      Alert.alert("Error", "Authentication required. Please sign in again.");
+      router.push("/(auth)/signin");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Here you would typically upload the document to Firebase Storage
-      // and update the user's profile with the document information
+      const userId = auth.currentUser.uid;
 
-      // For now, we'll just update the database with completion status
-      // In a real implementation, you'd upload the file to Firebase Storage first
+      // Save document information to database
+      // In production, you would upload files to Firebase Storage first
+      const documentsData = {
+        documents: {
+          barangayBusinessClearance: {
+            name: formData.barangayBusinessClearance?.name || "",
+            uri: formData.barangayBusinessClearance?.uri || "",
+            type: formData.barangayBusinessClearance?.mimeType || "",
+            uploaded: true,
+            uploadedAt: serverTimestamp()
+          },
+          businessPermit: {
+            name: formData.businessPermit?.name || "",
+            uri: formData.businessPermit?.uri || "",
+            type: formData.businessPermit?.mimeType || "",
+            uploaded: true,
+            uploadedAt: serverTimestamp()
+          },
+          dtiRegistration: {
+            name: formData.dtiRegistration?.name || "",
+            uri: formData.dtiRegistration?.uri || "",
+            type: formData.dtiRegistration?.mimeType || "",
+            uploaded: true,
+            uploadedAt: serverTimestamp()
+          },
+          validId: {
+            name: formData.validId?.name || "",
+            uri: formData.validId?.uri || "",
+            type: formData.validId?.mimeType || "",
+            uploaded: true,
+            uploadedAt: serverTimestamp()
+          }
+        },
+        status: 'pending_bank_details',
+        documentsUploaded: true,
+        updatedAt: serverTimestamp()
+      };
 
-      // Navigate to the RegistrationComplete screen
-      router.push("/(auth)/(store-owner)/RegistrationComplete");
+      // Update store data
+      const storeRef = ref(database, `stores/${userId}`);
+      await update(storeRef, documentsData);
+
+      // Update user profile progress
+      const userProfileRef = ref(database, `users/${userId}/profile`);
+      await update(userProfileRef, {
+        documentsComplete: true,
+        updatedAt: serverTimestamp()
+      });
+
+      // Update store registration progress
+      const storeRegRef = ref(database, `store_registrations/${userId}`);
+      await update(storeRegRef, {
+        status: 'documents_uploaded',
+        documentsUploadedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      Alert.alert(
+        "Documents Uploaded!",
+        "Your business documents have been uploaded successfully. Next, you'll add your bank details for payments.",
+        [
+          {
+            text: "Continue to Bank Details",
+            onPress: () => {
+              console.log("Documents uploaded for:", storeName);
+              router.push({
+                pathname: "/(auth)/(store-owner)/BankDetails",
+                params: {
+                  storeName: storeName || "",
+                  ownerName: ownerName || "",
+                  ownerEmail: ownerEmail || ""
+                }
+              });
+            }
+          }
+        ]
+      );
 
     } catch (error: any) {
-      Alert.alert("Error", "Failed to complete registration. Please try again.");
+      console.error("Error uploading documents:", error);
+      let errorMessage = "Failed to upload documents. Please try again.";
+
+      if (error.code === 'database/permission-denied') {
+        errorMessage = "Permission denied. Please check your authentication.";
+      } else if (error.code === 'database/network-error') {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
+      Alert.alert("Upload Error", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -133,59 +229,112 @@ export default function DocumentUploadScreen() {
 
         {/* Card Container */}
         <View style={styles.cardContainer}>
-          {/* Progress Indicator */}
+          {/* Progress Indicator - Step 3 of 4 */}
           <View style={styles.progressContainer}>
             <View style={[styles.progressSegment, styles.progressActive]} />
             <View style={[styles.progressSegment, styles.progressActive]} />
-            <View style={[styles.progressSegment, styles.progressActive]} />
-            <View style={[styles.progressSegment, styles.progressActive]} />
+            <View style={[styles.progressSegment, styles.progressCurrent]} />
+            <View style={[styles.progressSegment, styles.progressInactive]} />
           </View>
 
           {/* Register Title */}
           <Text style={styles.registerTitle}>Register</Text>
 
-          {/* Business Permit Label */}
-          <Text style={styles.businessPermitLabel}>Business Permit</Text>
+          {/* Upload Documents Label */}
+          <Text style={styles.businessPermitLabel}>Upload Documents</Text>
 
           {/* Form Fields */}
           <View style={styles.formSection}>
-            {/* Account Name Field */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Account Name</Text>
-              <FormInput
-                placeholder="Enter account name"
-                value={formData.accountName}
-                onChangeText={(text) => setFormData({ ...formData, accountName: text })}
-                style={styles.formInput}
-              />
-            </View>
-
-            {/* Account Number Field */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Account Number</Text>
-              <FormInput
-                placeholder="Enter account number"
-                value={formData.accountNumber}
-                onChangeText={(text) => setFormData({ ...formData, accountNumber: text })}
-                style={styles.formInput}
-              />
-            </View>
-
-            {/* Document Upload Section */}
+            {/* Barangay Business Clearance */}
             <View style={styles.uploadSection}>
-              <Text style={styles.uploadLabel}>Upload Document</Text>
-              <TouchableOpacity style={styles.uploadContainer} onPress={handleDocumentUpload}>
-                <View style={styles.uploadBox}>
+              <Text style={styles.uploadLabel}>Barangay Business Clearance</Text>
+              <TouchableOpacity
+                style={styles.uploadContainer}
+                onPress={() => handleDocumentUpload('barangayBusinessClearance')}
+              >
+                <View style={[styles.uploadBox, formData.barangayBusinessClearance && styles.uploadBoxSuccess]}>
                   <Image
                     source={require("../../../src/assets/images/store-registration/upload-icon.png")}
                     style={styles.uploadIcon}
                     contentFit="contain"
                   />
                   <Text style={styles.uploadText}>
-                    {formData.businessPermit ? formData.businessPermit.name : "Upload your photo"}
+                    {formData.barangayBusinessClearance ? formData.barangayBusinessClearance.name : "Upload document"}
                   </Text>
                 </View>
               </TouchableOpacity>
+              {errors.barangayBusinessClearance ? (
+                <Text style={styles.errorText}>{errors.barangayBusinessClearance}</Text>
+              ) : null}
+            </View>
+
+            {/* Business Permit */}
+            <View style={styles.uploadSection}>
+              <Text style={styles.uploadLabel}>Business Permit</Text>
+              <TouchableOpacity
+                style={styles.uploadContainer}
+                onPress={() => handleDocumentUpload('businessPermit')}
+              >
+                <View style={[styles.uploadBox, formData.businessPermit && styles.uploadBoxSuccess]}>
+                  <Image
+                    source={require("../../../src/assets/images/store-registration/upload-icon.png")}
+                    style={styles.uploadIcon}
+                    contentFit="contain"
+                  />
+                  <Text style={styles.uploadText}>
+                    {formData.businessPermit ? formData.businessPermit.name : "Upload document"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              {errors.businessPermit ? (
+                <Text style={styles.errorText}>{errors.businessPermit}</Text>
+              ) : null}
+            </View>
+
+            {/* DTI Registration */}
+            <View style={styles.uploadSection}>
+              <Text style={styles.uploadLabel}>DTI Business Name Registration</Text>
+              <TouchableOpacity
+                style={styles.uploadContainer}
+                onPress={() => handleDocumentUpload('dtiRegistration')}
+              >
+                <View style={[styles.uploadBox, formData.dtiRegistration && styles.uploadBoxSuccess]}>
+                  <Image
+                    source={require("../../../src/assets/images/store-registration/upload-icon.png")}
+                    style={styles.uploadIcon}
+                    contentFit="contain"
+                  />
+                  <Text style={styles.uploadText}>
+                    {formData.dtiRegistration ? formData.dtiRegistration.name : "Upload document"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              {errors.dtiRegistration ? (
+                <Text style={styles.errorText}>{errors.dtiRegistration}</Text>
+              ) : null}
+            </View>
+
+            {/* Valid ID */}
+            <View style={styles.uploadSection}>
+              <Text style={styles.uploadLabel}>Valid Government ID</Text>
+              <TouchableOpacity
+                style={styles.uploadContainer}
+                onPress={() => handleDocumentUpload('validId')}
+              >
+                <View style={[styles.uploadBox, formData.validId && styles.uploadBoxSuccess]}>
+                  <Image
+                    source={require("../../../src/assets/images/store-registration/upload-icon.png")}
+                    style={styles.uploadIcon}
+                    contentFit="contain"
+                  />
+                  <Text style={styles.uploadText}>
+                    {formData.validId ? formData.validId.name : "Upload document"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              {errors.validId ? (
+                <Text style={styles.errorText}>{errors.validId}</Text>
+              ) : null}
             </View>
           </View>
 
@@ -273,7 +422,13 @@ const styles = StyleSheet.create({
     borderRadius: s(2),
   },
   progressActive: {
-    backgroundColor: "#02545F", // Active color from Figma
+    backgroundColor: "#02545F", // Completed steps
+  },
+  progressCurrent: {
+    backgroundColor: "#3BB77E", // Current step
+  },
+  progressInactive: {
+    backgroundColor: "rgba(30, 30, 30, 0.5)", // Future steps
   },
 
   // Register Title
@@ -324,7 +479,7 @@ const styles = StyleSheet.create({
   // Upload Section
   uploadSection: {
     // Figma Logo group: x:22, y:508, width:398, height:177
-    marginTop: vs(30),
+    marginBottom: vs(25),
   },
   uploadLabel: {
     // Figma: x:24, y:508, width:128, height:22
@@ -367,6 +522,22 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     color: "rgba(30, 30, 30, 0.5)",
     textAlign: "center",
+  },
+
+  // Success state for uploaded documents
+  uploadBoxSuccess: {
+    borderColor: "#3BB77E",
+    backgroundColor: "rgba(59, 183, 126, 0.1)",
+  },
+
+  // Error text styles
+  errorText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontSize: s(12),
+    fontWeight: "400",
+    color: "#E92B45",
+    marginTop: vs(5),
+    marginLeft: s(5),
   },
 
   // Button Section

@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { StyleSheet, View, StatusBar } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { StyleSheet, View, StatusBar, Alert } from "react-native";
 import { Image } from "expo-image";
 import { Button } from "../../../src/components/ui/Button";
 import { Typography } from "../../../src/components/ui/Typography";
@@ -8,9 +8,38 @@ import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs } from "../../../src/constants/responsive";
 
 export default function RegistrationCompleteScreen() {
+  // Get store info from previous screen
+  const { storeName, ownerName, ownerEmail } = useLocalSearchParams<{
+    storeName?: string;
+    ownerName?: string;
+    ownerEmail?: string;
+  }>();
+
   const handleContinueToDashboard = () => {
-    // Navigate to store owner dashboard
-    router.replace("/(main)/(store-owner)/home");
+    Alert.alert(
+      "Dashboard Coming Soon",
+      "The store owner dashboard is currently under development. You'll be notified once your store is approved and the dashboard is ready.",
+      [
+        {
+          text: "Sign Out",
+          onPress: () => {
+            router.replace("/(auth)/signin");
+          }
+        },
+        {
+          text: "Stay Here",
+          style: "cancel"
+        }
+      ]
+    );
+  };
+
+  const handleCheckStatus = () => {
+    Alert.alert(
+      "Application Status",
+      `Store: ${storeName || 'Your Store'}\nOwner: ${ownerName || 'Store Owner'}\nStatus: Pending Admin Approval\n\nYour application is being reviewed. You'll receive an email notification once approved.`,
+      [{ text: "OK" }]
+    );
   };
 
   return (
@@ -38,9 +67,9 @@ export default function RegistrationCompleteScreen() {
       <View style={styles.mainContent}>
         {/* Registration Complete Card */}
         <View style={styles.completionCard}>
-          {/* Figma: "Register Complete" text at x:114, y:59 */}
+          {/* Figma: "Registration Complete" text at x:114, y:59 */}
           <Typography variant="h2" style={styles.registerCompleteTitle}>
-            Register Complete
+            Registration Complete!
           </Typography>
 
           {/* Figma: Illustration image at x:70, y:81, 260x260 */}
@@ -50,18 +79,35 @@ export default function RegistrationCompleteScreen() {
             contentFit="contain"
           />
 
-          {/* Figma: Congratulation text at x:101, y:81 (overlapping with image) */}
-          <Typography variant="body" style={styles.congratulationText}>
-            Congratulation you create a{'\n'}account
+          {/* Store information */}
+          <View style={styles.storeInfoSection}>
+            <Typography variant="body" style={styles.storeNameText}>
+              {storeName || 'Your Store'}
+            </Typography>
+            <Typography variant="caption" style={styles.ownerNameText}>
+              Owner: {ownerName || 'Store Owner'}
+            </Typography>
+          </View>
+
+          {/* Status message */}
+          <Typography variant="body" style={styles.statusText}>
+            Your application is now pending admin approval. You'll receive an email notification once verified.
           </Typography>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.buttonSection}>
           <Button
+            title="Check Application Status"
+            variant="secondary"
+            onPress={handleCheckStatus}
+            style={styles.statusButton}
+          />
+          <Button
             title="Continue to Dashboard"
             variant="primary"
             onPress={handleContinueToDashboard}
+            style={styles.dashboardButton}
           />
         </View>
       </View>
@@ -118,9 +164,9 @@ const styles = StyleSheet.create({
 
   // Registration Complete Card
   completionCard: {
-    // Figma frame: 400x380 with shadow
+    // Figma frame: 400x480 with shadow (increased height for more content)
     width: s(400),
-    height: vs(380),
+    height: vs(480),
     backgroundColor: Colors.white,
     borderRadius: s(20),
     shadowColor: Colors.shadow,
@@ -130,50 +176,84 @@ const styles = StyleSheet.create({
     elevation: 5,
     marginBottom: vs(40),
     position: "relative", // For absolute positioning of children
+    paddingHorizontal: s(20),
+    paddingVertical: vs(20),
   },
 
   // Register Complete Title
   registerCompleteTitle: {
-    // Figma: x:114, y:59, width:172, height:22
-    position: "absolute",
-    left: s(114),
-    top: vs(59),
     fontFamily: Fonts.primary,
-    fontSize: s(20),
+    fontSize: s(22),
     fontWeight: Fonts.weights.semiBold,
     color: Colors.darkGray,
     textAlign: "center",
-    lineHeight: s(20) * Fonts.lineHeights.tight,
+    marginBottom: vs(20),
+    marginTop: vs(10),
   },
 
   // Illustration Image
   illustrationImage: {
-    // Figma: x:70, y:81, width:260, height:260
-    position: "absolute",
-    left: s(70),
-    top: vs(81),
-    width: s(260),
-    height: vs(260),
+    alignSelf: "center",
+    width: s(200),
+    height: vs(200),
+    marginBottom: vs(20),
   },
 
-  // Congratulation Text
-  congratulationText: {
-    // Figma: x:101, y:81, width:198, height:44 - adjusted for better visibility
-    position: "absolute",
-    left: s(101),
-    top: vs(320), // Positioned below the image for better readability
-    width: s(198),
+  // Store Information Section
+  storeInfoSection: {
+    alignItems: "center",
+    marginBottom: vs(20),
+    paddingVertical: vs(15),
+    paddingHorizontal: s(20),
+    backgroundColor: "rgba(59, 183, 126, 0.1)",
+    borderRadius: s(12),
+    borderWidth: 1,
+    borderColor: "rgba(59, 183, 126, 0.3)",
+  },
+
+  storeNameText: {
     fontFamily: Fonts.primary,
-    fontSize: s(16),
-    fontWeight: Fonts.weights.medium,
-    color: "rgba(30, 30, 30, 0.5)",
+    fontSize: s(18),
+    fontWeight: Fonts.weights.semiBold,
+    color: "#02545F",
     textAlign: "center",
-    lineHeight: s(16) * Fonts.lineHeights.relaxed,
+    marginBottom: vs(5),
+  },
+
+  ownerNameText: {
+    fontFamily: Fonts.primary,
+    fontSize: s(14),
+    fontWeight: Fonts.weights.normal,
+    color: "rgba(30, 30, 30, 0.7)",
+    textAlign: "center",
+  },
+
+  // Status Text
+  statusText: {
+    fontFamily: Fonts.primary,
+    fontSize: s(14),
+    fontWeight: Fonts.weights.normal,
+    color: "rgba(30, 30, 30, 0.7)",
+    textAlign: "center",
+    lineHeight: s(14) * 1.4,
+    paddingHorizontal: s(10),
   },
 
   // Button Section
   buttonSection: {
     width: "100%",
     paddingHorizontal: s(20),
+    gap: vs(15),
+  },
+
+  // Individual Button Styles
+  statusButton: {
+    backgroundColor: "transparent",
+    borderWidth: 2,
+    borderColor: "#3BB77E",
+  },
+
+  dashboardButton: {
+    // Uses default primary button styling
   },
 });

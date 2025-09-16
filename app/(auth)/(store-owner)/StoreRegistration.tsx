@@ -1,7 +1,9 @@
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState, useEffect } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, Image, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { ref, update, serverTimestamp } from 'firebase/database';
+import { auth, database } from '../../../FirebaseConfig';
 import { s, vs } from "../../../src/constants/responsive";
 
 interface FormData {
@@ -21,6 +23,16 @@ interface Errors {
 }
 
 export default function StoreOwnerRegisterScreen() {
+  // Get pre-filled data from navigation params
+  const { name, email, uid, prefilledName, prefilledEmail, prefilledPassword } = useLocalSearchParams<{
+    name?: string;
+    email?: string;
+    uid?: string;
+    prefilledName?: string;
+    prefilledEmail?: string;
+    prefilledPassword?: string;
+  }>();
+
   const [formData, setFormData] = useState<FormData>({
     name: "",
     mobileNumber: "",
@@ -28,6 +40,19 @@ export default function StoreOwnerRegisterScreen() {
     password: "",
     confirmPassword: "",
   });
+
+  // Pre-fill form with data from previous registration step
+  useEffect(() => {
+    if (prefilledName || name) {
+      setFormData(prev => ({
+        ...prev,
+        name: prefilledName || name || "",
+        email: prefilledEmail || email || "",
+        password: prefilledPassword || "",
+        confirmPassword: prefilledPassword || "",
+      }));
+    }
+  }, [prefilledName, name, prefilledEmail, email, prefilledPassword]);
 
   const [errors, setErrors] = useState<Errors>({
     name: "",
@@ -100,26 +125,80 @@ export default function StoreOwnerRegisterScreen() {
       return;
     }
 
+    if (!auth.currentUser) {
+      Alert.alert("Error", "Authentication required. Please sign in again.");
+      router.push("/(auth)/signin");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // For now, simulate successful registration and redirect back or show success
+      const userId = auth.currentUser.uid;
+
+      // Update user profile with additional personal details
+      const userProfileData = {
+        phone: formData.mobileNumber.trim(),
+        personalDetailsComplete: true,
+        storeDetailsComplete: false,
+        documentsComplete: false,
+        bankDetailsComplete: false,
+        businessComplete: false,
+        updatedAt: serverTimestamp()
+      };
+
+      // Save personal details to Firebase
+      const userProfileRef = ref(database, `users/${userId}/profile`);
+      await update(userProfileRef, userProfileData);
+
+      // Also save to store owner personal info for easier access
+      const storeOwnerData = {
+        personalInfo: {
+          name: formData.name.trim(),
+          mobile: formData.mobileNumber.trim(),
+          email: formData.email.trim(),
+          completedAt: serverTimestamp()
+        },
+        status: 'personal_details_complete',
+        updatedAt: serverTimestamp()
+      };
+
+      const storeOwnerRef = ref(database, `store_registrations/${userId}`);
+      await update(storeOwnerRef, storeOwnerData);
+
       Alert.alert(
-        "Registration Complete!",
-        "Your store owner registration has been submitted. You'll proceed to the next step for business verification.",
+        "Personal Details Saved!",
+        "Your personal information has been saved. Next, you'll add your store business details.",
         [
           {
-            text: "Continue",
+            text: "Continue to Store Details",
             onPress: () => {
-              // Navigate to store details form
-              console.log("Store owner data:", formData);
-              router.push("/(auth)/(store-owner)/StoreDetails");
+              console.log("Store owner personal data saved:", formData);
+              // Pass the store owner personal data to the next step
+              router.push({
+                pathname: "/(auth)/(store-owner)/StoreDetails",
+                params: {
+                  ownerName: formData.name,
+                  ownerMobile: formData.mobileNumber,
+                  ownerEmail: formData.email,
+                  ownerPassword: formData.password
+                }
+              });
             }
           }
         ]
       );
-    } catch {
-      Alert.alert("Error", "Something went wrong. Please try again.");
+    } catch (error: any) {
+      console.error("Error saving personal details:", error);
+      let errorMessage = "Failed to save personal details. Please try again.";
+
+      if (error.code === 'database/permission-denied') {
+        errorMessage = "Permission denied. Please check your authentication.";
+      } else if (error.code === 'database/network-error') {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
+      Alert.alert("Save Error", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -133,7 +212,9 @@ export default function StoreOwnerRegisterScreen() {
     onChangeText,
     secureTextEntry = false,
     keyboardType = "default",
-    style
+    style,
+    editable = true,
+    isPrefilled = false
   }: {
     label: string;
     placeholder: string;
@@ -142,12 +223,17 @@ export default function StoreOwnerRegisterScreen() {
     secureTextEntry?: boolean;
     keyboardType?: "default" | "email-address" | "phone-pad";
     style?: any;
+    editable?: boolean;
+    isPrefilled?: boolean;
   }) => (
     <View style={[styles.inputContainer, style]}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View style={styles.inputBox}>
+      <Text style={styles.inputLabel}>
+        {label}
+        {isPrefilled && <Text style={styles.prefilledIndicator}> (from registration)</Text>}
+      </Text>
+      <View style={[styles.inputBox, !editable && styles.inputBoxDisabled]}>
         <TextInput
-          style={styles.textInput}
+          style={[styles.textInput, !editable && styles.textInputDisabled]}
           placeholder={placeholder}
           placeholderTextColor="rgba(30, 30, 30, 0.5)"
           value={value}
@@ -161,6 +247,7 @@ export default function StoreOwnerRegisterScreen() {
           blurOnSubmit={false}
           returnKeyType="next"
           enablesReturnKeyAutomatically={false}
+          editable={editable}
         />
       </View>
     </View>
@@ -225,6 +312,8 @@ export default function StoreOwnerRegisterScreen() {
               onChangeText={(text) => setFormData({ ...formData, name: text })}
               keyboardType="default"
               style={styles.nameField}
+              editable={!formData.name || formData.name === ""}
+              isPrefilled={!!(prefilledName || name)}
             />
 
             {/* Figma: Mobile Number field at y:411 */}
@@ -245,6 +334,8 @@ export default function StoreOwnerRegisterScreen() {
               onChangeText={(text) => setFormData({ ...formData, email: text })}
               keyboardType="email-address"
               style={styles.emailField}
+              editable={!formData.email || formData.email === ""}
+              isPrefilled={!!(prefilledEmail || email)}
             />
 
             {/* Figma: Password field at y:605 */}
@@ -255,6 +346,8 @@ export default function StoreOwnerRegisterScreen() {
               onChangeText={(text) => setFormData({ ...formData, password: text })}
               secureTextEntry
               style={styles.passwordField}
+              editable={!formData.password || formData.password === ""}
+              isPrefilled={!!prefilledPassword}
             />
 
             {/* Figma: Confirm Password field at y:702 */}
@@ -265,6 +358,8 @@ export default function StoreOwnerRegisterScreen() {
               onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
               secureTextEntry
               style={styles.confirmPasswordField}
+              editable={!formData.confirmPassword || formData.confirmPassword === ""}
+              isPrefilled={!!prefilledPassword}
             />
 
             {/* Figma: Continue button at x:20, y:839, width:400, height:50 */}
@@ -493,5 +588,23 @@ const styles = StyleSheet.create({
 
   continueButtonDisabled: {
     backgroundColor: 'rgba(59, 183, 126, 0.5)',
+  },
+
+  // Prefilled field styles
+  prefilledIndicator: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '400',
+    fontSize: s(12),
+    color: '#3BB77E',
+    fontStyle: 'italic',
+  },
+
+  inputBoxDisabled: {
+    backgroundColor: '#F0F0F0',
+    borderColor: '#CCCCCC',
+  },
+
+  textInputDisabled: {
+    color: '#666666',
   },
 });

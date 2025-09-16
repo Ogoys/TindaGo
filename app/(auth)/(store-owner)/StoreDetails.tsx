@@ -1,8 +1,10 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, Image, TextInput, TouchableOpacity } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from 'expo-image-picker';
+import { ref, set, serverTimestamp } from 'firebase/database';
+import { auth, database } from '../../../FirebaseConfig';
 import { s, vs } from "../../../src/constants/responsive";
 
 interface StoreFormData {
@@ -24,6 +26,14 @@ interface StoreErrors {
 }
 
 export default function StoreDetailsScreen() {
+  // Get owner details from previous screen
+  const { ownerName, ownerMobile, ownerEmail, ownerPassword } = useLocalSearchParams<{
+    ownerName?: string;
+    ownerMobile?: string;
+    ownerEmail?: string;
+    ownerPassword?: string;
+  }>();
+
   const [formData, setFormData] = useState<StoreFormData>({
     storeName: "",
     description: "",
@@ -122,26 +132,89 @@ export default function StoreDetailsScreen() {
       return;
     }
 
+    if (!auth.currentUser) {
+      Alert.alert("Error", "Authentication required. Please sign in again.");
+      router.push("/(auth)/signin");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // For now, simulate successful store details submission
+      const userId = auth.currentUser.uid;
+
+      // Save store details to Firebase
+      const storeData = {
+        // Store owner personal details
+        ownerName: ownerName || "",
+        ownerMobile: ownerMobile || "",
+        ownerEmail: ownerEmail || "",
+
+        // Store business details
+        storeName: formData.storeName.trim(),
+        description: formData.description.trim(),
+        storeAddress: formData.storeAddress.trim(),
+        city: formData.city.trim(),
+        zipCode: formData.zipCode.trim(),
+        logo: formData.logo,
+        coverImage: formData.coverImage,
+
+        // Store status and metadata
+        status: 'pending_documents', // Will change to 'pending_approval' after document upload
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+
+        // Business verification status
+        documentsUploaded: false,
+        businessVerified: false,
+        adminApproved: false,
+      };
+
+      // Save to Firebase under stores collection
+      const storeRef = ref(database, `stores/${userId}`);
+      await set(storeRef, storeData);
+
+      // Update user profile to indicate store details are complete
+      const userRef = ref(database, `users/${userId}/profile`);
+      await set(userRef, {
+        avatar: null,
+        phone: ownerMobile || null,
+        businessComplete: false, // Will be true after all steps
+        storeDetailsComplete: true,
+      });
+
       Alert.alert(
-        "Store Details Submitted!",
-        "Your store details have been saved. You'll proceed to document upload for verification.",
+        "Store Details Saved!",
+        "Your store details have been saved successfully. Next, you'll upload business documents for verification.",
         [
           {
-            text: "Continue",
+            text: "Continue to Document Upload",
             onPress: () => {
-              console.log("Store details data:", formData);
-              // Navigate to next step (bank details)
-              router.push("/(auth)/(store-owner)/BankDetails");
+              console.log("Store details saved:", storeData);
+              // Pass all data to document upload screen
+              router.push({
+                pathname: "/(auth)/(store-owner)/DocumentUpload",
+                params: {
+                  storeName: formData.storeName,
+                  ownerName: ownerName || "",
+                  ownerEmail: ownerEmail || "",
+                }
+              });
             }
           }
         ]
       );
-    } catch {
-      Alert.alert("Error", "Something went wrong. Please try again.");
+    } catch (error: any) {
+      console.error("Error saving store details:", error);
+      let errorMessage = "Failed to save store details. Please try again.";
+
+      if (error.code === 'database/permission-denied') {
+        errorMessage = "Permission denied. Please check your authentication.";
+      } else if (error.code === 'database/network-error') {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
+      Alert.alert("Save Error", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -226,7 +299,7 @@ export default function StoreDetailsScreen() {
           {/* Figma: Subtitle at x:20, y:106 */}
           <Text style={styles.subtitleText}>Register to create an account</Text>
 
-          {/* Figma: Number 4 illustration at x:329, y:45, width:100, height:100 */}
+          {/* Figma: Number 2 illustration at x:329, y:45, width:100, height:100 */}
           <Image
             source={require("../../../src/assets/images/store-registration/logo-number-4.png")}
             style={styles.illustration}
@@ -244,16 +317,16 @@ export default function StoreDetailsScreen() {
             {/* Figma: Register title at x:183, y:204 */}
             <Text style={styles.registerTitle}>Register</Text>
 
-            {/* Progress Line - Figma: y:252, 4 segments of 88px each, step 3 active */}
+            {/* Progress Line - Figma: y:252, 4 segments of 88px each, step 2 active */}
             <View style={styles.progressContainer}>
               <View style={[styles.progressSegment, styles.progressSegmentActive]} />
-              <View style={[styles.progressSegment, styles.progressSegmentActive]} />
-              <View style={[styles.progressSegment, styles.progressSegmentActive]} />
+              <View style={[styles.progressSegment, styles.progressSegmentCurrent]} />
+              <View style={[styles.progressSegment, styles.progressSegmentInactive]} />
               <View style={[styles.progressSegment, styles.progressSegmentInactive]} />
             </View>
 
             {/* Figma: Section label at x:20, y:272 */}
-            <Text style={styles.sectionLabel}>Upload your documents</Text>
+            <Text style={styles.sectionLabel}>Add Store Details</Text>
 
             {/* Upload Components - Figma: Logo at x:30, y:314 and Cover at x:260, y:314 */}
             <View style={styles.uploadRow}>
@@ -379,7 +452,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.5)',
   },
 
-  // Figma: Number 4 illustration at x:329, y:45, width:100, height:100
+  // Figma: Number 2 illustration at x:329, y:45, width:100, height:100
   illustration: {
     position: 'absolute',
     left: s(329),
@@ -439,6 +512,10 @@ const styles = StyleSheet.create({
 
   progressSegmentActive: {
     backgroundColor: '#02545F',
+  },
+
+  progressSegmentCurrent: {
+    backgroundColor: '#3BB77E', // Green color to show current step
   },
 
   progressSegmentInactive: {
