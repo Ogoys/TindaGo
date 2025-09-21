@@ -19,7 +19,7 @@ export default function RegisterScreen() {
     name: "",
     emailOrPhone: "",
     password: "",
-    userType: "user" as "user" | "store_owner",
+    userType: "customer" as "customer" | "store_owner",
     acceptedTerms: false,
   });
 
@@ -102,7 +102,7 @@ export default function RegisterScreen() {
 
       // DIFFERENT LOGIC BASED ON USER TYPE:
 
-      if (formData.userType === "user") {
+      if (formData.userType === "customer") {
         // CUSTOMER REGISTRATION - Simple flow with email/phone only
 
         if (isPhone) {
@@ -119,7 +119,7 @@ export default function RegisterScreen() {
                     params: {
                       phoneNumber: formData.emailOrPhone.trim(),
                       name: formData.name,
-                      userType: 'user'
+                      userType: 'customer'
                     }
                   });
                 }
@@ -154,7 +154,7 @@ export default function RegisterScreen() {
           uid: user.uid,
           name: formData.name.trim(),
           email: formData.emailOrPhone.trim(),
-          userType: 'user',
+          userType: 'customer',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           emailVerified: user.emailVerified,

@@ -11,7 +11,7 @@ The Firebase Realtime Database uses a JSON tree structure. Here's how TindaGo da
       "uid": "firebase_auth_uid_1",
       "name": "John Doe",
       "email": "john@example.com", 
-      "userType": "user",
+      "userType": "customer",
       "createdAt": { ".sv": "timestamp" },
       "updatedAt": { ".sv": "timestamp" },
       "emailVerified": true,
@@ -226,7 +226,7 @@ const userData = {
   uid: user.uid,
   name: "John Doe",
   email: "john@example.com",
-  userType: "user",
+  userType: "customer",
   createdAt: serverTimestamp(),
   updatedAt: serverTimestamp(),
   // ... other fields

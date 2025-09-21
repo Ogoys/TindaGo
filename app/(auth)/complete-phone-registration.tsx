@@ -28,7 +28,7 @@ export default function CompletePhoneRegistrationScreen() {
     name: name || "",
     email: "",
     password: "",
-    userType: (userType as "user" | "store_owner") || "user",
+    userType: (userType as "customer" | "store_owner") || "customer",
     acceptedTerms: false,
   });
 

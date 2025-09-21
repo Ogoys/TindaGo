@@ -4,8 +4,8 @@ import { Fonts } from "../../constants/Fonts";
 import { responsive, s, vs } from "../../constants/responsive";
 
 interface UserTypePickerProps {
-  selectedType: "user" | "store_owner";
-  onSelect: (type: "user" | "store_owner") => void;
+  selectedType: "customer" | "store_owner";
+  onSelect: (type: "customer" | "store_owner") => void;
 }
 
 export function UserTypePicker({ selectedType, onSelect }: UserTypePickerProps) {
@@ -14,17 +14,17 @@ export function UserTypePicker({ selectedType, onSelect }: UserTypePickerProps) 
       <Pressable
         style={[
           styles.option,
-          selectedType === "user" && styles.selectedOption,
+          selectedType === "customer" && styles.selectedOption,
         ]}
-        onPress={() => onSelect("user")}
+        onPress={() => onSelect("customer")}
       >
         <Text
           style={[
             styles.optionText,
-            selectedType === "user" && styles.selectedText,
+            selectedType === "customer" && styles.selectedText,
           ]}
         >
-          User
+          Customer
         </Text>
       </Pressable>
 

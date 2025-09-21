@@ -15,7 +15,6 @@ TindaGo is a React Native mobile application built with Expo, designed as a sari
 - `expo start --ios` - Run on iOS simulator
 - `expo start --web` - Run in web browser
 - `expo lint` - Run ESLint for code quality
-- `node ./scripts/reset-project.js` - Reset to starter template
 
 ### TypeScript & Linting
 - `npx tsc --noEmit` - Type checking without compilation
@@ -24,11 +23,16 @@ TindaGo is a React Native mobile application built with Expo, designed as a sari
 ## Architecture & Structure
 
 ### File-based Routing (Expo Router v5.1.4)
-The app uses file-based routing with route groups:
+The app uses file-based routing with nested route groups:
 - `app/(auth)/` - Authentication flow screens (onboarding, signin, signup, verification)
-- `app/(main)/` - Main app screens (home, cart, orders, profile)
+  - `app/(auth)/(store-owner)/` - Store owner registration flow
+- `app/(main)/` - Main app screens with role-based structure
+  - `app/(main)/(customer)/` - Customer-specific screens (home, cart, orders, category)
+  - `app/(main)/(store-owner)/` - Store owner-specific screens (home, inventory)
+  - `app/(main)/shared/` - Shared screens (profile, product-details)
 - `app/_layout.tsx` - Root layout with navigation stack
 - `app/index.tsx` - Entry point that redirects to onboarding
+- `app/role-selection.tsx` - User type selection screen
 
 ### Key Architectural Patterns
 - **Component-first**: Reusable UI components in `src/components/ui/`
@@ -67,6 +71,14 @@ Components use exact Figma positioning with responsive scaling:
 - Firebase config in `FirebaseConfig.ts` with v12+ SDK
 - Services: Authentication, Realtime Database, Storage
 - Database region: Asia Southeast (Singapore)
+- **Environment Variables**: Required EXPO_PUBLIC_ prefixed variables:
+  - `EXPO_PUBLIC_FIREBASE_API_KEY`
+  - `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
+  - `EXPO_PUBLIC_FIREBASE_DATABASE_URL`
+  - `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
+  - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
+  - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+  - `EXPO_PUBLIC_FIREBASE_APP_ID`
 
 ### Authentication Flow
 1. Email/password registration with Firebase Auth
