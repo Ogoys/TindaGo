@@ -78,7 +78,7 @@ const StoreProductScreen = () => {
   };
 
   const handleAddProduct = () => {
-    console.log('Add Product pressed');
+    router.push('/(main)/(store-owner)/profile/add-product');
   };
 
   const handleCategoryPress = (categoryId: string, categoryName: string) => {
