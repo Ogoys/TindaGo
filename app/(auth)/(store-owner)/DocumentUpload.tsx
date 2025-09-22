@@ -6,9 +6,9 @@ import * as DocumentPicker from "expo-document-picker";
 import { ref, update, serverTimestamp } from "firebase/database";
 import { auth, database } from "../../../FirebaseConfig";
 import { Button } from "../../../src/components/ui/Button";
-import { FormInput } from "../../../src/components/ui/FormInput";
+// import { FormInput } from "../../../src/components/ui/FormInput";
 import { Colors } from "../../../src/constants/Colors";
-import { responsive, s, vs } from "../../../src/constants/responsive";
+import { s, vs } from "../../../src/constants/responsive";
 
 interface DocumentUploadData {
   barangayBusinessClearance: any;

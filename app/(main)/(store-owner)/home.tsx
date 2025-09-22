@@ -1,5 +1,7 @@
-import React from "react";
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View, Switch } from "react-native";
+import { auth, database } from "../../../FirebaseConfig";
+import { ref, get } from "firebase/database";
 import { CustomStatusBar } from "../../../src/components/ui/StatusBar";
 import { Typography } from "../../../src/components/ui/Typography";
 import { Colors } from "../../../src/constants/Colors";
@@ -7,196 +9,429 @@ import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
 
 export default function StoreHomeScreen() {
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
+  const [selectedFilter, setSelectedFilter] = useState('Pending');
+
+  // Store data from Firebase
+  const [storeData, setStoreData] = useState({
+    storeName: 'Store Owner', // This will show the actual store name like "Kelly Store"
+    storeAddress: 'Jacinto Street',
+    city: 'Davao City'
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch store data from Firebase
+  useEffect(() => {
+    const fetchStoreData = async () => {
+      try {
+        const user = auth.currentUser;
+        console.log('🔥 Current user:', user?.uid);
+
+        if (user) {
+          // Get user data
+          const userRef = ref(database, `users/${user.uid}`);
+          const userSnapshot = await get(userRef);
+
+          console.log('👤 User snapshot exists:', userSnapshot.exists());
+
+          if (userSnapshot.exists()) {
+            const userData = userSnapshot.val();
+            console.log('👤 User data:', userData);
+
+            // Try multiple possible data structures
+            console.log('🔍 Checking different data paths...');
+
+            // Method 1: Check if store data is directly in user object
+            if (userData.storeName || userData.storeAddress || userData.store) {
+              console.log('📍 Found store data in user object');
+              const storeInfo = userData.store || userData;
+              setStoreData({
+                storeName: storeInfo.storeName || userData.storeName || 'Store Owner',
+                storeAddress: storeInfo.storeAddress || userData.storeAddress || 'Jacinto Street',
+                city: storeInfo.city || userData.city || 'Davao City'
+              });
+            }
+            // Method 2: Get store data if storeId exists
+            else if (userData.storeId) {
+              console.log('🏪 Store ID found:', userData.storeId);
+              const storeRef = ref(database, `stores/${userData.storeId}`);
+              const storeSnapshot = await get(storeRef);
+
+              console.log('🏪 Store snapshot exists:', storeSnapshot.exists());
+
+              if (storeSnapshot.exists()) {
+                const store = storeSnapshot.val();
+                console.log('🏪 Store data:', store);
+                setStoreData({
+                  storeName: store.storeName || 'Store Owner',
+                  storeAddress: store.storeAddress || 'Jacinto Street',
+                  city: store.city || 'Davao City'
+                });
+              }
+            } else {
+              console.log('⚠️ No store data in user object, trying stores collection with UID');
+              // Method 3: Try stores collection with user UID
+              const storeRef = ref(database, `stores/${user.uid}`);
+              const storeSnapshot = await get(storeRef);
+
+              if (storeSnapshot.exists()) {
+                const store = storeSnapshot.val();
+                console.log('🏪 Found store data by UID:', store);
+                setStoreData({
+                  storeName: store.storeName || 'Store Owner',
+                  storeAddress: store.storeAddress || 'Jacinto Street',
+                  city: store.city || 'Davao City'
+                });
+              } else {
+                console.log('⚠️ No store data found anywhere, using defaults');
+              }
+            }
+          } else {
+            console.log('❌ No user data found');
+          }
+        } else {
+          console.log('❌ No authenticated user');
+        }
+      } catch (error) {
+        console.error('💥 Error fetching store data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStoreData();
+  }, []);
+
+  const dashboardStats = [
+    {
+      id: 1,
+      title: 'Order',
+      count: '15',
+      icon: require('../../../src/assets/images/store-owner-dashboard/purchase-order-icon.png'),
+      color: '#02545F'
+    },
+    {
+      id: 2,
+      title: 'Pending',
+      count: '15',
+      icon: require('../../../src/assets/images/store-owner-dashboard/data-pending-icon.png'),
+      color: '#02545F'
+    },
+    {
+      id: 3,
+      title: 'Active',
+      count: '15',
+      icon: require('../../../src/assets/images/store-owner-dashboard/check-mark-icon.png'),
+      color: '#02545F'
+    },
+    {
+      id: 4,
+      title: 'Completed',
+      count: '15',
+      icon: require('../../../src/assets/images/store-owner-dashboard/approval-icon.png'),
+      color: '#02545F'
+    },
+  ];
+
+  const filterTabs = ['Pending', 'Preparing', 'Out for Pickup', 'Pickup', 'Reject'];
+
   return (
     <View style={styles.container}>
-      {/* Status Bar */}
+      {/* Custom Status Bar */}
       <CustomStatusBar />
-      
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Header Section - Figma: Header with profile and notifications */}
-        <View style={styles.header}>
-          {/* Profile Section */}
+
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        bounces={false}
+      >
+        {/* Header Background Image - Figma: Rectangle 50 at 0,0 440x210 */}
+        <View style={styles.headerBackground}>
+          <Image
+            source={require('../../../src/assets/images/store-owner-dashboard/header-background.png')}
+            style={styles.headerBackgroundImage}
+            resizeMode="cover"
+          />
+
+          {/* Profile Section - Figma: Profile Group at 20,74 165x42 */}
           <View style={styles.profileSection}>
-            <View style={styles.profileImageContainer}>
-              <View style={styles.profileImage} />
+            <View style={styles.profilePicture}>
+              <Image
+                source={require('../../../src/assets/images/store-owner-dashboard/profile-picture.png')}
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
             </View>
             <View style={styles.profileInfo}>
-              <Typography variant="body" style={styles.greetingText}>
-                Good Morning
-              </Typography>
-              <Typography variant="h2" style={styles.storeName}>
-                TindaGO Store
+              {/* Welcome Text - Figma: 71,74 58x22 */}
+              <Typography style={styles.welcomeText}>Welcome</Typography>
+              {/* Store Name Text - Dynamic from Firebase (e.g., "Kelly Store") - Figma: 70,94 115x22 */}
+              <Typography style={styles.storeOwnerText}>
+                {loading ? 'Store Owner' : storeData.storeName}
               </Typography>
             </View>
           </View>
-          
-          {/* Notification Icon */}
+
+          {/* Notification Button - Figma: Notif Group at 375,74 40x40 */}
           <TouchableOpacity style={styles.notificationButton}>
-            <View style={styles.notificationIcon} />
-            <View style={styles.notificationBadge} />
+            <Image
+              source={require('../../../src/assets/images/store-owner-dashboard/notification-icon.png')}
+              style={styles.notificationIcon}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
+
+          {/* Current Location - Dynamic from Firebase - Figma: 176,126 88x22 and 123,148 193x22 */}
+          <View style={styles.locationSection}>
+            <Typography style={styles.currentLocationLabel}>Current Location</Typography>
+            <Typography style={styles.locationText}>
+              {loading
+                ? 'Jacinto Street, Davao City'
+                : `${storeData.storeAddress}, ${storeData.city}`
+              }
+            </Typography>
+          </View>
         </View>
-        
-        {/* Stats Cards Section */}
-        <View style={styles.statsSection}>
-          <Typography variant="h2" style={styles.sectionTitle}>
-            Today&apos;s Overview
-          </Typography>
-          
+
+        {/* Available Status Card - Figma: AvailableStatus Group at 20,230 400x100 */}
+        <View style={styles.availableStatusCard}>
+          <View style={styles.availableStatusContent}>
+            <View style={styles.statusTextSection}>
+              {/* Available Status Text - Figma: 40,260 113x20 */}
+              <Typography style={styles.availableStatusTitle}>Available Status</Typography>
+              {/* Store Status Text - Dynamic based on switch state */}
+              <Typography style={[
+                styles.storeStatusText,
+                { color: isStoreOpen ? '#3BB77E' : '#9CA3AF' }
+              ]}>
+                {isStoreOpen ? 'Store Open' : 'Store Closed'}
+              </Typography>
+            </View>
+            {/* Toggle Switch - Figma: Off/On Group at 343,268 50x25 */}
+            <View style={styles.switchContainer}>
+              <Switch
+                value={isStoreOpen}
+                onValueChange={setIsStoreOpen}
+                trackColor={{ false: '#E5E7EB', true: '#3BB77E' }}
+                thumbColor={isStoreOpen ? '#FFFFFF' : '#9CA3AF'}
+                style={styles.toggleSwitch}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Sales Analytics Card - Figma: Subtract at 20,350 400x140 */}
+        <View style={styles.salesCard}>
+          {/* Wallet Icon - Figma: 40,370 30x30 */}
+          <Image
+            source={require('../../../src/assets/images/store-owner-dashboard/wallet-icon.png')}
+            style={styles.walletIcon}
+            resizeMode="contain"
+          />
+
+          {/* Total Sales Header - Figma: 90,375 164x20 and 323,375 77x20 */}
+          <View style={styles.salesHeader}>
+            <Typography style={styles.salesTitle}>Total Sales For The Day</Typography>
+            <Typography style={styles.salesAmount}>₱4,324.00</Typography>
+          </View>
+
+          {/* Separator Line - Figma: Vector 43 at 30,415 380x0 */}
+          <View style={styles.salesSeparator} />
+
+          {/* Sales Breakdown - Figma: Week/Month/Year Groups */}
+          <View style={styles.salesBreakdown}>
+            {/* This Week - Figma: 50,437 77x37 */}
+            <View style={styles.salesPeriod}>
+              <Typography style={styles.periodLabel}>This Week</Typography>
+              <Typography style={styles.periodAmount}>₱4,324.00</Typography>
+            </View>
+
+            {/* This Month - Figma: 176,437 83x37 */}
+            <View style={styles.salesPeriod}>
+              <Typography style={styles.periodLabel}>This Month</Typography>
+              <Typography style={styles.periodAmount}>₱14,324.00</Typography>
+            </View>
+
+            {/* This Year - Figma: 302,437 87x37 */}
+            <View style={styles.salesPeriod}>
+              <Typography style={styles.periodLabel}>This Year</Typography>
+              <Typography style={styles.periodAmount}>₱43,324.00</Typography>
+            </View>
+          </View>
+        </View>
+
+        {/* Dashboard Stats Grid - Figma: Box 1-4 starting at 20,510 */}
+        <View style={styles.statsContainer}>
           <View style={styles.statsGrid}>
-            {/* Sales Card */}
-            <View style={styles.statsCard}>
-              <View style={[styles.statsIconContainer, { backgroundColor: Colors.primary }]}>
-                <View style={styles.statsIcon} />
-              </View>
-              <Typography variant="h1" style={styles.statsValue}>
-                ₱2,450
-              </Typography>
-              <Typography variant="body" style={styles.statsLabel}>
-                Total Sales
-              </Typography>
-            </View>
-            
-            {/* Orders Card */}
-            <View style={styles.statsCard}>
-              <View style={[styles.statsIconContainer, { backgroundColor: '#FF6B6B' }]}>
-                <View style={styles.statsIcon} />
-              </View>
-              <Typography variant="h1" style={styles.statsValue}>
-                24
-              </Typography>
-              <Typography variant="body" style={styles.statsLabel}>
-                Orders
-              </Typography>
-            </View>
-            
-            {/* Products Card */}
-            <View style={styles.statsCard}>
-              <View style={[styles.statsIconContainer, { backgroundColor: '#4ECDC4' }]}>
-                <View style={styles.statsIcon} />
-              </View>
-              <Typography variant="h1" style={styles.statsValue}>
-                156
-              </Typography>
-              <Typography variant="body" style={styles.statsLabel}>
-                Products
-              </Typography>
-            </View>
-            
-            {/* Customers Card */}
-            <View style={styles.statsCard}>
-              <View style={[styles.statsIconContainer, { backgroundColor: '#FFE66D' }]}>
-                <View style={styles.statsIcon} />
-              </View>
-              <Typography variant="h1" style={styles.statsValue}>
-                89
-              </Typography>
-              <Typography variant="body" style={styles.statsLabel}>
-                Customers
-              </Typography>
-            </View>
+            {dashboardStats.map((stat, index) => {
+              const isLeftColumn = index % 2 === 0;
+              const rowIndex = Math.floor(index / 2);
+
+              return (
+                <TouchableOpacity
+                  key={stat.id}
+                  style={[
+                    styles.statsBox,
+                    {
+                      marginRight: isLeftColumn ? s(18) : 0, // 229 - 20 - 191 = 18px gap
+                      marginBottom: rowIndex === 0 ? vs(20) : 0, // Gap between rows
+                    }
+                  ]}
+                >
+                  {/* Stats Box Background - Figma: Rectangle 61 191x160 with 16px radius */}
+                  <View style={styles.statsBoxBackground} />
+
+                  {/* Icon Container - Figma: Rectangle 63 at 161,520 40x40 (relative to box) */}
+                  <View style={styles.statsIconContainer}>
+                    <Image
+                      source={stat.icon}
+                      style={styles.statsIcon}
+                      resizeMode="contain"
+                    />
+                  </View>
+
+                  {/* Stats Label - Figma: Order label Group at 33,598 (relative to box) */}
+                  <View style={styles.statsLabel}>
+                    <Typography style={styles.statsTitle}>{stat.title}</Typography>
+                    <Typography style={styles.statsNumber}>{stat.count}</Typography>
+                  </View>
+
+                  {/* Vertical Line - Figma: Vector 44 at 22,598 (relative to box) */}
+                  <View style={styles.statsVerticalLine} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
-        
-        {/* Quick Actions Section */}
-        <View style={styles.quickActionsSection}>
-          <Typography variant="h2" style={styles.sectionTitle}>
-            Quick Actions
-          </Typography>
-          
-          <View style={styles.quickActionsGrid}>
-            <TouchableOpacity style={styles.actionButton}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.primary }]} />
-              <Typography variant="body" style={styles.actionLabel}>
-                Add Product
-              </Typography>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionButton}>
-              <View style={[styles.actionIcon, { backgroundColor: '#FF6B6B' }]} />
-              <Typography variant="body" style={styles.actionLabel}>
-                View Orders
-              </Typography>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionButton}>
-              <View style={[styles.actionIcon, { backgroundColor: '#4ECDC4' }]} />
-              <Typography variant="body" style={styles.actionLabel}>
-                Inventory
-              </Typography>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionButton}>
-              <View style={[styles.actionIcon, { backgroundColor: '#FFE66D' }]} />
-              <Typography variant="body" style={styles.actionLabel}>
-                Analytics
-              </Typography>
+
+        {/* Order Update Section - Figma: Label Group at 23,870 395x24 */}
+        <View style={styles.orderUpdateSection}>
+          <View style={styles.orderUpdateHeader}>
+            <Typography style={styles.orderUpdateTitle}>Order update</Typography>
+            <TouchableOpacity>
+              <Typography style={styles.seeMoreText}>See more</Typography>
             </TouchableOpacity>
           </View>
+
+          {/* Filter Pills - Figma: Label for update Frame at -23,914 463x30 */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScrollView}
+            contentContainerStyle={styles.filterContainer}
+          >
+            {filterTabs.map((filter, index) => (
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.filterPill,
+                  selectedFilter === filter && styles.filterPillActive
+                ]}
+                onPress={() => setSelectedFilter(filter)}
+              >
+                <Typography
+                  style={StyleSheet.flatten([
+                    styles.filterText,
+                    selectedFilter === filter ? styles.filterTextActive : null
+                  ])}
+                >
+                  {filter}
+                </Typography>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
-        
-        {/* Recent Activity Section */}
-        <View style={styles.recentActivitySection}>
-          <Typography variant="h2" style={styles.sectionTitle}>
-            Recent Activity
-          </Typography>
-          
-          <View style={styles.activityList}>
-            {/* Activity Item 1 */}
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIcon, { backgroundColor: Colors.primary }]} />
-              <View style={styles.activityContent}>
-                <Typography variant="body" style={styles.activityTitle}>
-                  New order received
-                </Typography>
-                <Typography variant="caption" style={styles.activityTime}>
-                  5 minutes ago
-                </Typography>
+
+        {/* Order List Cards */}
+        <View style={styles.orderListContainer}>
+          {[0, 1].map((cardIndex) => (
+            <TouchableOpacity
+              key={cardIndex}
+              style={styles.orderCard}
+            >
+              {/* Order Card Background - Figma: Rectangle 64 400x200 with 16px radius */}
+              <View style={styles.orderCardBackground} />
+
+              {/* Logo Section - Figma: Logo Group at 40,984 40x40 (relative to card) */}
+              <View style={styles.orderLogo}>
+                <View style={styles.orderLogoBackground} />
+                <Image
+                  source={require('../../../src/assets/images/store-owner-dashboard/cheque-icon.png')}
+                  style={styles.orderLogoIcon}
+                  resizeMode="contain"
+                />
               </View>
-              <View style={styles.activityBadge}>
-                <Typography variant="caption" style={styles.badgeText}>
-                  ₱125
-                </Typography>
+
+              {/* Order Header - Figma: Order No at 95,986 and 1 min ago at 343,986 */}
+              <View style={styles.orderHeader}>
+                <View style={styles.orderHeaderLeft}>
+                  <Typography style={styles.orderNoLabel}>Order No</Typography>
+                  <Typography style={styles.orderNoValue}>#12345</Typography>
+                </View>
+                <Typography style={styles.orderTime}>1 min ago</Typography>
               </View>
-            </View>
-            
-            {/* Activity Item 2 */}
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIcon, { backgroundColor: '#4ECDC4' }]} />
-              <View style={styles.activityContent}>
-                <Typography variant="body" style={styles.activityTitle}>
-                  Product out of stock
-                </Typography>
-                <Typography variant="caption" style={styles.activityTime}>
-                  15 minutes ago
-                </Typography>
+
+              {/* Separator Line - Figma: Vector 43 at 30,1044 */}
+              <View style={styles.orderSeparator} />
+
+              {/* Order Details Row 1 - Customer Info */}
+              <View style={styles.orderDetailsRow1}>
+                {/* Customer Name - Figma: Name Group at 61,1062 116x34 */}
+                <View style={styles.orderDetailCustomer}>
+                  <Image
+                    source={require('../../../src/assets/images/store-owner-dashboard/person-icon.png')}
+                    style={styles.orderDetailIcon}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.orderDetailText}>
+                    <Typography style={styles.customerName}>Dotarot{'\n'}Maynard</Typography>
+                  </View>
+                </View>
+
+                {/* Phone Number - Figma: Call Group at 236,1059 142x40 */}
+                <View style={styles.orderDetailPhone}>
+                  <Image
+                    source={require('../../../src/assets/images/store-owner-dashboard/phone-icon.png')}
+                    style={styles.orderDetailIcon}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.orderDetailText}>
+                    <Typography style={styles.phoneNumber}>+6398 032{'\n'}4213</Typography>
+                  </View>
+                </View>
               </View>
-              <View style={[styles.activityBadge, { backgroundColor: '#FF6B6B' }]}>
-                <Typography variant="caption" style={styles.badgeText}>
-                  Alert
-                </Typography>
+
+              {/* Order Details Row 2 - Payment Info */}
+              <View style={styles.orderDetailsRow2}>
+                {/* Price - Figma: Price Group at 61,1114 125x30 */}
+                <View style={styles.orderDetailPrice}>
+                  <Image
+                    source={require('../../../src/assets/images/store-owner-dashboard/coin-wallet-icon.png')}
+                    style={styles.orderDetailIcon}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.orderDetailText}>
+                    <Typography style={styles.orderPrice}>₱589.00</Typography>
+                  </View>
+                </View>
+
+                {/* Payment Method - Figma: Mode of payment Group at 236,1114 130x30 */}
+                <View style={styles.orderDetailPayment}>
+                  <Image
+                    source={require('../../../src/assets/images/store-owner-dashboard/wallet-payment-icon.png')}
+                    style={styles.orderDetailIcon}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.orderDetailText}>
+                    <Typography style={styles.paymentMethod}>PAYMAYA</Typography>
+                  </View>
+                </View>
               </View>
-            </View>
-            
-            {/* Activity Item 3 */}
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIcon, { backgroundColor: '#FFE66D' }]} />
-              <View style={styles.activityContent}>
-                <Typography variant="body" style={styles.activityTitle}>
-                  Payment received
-                </Typography>
-                <Typography variant="caption" style={styles.activityTime}>
-                  1 hour ago
-                </Typography>
-              </View>
-              <View style={styles.activityBadge}>
-                <Typography variant="caption" style={styles.badgeText}>
-                  ₱350
-                </Typography>
-              </View>
-            </View>
-          </View>
+            </TouchableOpacity>
+          ))}
         </View>
+
       </ScrollView>
     </View>
   );
@@ -205,256 +440,656 @@ export default function StoreHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6F6', // Figma background color
+    backgroundColor: '#F4F6F6', // Figma: fill_4NI1RY
   },
-  
+
+  // Fix ScrollView layout to allow proper scrolling
+  scrollView: {
+    flex: 1,
+  },
+
   scrollContent: {
-    paddingBottom: vs(20),
+    flexGrow: 1,
+    paddingBottom: vs(20), // Reduced padding since no navigation bar
   },
-  
-  // Header Section - Figma: Top section with profile and notification
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: s(20),
-    paddingTop: vs(20),
-    paddingBottom: vs(15),
+
+  // Header Background - Figma: Rectangle 50 at 0,0 440x210
+  headerBackground: {
+    position: 'relative',
+    width: '100%',
+    height: vs(210),
+    marginBottom: vs(20),
   },
-  
+
+  headerBackgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: vs(210),
+  },
+
+  // Profile Section - Figma: Profile Group at 20,74 165x42
   profileSection: {
+    position: 'absolute',
+    top: vs(74),
+    left: s(20),
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    width: s(165),
+    height: vs(42),
   },
-  
-  profileImageContainer: {
-    marginRight: s(12),
-  },
-  
-  profileImage: {
-    width: s(48),
-    height: s(48),
-    borderRadius: s(24),
-    backgroundColor: Colors.lightGray,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-  },
-  
-  profileInfo: {
-    justifyContent: 'center',
-  },
-  
-  greetingText: {
-    fontSize: s(14),
-    color: Colors.textSecondary,
-    fontFamily: Fonts.secondary,
-    marginBottom: vs(2),
-  },
-  
-  storeName: {
-    fontSize: s(18),
-    fontWeight: '600',
-    color: Colors.darkGray,
-    fontFamily: Fonts.primary,
-  },
-  
-  notificationButton: {
+
+  // Profile Picture - Figma: Profile Picture Ellipse at 20,74 40x40
+  profilePicture: {
     width: s(40),
     height: s(40),
     borderRadius: s(20),
-    backgroundColor: Colors.white,
+    backgroundColor: '#FFFFFF',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  },
+
+  profileImage: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+  },
+
+  profileInfo: {
+    marginLeft: s(11), // 51px from left - 40px width = 11px margin
+    justifyContent: 'flex-start',
+  },
+
+  // Welcome Text - Figma: Welcome Text at 71,74 58x22
+  welcomeText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '400',
+    fontSize: s(14),
+    lineHeight: s(22),
+    color: '#FFFFFF',
+    height: vs(22),
+  },
+
+  // Store Owner Text - Figma: Store Owner Text at 70,94 115x22
+  storeOwnerText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(20),
+    lineHeight: s(22),
+    color: '#FFFFFF',
+    height: vs(22),
+    marginTop: vs(0),
+  },
+
+  // Notification Button - Figma: Notif Group at 375,74 40x40
+  notificationButton: {
+    position: 'absolute',
+    top: vs(74),
+    left: s(375),
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: '#FFFFFF',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  notificationIcon: {
+    width: s(25),
+    height: s(25),
+  },
+
+  // Location Section - Figma: Current Location at 176,126 88x22 and Jacinto Street at 123,148 193x22
+  locationSection: {
+    position: 'absolute',
+    top: vs(126), // Back to original position
+    alignItems: 'center',
+    width: '100%',
+    height: vs(44), // Total height for both texts
+  },
+
+  currentLocationLabel: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '400',
+    fontSize: s(12),
+    lineHeight: s(22),
+    color: '#FFFFFF',
+    textAlign: 'center',
+    height: vs(22),
+  },
+
+  locationText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '600',
+    fontSize: s(16),
+    lineHeight: s(22),
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginTop: vs(0),
+    height: vs(22),
+  },
+
+  // Available Status Card - Figma: AvailableStatus Group at 20,230 400x100
+  availableStatusCard: {
+    marginHorizontal: s(20),
+    marginBottom: vs(20),
+    width: s(400),
+    height: vs(100),
+    backgroundColor: '#FFFFFF',
+    borderRadius: s(20),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+
+  availableStatusContent: {
+    flex: 1,
     position: 'relative',
   },
-  
-  notificationIcon: {
-    width: s(20),
-    height: s(20),
-    backgroundColor: Colors.textSecondary,
-    borderRadius: s(2),
-  },
-  
-  notificationBadge: {
+
+  statusTextSection: {
     position: 'absolute',
-    top: s(8),
-    right: s(8),
-    width: s(8),
-    height: s(8),
-    borderRadius: s(4),
-    backgroundColor: '#FF6B6B',
+    top: vs(30),
+    left: s(20),
   },
-  
-  // Stats Section
-  statsSection: {
+
+  // Available Status Title - Figma: Available Status at 40,260 113x20
+  availableStatusTitle: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#000000',
+    width: s(113),
+    height: vs(20),
+  },
+
+  // Store Status Text - Dynamic color based on switch state
+  storeStatusText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(12),
+    lineHeight: s(15),
+    // Color is now set dynamically in the component
+    width: s(80), // Increased width to accommodate "Store Closed"
+    height: vs(15),
+    marginTop: vs(25),
+  },
+
+  // Switch Container - Figma: Off/On Group at 343,268 50x25
+  switchContainer: {
+    position: 'absolute',
+    top: vs(38),
+    right: s(27),
+    width: s(50),
+    height: vs(25),
+  },
+
+  toggleSwitch: {
+    transform: [{ scaleX: 1.2 }, { scaleY: 1.2 }],
+  },
+
+  // Sales Card - Figma: Subtract at 20,350 400x140
+  salesCard: {
+    marginHorizontal: s(20),
+    marginBottom: vs(20),
+    width: s(400),
+    height: vs(140),
+    backgroundColor: '#FFFFFF',
+    borderRadius: s(20),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+    elevation: 5,
+    padding: s(20),
+  },
+
+  // Wallet Icon - Figma: Wallet at 40,370 30x30 (relative to card: 20px from left edge)
+  walletIcon: {
+    position: 'absolute',
+    top: vs(20),
+    left: s(20),
+    width: s(30),
+    height: vs(30),
+  },
+
+  // Sales Header - Figma: Total Sales at 90,375 164x20 and ₱4,324.00 at 323,375 77x20
+  salesHeader: {
+    position: 'absolute',
+    top: vs(25),
+    left: s(70),
+    right: s(20),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  salesTitle: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#1E1E1E',
+    width: s(164),
+    height: vs(20),
+  },
+
+  salesAmount: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#02545F',
+    width: s(77),
+    height: vs(20),
+    textAlign: 'right',
+  },
+
+  // Sales Separator - Figma: Vector 43 at 30,415 380x0
+  salesSeparator: {
+    position: 'absolute',
+    top: vs(65),
+    left: s(10),
+    width: s(380),
+    height: 2,
+    backgroundColor: '#02545F',
+  },
+
+  // Sales Breakdown - Figma: Week/Month/Year Groups starting at y:437
+  salesBreakdown: {
+    position: 'absolute',
+    top: vs(87),
+    left: s(30),
+    right: s(30),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  salesPeriod: {
+    alignItems: 'flex-start',
+  },
+
+  periodLabel: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '400',
+    fontSize: s(14),
+    lineHeight: s(17),
+    color: '#000000',
+    height: vs(17),
+  },
+
+  periodAmount: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#02545F',
+    height: vs(20),
+    marginTop: vs(0),
+  },
+
+  // Stats Container - Use flexbox instead of absolute positioning
+  statsContainer: {
     paddingHorizontal: s(20),
-    marginBottom: vs(25),
+    marginBottom: vs(20),
   },
-  
-  sectionTitle: {
-    fontSize: s(20),
-    fontWeight: '600',
-    color: Colors.darkGray,
-    fontFamily: Fonts.primary,
-    marginBottom: vs(15),
-  },
-  
+
+  // Stats Grid - Use flexbox layout
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  
-  statsCard: {
-    width: s(180),
-    backgroundColor: Colors.white,
-    borderRadius: s(16),
-    padding: s(20),
-    marginBottom: vs(12),
-    alignItems: 'center',
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+
+  // Stats Box - Figma: Box dimensions 191x160 with 16px radius
+  statsBox: {
+    width: s(191),
+    height: vs(160),
+    position: 'relative',
   },
-  
+
+  statsBoxBackground: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: s(16),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+
+  // Stats Icon Container - Figma: Rectangle 63 at 161,520 40x40 (relative to box)
   statsIconContainer: {
-    width: s(48),
-    height: s(48),
-    borderRadius: s(24),
+    position: 'absolute',
+    top: vs(10),
+    right: s(10),
+    width: s(40),
+    height: vs(40),
+    backgroundColor: '#02545F',
+    borderRadius: s(8),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: vs(12),
   },
-  
+
   statsIcon: {
-    width: s(24),
-    height: s(24),
-    backgroundColor: Colors.white,
-    borderRadius: s(2),
+    width: s(25),
+    height: vs(25),
   },
-  
-  statsValue: {
-    fontSize: s(24),
-    fontWeight: '700',
-    color: Colors.darkGray,
-    fontFamily: Fonts.primary,
-    marginBottom: vs(4),
-  },
-  
+
+  // Stats Label - Figma: Order label Group at 33,598 (relative to box position)
   statsLabel: {
-    fontSize: s(14),
-    color: Colors.textSecondary,
-    fontFamily: Fonts.secondary,
-    textAlign: 'center',
+    position: 'absolute',
+    bottom: vs(18),
+    left: s(13),
+    width: s(79), // Max width for text
+    height: vs(54),
   },
-  
-  // Quick Actions Section
-  quickActionsSection: {
-    paddingHorizontal: s(20),
-    marginBottom: vs(25),
-  },
-  
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  
-  actionButton: {
-    width: s(80),
-    alignItems: 'center',
-    marginBottom: vs(15),
-  },
-  
-  actionIcon: {
-    width: s(60),
-    height: s(60),
-    borderRadius: s(16),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: vs(8),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  
-  actionLabel: {
-    fontSize: s(12),
-    color: Colors.darkGray,
-    fontFamily: Fonts.secondary,
-    textAlign: 'center',
+
+  statsNumber: {
+    fontFamily: 'Clash Grotesk Variable',
     fontWeight: '500',
+    fontSize: s(28),
+    lineHeight: s(34),
+    color: '#02545F',
+    height: vs(34),
   },
-  
-  // Recent Activity Section
-  recentActivitySection: {
-    paddingHorizontal: s(20),
+
+  statsTitle: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#1E1E1E',
+    height: vs(20),
+    marginTop: vs(0),
   },
-  
-  activityList: {
-    backgroundColor: Colors.white,
-    borderRadius: s(16),
-    padding: s(16),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+
+  // Stats Vertical Line - Figma: Vector 44 at 22,598 (relative to box)
+  statsVerticalLine: {
+    position: 'absolute',
+    bottom: vs(18), // Align with label
+    left: s(2),
+    width: s(4),
+    height: vs(51.5),
+    backgroundColor: '#02545F',
   },
-  
-  activityItem: {
+
+  // Order Update Section - Figma: Label Group at 23,870 395x24
+  orderUpdateSection: {
+    paddingHorizontal: s(23),
+    marginBottom: vs(20),
+  },
+
+  orderUpdateHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: vs(12),
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    marginBottom: vs(20),
   },
-  
-  activityIcon: {
-    width: s(36),
-    height: s(36),
-    borderRadius: s(18),
-    marginRight: s(12),
+
+  orderUpdateTitle: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '600',
+    fontSize: s(20),
+    lineHeight: s(22),
+    color: '#1E1E1E',
+    height: vs(22),
   },
-  
-  activityContent: {
+
+  seeMoreText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(14),
+    lineHeight: s(22),
+    color: 'rgba(0, 0, 0, 0.5)',
+    height: vs(22),
+  },
+
+  // Filter ScrollView
+  filterScrollView: {
+    height: vs(30),
+  },
+
+  filterContainer: {
+    paddingHorizontal: s(0),
+    gap: s(10),
+  },
+
+  filterPill: {
+    backgroundColor: 'rgba(30, 30, 30, 0.5)',
+    borderRadius: s(8),
+    paddingHorizontal: s(15),
+    paddingVertical: vs(5),
+    marginRight: s(10),
+  },
+
+  filterPillActive: {
+    backgroundColor: '#02545F',
+  },
+
+  filterText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#FFFFFF',
+  },
+
+  filterTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Order List Container - Use flexbox instead of absolute positioning
+  orderListContainer: {
+    paddingHorizontal: s(20),
+    gap: vs(20),
+  },
+
+  // Order Card - Remove absolute positioning
+  orderCard: {
+    width: s(400),
+    height: vs(200),
+    position: 'relative',
+  },
+
+  orderCardBackground: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: s(16),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+
+  // Order Logo - Figma: Logo Group at 40,984 40x40 (relative to card)
+  orderLogo: {
+    position: 'absolute',
+    top: vs(20),
+    left: s(20),
+    width: s(40),
+    height: vs(40),
+  },
+
+  orderLogoBackground: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#02545F',
+    borderRadius: s(5),
+  },
+
+  orderLogoIcon: {
+    position: 'absolute',
+    top: vs(8),
+    left: s(7),
+    width: s(25),
+    height: vs(25),
+  },
+
+  // Order Header - Figma: Order No at 95,986 and 1 min ago at 343,986
+  orderHeader: {
+    position: 'absolute',
+    top: vs(22),
+    left: s(75),
+    right: s(20),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+
+  orderHeaderLeft: {
     flex: 1,
   },
-  
-  activityTitle: {
-    fontSize: s(15),
+
+  orderNoLabel: {
+    fontFamily: 'Clash Grotesk Variable',
     fontWeight: '500',
-    color: Colors.darkGray,
-    fontFamily: Fonts.secondary,
-    marginBottom: vs(2),
+    fontSize: s(14),
+    lineHeight: s(17),
+    color: 'rgba(30, 30, 30, 0.5)',
+    height: vs(17),
   },
-  
-  activityTime: {
+
+  orderNoValue: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
     fontSize: s(12),
-    color: Colors.textSecondary,
-    fontFamily: Fonts.secondary,
+    lineHeight: s(15),
+    color: '#000000',
+    height: vs(15),
+    marginTop: vs(6),
   },
-  
-  activityBadge: {
-    backgroundColor: Colors.primary,
-    borderRadius: s(12),
-    paddingHorizontal: s(8),
-    paddingVertical: vs(4),
+
+  orderTime: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(14),
+    lineHeight: s(17),
+    color: 'rgba(30, 30, 30, 0.5)',
+    textAlign: 'right',
+    height: vs(17),
   },
-  
-  badgeText: {
-    fontSize: s(11),
-    color: Colors.white,
-    fontFamily: Fonts.secondary,
-    fontWeight: '600',
+
+  // Order Separator - Figma: Vector 43 at 30,1044 (relative to card)
+  orderSeparator: {
+    position: 'absolute',
+    top: vs(80),
+    left: s(10),
+    width: s(380),
+    height: 2,
+    backgroundColor: '#02545F',
   },
+
+  // Order Details Row 1 - Customer and Phone Info
+  orderDetailsRow1: {
+    position: 'absolute',
+    top: vs(95), // Position after separator
+    left: s(20),
+    right: s(20),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+
+  // Order Details Row 2 - Price and Payment Info
+  orderDetailsRow2: {
+    position: 'absolute',
+    top: vs(140), // Position below first row
+    left: s(20),
+    right: s(20),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+
+  // Customer Name Section
+  orderDetailCustomer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: s(160), // More space for customer name
+  },
+
+  // Phone Number Section
+  orderDetailPhone: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: s(160), // More space for phone
+  },
+
+  // Price Section
+  orderDetailPrice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: s(150), // Adequate space for price
+  },
+
+  // Payment Method Section
+  orderDetailPayment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: s(160), // Space for payment method
+  },
+
+  orderDetailIcon: {
+    width: s(24),
+    height: vs(24),
+    marginRight: s(12),
+    marginTop: vs(2), // Slight vertical adjustment for better alignment
+  },
+
+  orderDetailText: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+
+  customerName: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(14),
+    lineHeight: s(17),
+    color: '#000000',
+  },
+
+  phoneNumber: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#1E1E1E',
+  },
+
+  orderPrice: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#1E1E1E',
+  },
+
+  paymentMethod: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(16),
+    lineHeight: s(20),
+    color: '#1E1E1E',
+  },
+
 });

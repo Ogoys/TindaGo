@@ -164,7 +164,7 @@ export default function VerifyEmailCodeScreen() {
       {/* Didn't receive email text - Figma: x:20, y:382, width:238, height:22 */}
       <View style={styles.noCodeContainer}>
         <Typography variant="body" color="textSecondary" style={styles.noCodeText}>
-          Didn't receive the verification email?
+          Didn&apos;t receive the verification email?
         </Typography>
       </View>
 

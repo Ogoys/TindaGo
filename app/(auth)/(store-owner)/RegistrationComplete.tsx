@@ -91,7 +91,7 @@ export default function RegistrationCompleteScreen() {
 
           {/* Status message */}
           <Typography variant="body" style={styles.statusText}>
-            Your application is now pending admin approval. You'll receive an email notification once verified.
+            Your application is now pending admin approval. You&apos;ll receive an email notification once verified.
           </Typography>
         </View>
 

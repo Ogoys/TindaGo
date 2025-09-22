@@ -187,7 +187,7 @@ export default function CompletePhoneRegistrationScreen() {
               Complete Registration
             </Typography>
             <Typography variant="body" color="textSecondary" style={styles.subtitle}>
-              Phone verified! Complete your account setup. You'll use the email below to sign in.
+              Phone verified! Complete your account setup. You&apos;ll use the email below to sign in.
             </Typography>
             <Typography variant="body" style={styles.phoneDisplay}>
               📱 {phoneNumber}

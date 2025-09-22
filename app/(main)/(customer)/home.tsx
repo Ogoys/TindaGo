@@ -199,7 +199,7 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* End Message - Figma: x:174, y:1750, width:93, height:22 */}
-        <Text style={styles.endMessage}>That's all for now!</Text>
+        <Text style={styles.endMessage}>That&apos;s all for now!</Text>
         
         {/* Bottom padding for tab navigation */}
         <View style={styles.bottomPadding} />

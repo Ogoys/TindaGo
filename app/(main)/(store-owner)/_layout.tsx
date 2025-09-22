@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { View } from "react-native";
+import { View, Image } from "react-native";
 import { Colors } from "../../../src/constants/Colors";
 import { s, vs } from "../../../src/constants/responsive";
 
@@ -32,40 +32,17 @@ export default function StoreOwnerLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Dashboard",
+          title: "Home",
           tabBarIcon: ({ focused }) => (
-            <View style={{
-              width: s(31),
-              height: s(52),
-              justifyContent: "center",
-              alignItems: "center",
-            }}>
-              <View style={{
-                width: s(24),
-                height: s(24),
-                backgroundColor: focused ? Colors.primary : Colors.textSecondary,
-              }} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="inventory"
-        options={{
-          title: "Inventory",
-          tabBarIcon: ({ focused }) => (
-            <View style={{
-              width: s(38),
-              height: s(51),
-              justifyContent: "center",
-              alignItems: "center",
-            }}>
-              <View style={{
-                width: s(24),
-                height: s(24),
-                backgroundColor: focused ? Colors.primary : Colors.textSecondary,
-              }} />
-            </View>
+            <Image
+              source={require('../../../src/assets/images/store-owner-dashboard/home-icon.png')}
+              style={{
+                width: s(30),
+                height: s(30),
+                tintColor: focused ? Colors.primary : Colors.textSecondary,
+              }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
@@ -74,46 +51,49 @@ export default function StoreOwnerLayout() {
         options={{
           title: "Orders",
           tabBarIcon: ({ focused }) => (
-            <View style={{
-              width: s(50),
-              height: s(50),
-              backgroundColor: focused ? Colors.primary : Colors.lightGray,
-              borderRadius: s(25),
-              justifyContent: "center",
-              alignItems: "center",
-              shadowColor: Colors.shadow,
-              shadowOffset: { width: 0, height: vs(4) },
-              shadowOpacity: 0.25,
-              shadowRadius: s(5),
-              elevation: 5,
-              marginTop: vs(-10),
-            }}>
-              <View style={{
-                width: s(24),
-                height: s(24),
-                backgroundColor: focused ? Colors.white : Colors.textSecondary,
-              }} />
-            </View>
+            <Image
+              source={require('../../../src/assets/images/store-owner-dashboard/orders-icon.png')}
+              style={{
+                width: s(30),
+                height: s(30),
+                tintColor: focused ? Colors.primary : Colors.textSecondary,
+              }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="sales"
+        name="category"
         options={{
-          title: "Sales",
+          title: "Category",
           tabBarIcon: ({ focused }) => (
-            <View style={{
-              width: s(49),
-              height: s(52),
-              justifyContent: "center",
-              alignItems: "center",
-            }}>
-              <View style={{
-                width: s(24),
-                height: s(24),
-                backgroundColor: focused ? Colors.primary : Colors.textSecondary,
-              }} />
-            </View>
+            <Image
+              source={require('../../../src/assets/images/store-owner-dashboard/category-icon.png')}
+              style={{
+                width: s(30),
+                height: s(30),
+                tintColor: focused ? Colors.primary : Colors.textSecondary,
+              }}
+              resizeMode="contain"
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={require('../../../src/assets/images/store-owner-dashboard/person-icon.png')}
+              style={{
+                width: s(30),
+                height: s(30),
+                tintColor: focused ? Colors.primary : Colors.textSecondary,
+              }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
