@@ -1,20 +1,20 @@
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StatusBar,
-  TextInput,
   Alert,
+  Image,
   Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { router } from 'expo-router';
-import { s, vs } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
+import { s, vs } from '../../../../src/constants/responsive';
 
 interface CategoryItem {
   id: string;
@@ -101,7 +101,11 @@ const AddProductScreen = () => {
       {/* Time Display - Figma: x: 51.92, y: 18.34, font: ABeeZee 400, size: 17 */}
       <Text style={styles.timeText}>9:41</Text>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        style={{ flex: 1 }}
+      >
         {/* Back Button - Figma: x: 20, y: 79, width: 30, height: 30 */}
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <Image
@@ -145,7 +149,7 @@ const AddProductScreen = () => {
         </View>
 
         {/* Description Section - Figma: x: 20, y: 439, width: 400 */}
-        <View style={[styles.inputSection, { top: vs(439) }]}>
+        <View style={[styles.inputSection, { top: vs(460) }]}>
           <Text style={styles.inputLabel}>Description</Text>
           <View style={[styles.inputContainer, styles.descriptionContainer]}>
             <TextInput
@@ -161,7 +165,7 @@ const AddProductScreen = () => {
         </View>
 
         {/* Product Category Section - Figma: x: 20, y: 636, width: 400 */}
-        <View style={[styles.inputSection, { top: vs(636) }]}>
+        <View style={[styles.inputSection, { top: vs(650) }]}>
           <Text style={styles.inputLabel}>Product Category</Text>
           <TouchableOpacity style={styles.categoryContainer} onPress={handleCategoryDropdownOpen} activeOpacity={0.7}>
             <Text style={[styles.categoryText, selectedCategory && { color: Colors.darkGray }]}>
@@ -182,7 +186,7 @@ const AddProductScreen = () => {
             <Text style={styles.inputLabel}>Price</Text>
             <View style={styles.halfInputContainer}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.halfTextInput]}
                 placeholder="₱0.00"
                 placeholderTextColor="rgba(30, 30, 30, 0.5)"
                 value={price}
@@ -197,7 +201,7 @@ const AddProductScreen = () => {
             <Text style={styles.inputLabel}>Quantity</Text>
             <View style={styles.halfInputContainer}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.halfTextInput]}
                 placeholder="0"
                 placeholderTextColor="rgba(30, 30, 30, 0.5)"
                 value={quantity}
@@ -228,16 +232,21 @@ const AddProductScreen = () => {
         >
           <View style={styles.dropdownModal}>
             <Text style={styles.dropdownTitle}>Select Category</Text>
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={styles.categoryOption}
-                onPress={() => handleCategorySelect(category)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.categoryOptionText}>{category.name}</Text>
-              </TouchableOpacity>
-            ))}
+            <ScrollView
+              style={styles.categoryScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={styles.categoryOption}
+                  onPress={() => handleCategorySelect(category)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.categoryOptionText}>{category.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -265,7 +274,7 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    flexGrow: 1,
+    height: vs(964), // Adjusted for spacing changes
     paddingBottom: vs(50),
   },
 
@@ -301,7 +310,7 @@ const styles = StyleSheet.create({
     width: s(118),
     height: vs(22),
     fontFamily: 'Clash Grotesk Variable',
-    fontWeight: 'bold', // Bold weight for Add Product title
+    fontWeight: '700', // Bold weight for Add Product title
     fontSize: s(20), // Back to original Figma size
     lineHeight: vs(22), // Back to original line height
     color: Colors.darkGray,
@@ -373,7 +382,7 @@ const styles = StyleSheet.create({
     fontSize: s(16),
     lineHeight: vs(22),
     color: Colors.darkGray,
-    marginBottom: vs(8), // Increased spacing between label and input
+    marginBottom: vs(8), // Proper spacing between label and input for better alignment
   },
 
   // Input Container - Figma: borderRadius: 20, stroke: #02545F 2px
@@ -397,18 +406,18 @@ const styles = StyleSheet.create({
     fontWeight: Fonts.weights.medium,
     fontSize: s(14),
     lineHeight: vs(22), // 1.571em line height
-    color: Colors.darkGray,
+    color: '#1E1E1E', // Ensure text is visible when typing
     textAlignVertical: 'top',
   },
 
   // Description specific container
   descriptionContainer: {
-    height: vs(80), // Taller container for multiline description
+    height: vs(146), // Expanded to reach Product Category label (vs(636) - vs(460) - label height)
   },
 
   // Description specific input
   descriptionInput: {
-    minHeight: vs(60),
+    minHeight: vs(130), // Expanded to fill the larger container
     textAlignVertical: 'top',
     paddingTop: vs(5),
   },
@@ -449,7 +458,7 @@ const styles = StyleSheet.create({
   rowContainer: {
     position: 'absolute',
     left: s(20),
-    top: vs(733), // Exact Figma position
+    top: vs(747), // Adjusted for Product Category spacing
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: s(400),
@@ -467,9 +476,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#02545F',
     borderRadius: s(20),
-    backgroundColor: Colors.white,
-    paddingHorizontal: s(20),
-    paddingVertical: vs(14),
+    backgroundColor: '#FFFFFF', // Explicit white background
+    paddingHorizontal: s(0), // Remove container padding since input has its own
+    paddingVertical: vs(0), // Remove vertical padding to avoid text clipping
     justifyContent: 'center',
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
@@ -478,11 +487,26 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
+  // Half Text Input - Specific styling for Price and Quantity inputs
+  halfTextInput: {
+    textAlign: 'left', // Left align for better UX when typing/editing
+    textAlignVertical: 'center', // Center align vertically
+    color: '#000000', // Strong black color for maximum visibility
+    fontWeight: '600', // Slightly bolder for better visibility
+    backgroundColor: 'transparent', // Ensure background doesn't interfere
+    fontSize: s(16), // Slightly larger font for better visibility
+    height: vs(50), // Match container height exactly
+    width: '100%', // Take full width of container
+    paddingHorizontal: s(15), // Add horizontal padding for better text positioning
+    paddingVertical: 0, // Remove any vertical padding
+    margin: 0, // Remove any margins
+  },
+
   // Add Button - Figma: x: 20, y: 850, width: 400, height: 50
   addButton: {
     position: 'absolute',
     left: s(20),
-    top: vs(850),
+    top: vs(864), // Adjusted for spacing
     width: s(400),
     height: vs(50),
     backgroundColor: Colors.primary, // #3BB77E
@@ -518,14 +542,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: s(20),
     width: s(380), // Wider to match screen width better
-    maxHeight: vs(450),
-    padding: s(25),
+    height: vs(550), // Expanded height to show all 7 categories clearly
+    padding: s(20), // Standard padding
+    paddingBottom: s(25), // More bottom padding for better spacing
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 15,
     elevation: 15,
     marginHorizontal: s(20),
+  },
+
+  categoryScrollView: {
+    flex: 1, // Take available space - scrolling available if needed but not required
   },
 
   dropdownTitle: {

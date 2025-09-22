@@ -8,7 +8,7 @@ interface TypographyProps {
   children: ReactNode;
   variant?: "h1" | "h2" | "body" | "caption";
   color?: "black" | "textSecondary";
-  style?: TextStyle;
+  style?: TextStyle | TextStyle[];
   numberOfLines?: number;
 }
 

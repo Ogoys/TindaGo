@@ -331,10 +331,10 @@ export default function StoreHomeScreen() {
                 onPress={() => setSelectedFilter(filter)}
               >
                 <Typography
-                  style={StyleSheet.flatten([
+                  style={[
                     styles.filterText,
-                    selectedFilter === filter ? styles.filterTextActive : null
-                  ])}
+                    selectedFilter === filter ? styles.filterTextActive : {}
+                  ]}
                 >
                   {filter}
                 </Typography>

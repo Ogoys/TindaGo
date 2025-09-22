@@ -27,7 +27,7 @@ export default function CategoryScreen() {
             Category Management
           </Typography>
           <Typography variant="body" style={styles.comingSoonDescription}>
-            This feature is coming soon. You'll be able to organize and manage your product categories here.
+            This feature is coming soon. You&apos;ll be able to organize and manage your product categories here.
           </Typography>
         </View>
       </ScrollView>
@@ -38,7 +38,7 @@ export default function CategoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.backgroundGray,
   },
 
   scrollContent: {

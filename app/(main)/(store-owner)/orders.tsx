@@ -27,7 +27,7 @@ export default function OrdersScreen() {
             Orders Management
           </Typography>
           <Typography variant="body" style={styles.comingSoonDescription}>
-            This feature is coming soon. You'll be able to view and manage all your store orders here.
+            This feature is coming soon. You&apos;ll be able to view and manage all your store orders here.
           </Typography>
         </View>
       </ScrollView>
@@ -38,7 +38,7 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.backgroundGray,
   },
 
   scrollContent: {
