@@ -12,6 +12,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { ref, push, set } from 'firebase/database';
+import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { s, vs } from '../../../../src/constants/responsive';
@@ -27,7 +31,11 @@ const AddProductScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [price, setPrice] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [productSize, setProductSize] = useState('');
+  const [selectedUnit, setSelectedUnit] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
 
   // Product categories as specified by user
   const categories: CategoryItem[] = [
@@ -40,13 +48,62 @@ const AddProductScreen = () => {
     { id: '7', name: 'Baby Care' },
   ];
 
+  // Common units for sari-sari store products
+  const units: CategoryItem[] = [
+    { id: '1', name: 'pcs' },
+    { id: '2', name: 'pack' },
+    { id: '3', name: 'box' },
+    { id: '4', name: 'bottle' },
+    { id: '5', name: 'can' },
+    { id: '6', name: 'sachet' },
+    { id: '7', name: 'g' },
+    { id: '8', name: 'kg' },
+    { id: '9', name: 'ml' },
+    { id: '10', name: 'L' },
+    { id: '11', name: 'meter' },
+    { id: '12', name: 'cm' },
+  ];
+
   const handleBack = () => {
     router.back();
   };
 
-  const handleUploadImage = () => {
-    console.log('Upload image pressed');
-    Alert.alert('Upload Image', 'Image upload functionality will be implemented here');
+  const handleUploadImage = async () => {
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], // Modern syntax: array of strings (lowercase)
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio for product images
+        quality: 0.8, // Reduce quality to keep Base64 size manageable
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+
+        // Convert image to Base64
+        const base64 = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: FileSystem.EncodingType.Base64, // Legacy API format
+        });
+
+        // Create the data URL format
+        const imageBase64 = `data:image/jpeg;base64,${base64}`;
+        setSelectedImage(imageBase64);
+
+        console.log('Image selected and converted to Base64');
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
   };
 
   const handleCategorySelect = (category: CategoryItem) => {
@@ -58,39 +115,89 @@ const AddProductScreen = () => {
     setShowCategoryDropdown(true);
   };
 
-  const handleAddProduct = () => {
-    if (!productName.trim()) {
-      Alert.alert('Error', 'Please enter a product name');
-      return;
-    }
-    if (!description.trim()) {
-      Alert.alert('Error', 'Please enter a product description');
-      return;
-    }
-    if (!selectedCategory) {
-      Alert.alert('Error', 'Please select a product category');
-      return;
-    }
-    if (!price.trim() || isNaN(Number(price))) {
-      Alert.alert('Error', 'Please enter a valid price');
-      return;
-    }
-    if (!quantity.trim() || isNaN(Number(quantity))) {
-      Alert.alert('Error', 'Please enter a valid quantity');
-      return;
-    }
+  const handleUnitSelect = (unit: CategoryItem) => {
+    setSelectedUnit(unit.name);
+    setShowUnitDropdown(false);
+  };
 
-    console.log('Add Product:', {
-      productName,
-      description,
-      selectedCategory,
-      price: Number(price),
-      quantity: Number(quantity),
-    });
+  const handleUnitDropdownOpen = () => {
+    setShowUnitDropdown(true);
+  };
 
-    Alert.alert('Success', 'Product added successfully!', [
-      { text: 'OK', onPress: () => router.back() }
-    ]);
+  const handleAddProduct = async () => {
+    try {
+      // Validation
+      if (!productName.trim()) {
+        Alert.alert('Error', 'Please enter a product name');
+        return;
+      }
+      if (!description.trim()) {
+        Alert.alert('Error', 'Please enter a product description');
+        return;
+      }
+      if (!selectedCategory) {
+        Alert.alert('Error', 'Please select a product category');
+        return;
+      }
+      if (!price.trim() || isNaN(Number(price))) {
+        Alert.alert('Error', 'Please enter a valid price');
+        return;
+      }
+      if (!quantity.trim() || isNaN(Number(quantity))) {
+        Alert.alert('Error', 'Please enter a valid quantity');
+        return;
+      }
+      if (!productSize.trim()) {
+        Alert.alert('Error', 'Please enter a product size');
+        return;
+      }
+      if (!selectedUnit) {
+        Alert.alert('Error', 'Please select a unit');
+        return;
+      }
+      if (!selectedImage) {
+        Alert.alert('Error', 'Please select a product image');
+        return;
+      }
+
+      // Get current user
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      // Prepare product data
+      const productData = {
+        productName: productName.trim(),
+        description: description.trim(),
+        category: selectedCategory,
+        price: Number(price),
+        quantity: Number(quantity),
+        productSize: productSize.trim(),
+        unit: selectedUnit,
+        productImage: selectedImage, // Base64 string
+        storeOwnerId: currentUser.uid,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'active'
+      };
+
+      // Save to Firebase Realtime Database
+      const productsRef = ref(database, 'products');
+      const newProductRef = push(productsRef);
+      await set(newProductRef, productData);
+
+      console.log('Product saved to Firebase:', productData);
+
+      Alert.alert('Success', 'Product added successfully!', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+
+    } catch (error) {
+      console.error('Error adding product:', error);
+      Alert.alert('Error', 'Failed to add product. Please try again.');
+    }
   };
 
   return (
@@ -124,13 +231,21 @@ const AddProductScreen = () => {
 
           {/* Upload Container - Figma: x: 22, y: 172, width: 398, height: 150 */}
           <TouchableOpacity style={styles.uploadContainer} onPress={handleUploadImage} activeOpacity={0.7}>
-            {/* Upload Icon - Figma: x: 207, y: 223, width: 25, height: 25 */}
-            <Image
-              source={require('../../../../src/assets/images/add-product/upload-icon.png')}
-              style={styles.uploadIcon}
-            />
-            {/* Upload Text - Figma: x: 172, y: 248, font: Clash Grotesk 400, size: 12 */}
-            <Text style={styles.uploadText}>Upload your photo</Text>
+            {selectedImage ? (
+              /* Selected Image Preview */
+              <Image source={{ uri: selectedImage }} style={styles.selectedImagePreview} />
+            ) : (
+              /* Upload Placeholder */
+              <>
+                {/* Upload Icon - Figma: x: 207, y: 223, width: 25, height: 25 */}
+                <Image
+                  source={require('../../../../src/assets/images/add-product/upload-icon.png')}
+                  style={styles.uploadIcon}
+                />
+                {/* Upload Text - Figma: x: 172, y: 248, font: Clash Grotesk 400, size: 12 */}
+                <Text style={styles.uploadText}>Upload your photo</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -212,6 +327,38 @@ const AddProductScreen = () => {
           </View>
         </View>
 
+        {/* Size and Unit Row */}
+        <View style={styles.sizeRowContainer}>
+          {/* Size Section */}
+          <View style={styles.halfInputSection}>
+            <Text style={styles.inputLabel}>Size</Text>
+            <View style={styles.halfInputContainer}>
+              <TextInput
+                style={[styles.textInput, styles.halfTextInput]}
+                placeholder="Enter size"
+                placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                value={productSize}
+                onChangeText={setProductSize}
+                keyboardType="default"
+              />
+            </View>
+          </View>
+
+          {/* Unit Section */}
+          <View style={styles.halfInputSection}>
+            <Text style={styles.inputLabel}>Unit</Text>
+            <TouchableOpacity style={styles.unitContainer} onPress={handleUnitDropdownOpen} activeOpacity={0.7}>
+              <Text style={[styles.unitText, selectedUnit && { color: Colors.darkGray }]}>
+                {selectedUnit || 'Select unit'}
+              </Text>
+              <Image
+                source={require('../../../../src/assets/images/add-product/forward-arrow.png')}
+                style={styles.unitArrow}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Add Product Button - Figma: x: 20, y: 850, width: 400, height: 50 */}
         <TouchableOpacity style={styles.addButton} onPress={handleAddProduct} activeOpacity={0.7}>
           <Text style={styles.addButtonText}>Add Product</Text>
@@ -250,6 +397,39 @@ const AddProductScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Unit Dropdown Modal */}
+      <Modal
+        visible={showUnitDropdown}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowUnitDropdown(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowUnitDropdown(false)}
+        >
+          <View style={styles.dropdownModal}>
+            <Text style={styles.dropdownTitle}>Select Unit</Text>
+            <ScrollView
+              style={styles.categoryScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {units.map((unit) => (
+                <TouchableOpacity
+                  key={unit.id}
+                  style={styles.categoryOption}
+                  onPress={() => handleUnitSelect(unit)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.categoryOptionText}>{unit.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -274,7 +454,7 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    height: vs(964), // Adjusted for spacing changes
+    height: vs(1060), // Increased height for size/unit row
     paddingBottom: vs(50),
   },
 
@@ -366,6 +546,14 @@ const styles = StyleSheet.create({
     lineHeight: vs(22), // 1.833em line height
     color: 'rgba(30, 30, 30, 0.5)',
     textAlign: 'center',
+  },
+
+  // Selected Image Preview - Full container size with rounded corners
+  selectedImagePreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: s(20),
+    resizeMode: 'cover',
   },
 
   // Input Section - Figma: x: 20, y: 342/439/636, width: 400
@@ -502,11 +690,54 @@ const styles = StyleSheet.create({
     margin: 0, // Remove any margins
   },
 
-  // Add Button - Figma: x: 20, y: 850, width: 400, height: 50
+  // Size Row Container for Size and Unit
+  sizeRowContainer: {
+    position: 'absolute',
+    left: s(20),
+    top: vs(844), // Positioned after price/quantity row
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: s(400),
+  },
+
+  // Unit Container - Similar to category dropdown
+  unitContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: s(180),
+    height: vs(50),
+    borderWidth: 2,
+    borderColor: '#02545F',
+    borderRadius: s(20),
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(15),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+
+  unitText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.medium,
+    fontSize: s(14),
+    lineHeight: vs(22),
+    color: 'rgba(30, 30, 30, 0.5)',
+    flex: 1,
+  },
+
+  unitArrow: {
+    width: s(20),
+    height: vs(20),
+  },
+
+  // Add Button - Adjusted position for size/unit row
   addButton: {
     position: 'absolute',
     left: s(20),
-    top: vs(864), // Adjusted for spacing
+    top: vs(961), // Adjusted for size/unit row spacing
     width: s(400),
     height: vs(50),
     backgroundColor: Colors.primary, // #3BB77E
