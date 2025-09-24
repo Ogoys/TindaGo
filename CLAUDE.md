@@ -10,11 +10,11 @@ TindaGo is a React Native mobile application built with Expo, designed as a sari
 
 ### Essential Commands
 - `npm install` - Install dependencies
-- `npx expo start` - Start development server
-- `expo start --android` - Run on Android emulator
-- `expo start --ios` - Run on iOS simulator
-- `expo start --web` - Run in web browser
-- `expo lint` - Run ESLint for code quality
+- `npm start` - Start development server (alias for expo start)
+- `npm run android` - Run on Android emulator
+- `npm run ios` - Run on iOS simulator
+- `npm run web` - Run in web browser
+- `npm run lint` - Run ESLint for code quality
 
 ### TypeScript & Linting
 - `npx tsc --noEmit` - Type checking without compilation
