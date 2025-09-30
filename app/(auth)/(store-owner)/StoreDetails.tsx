@@ -1,11 +1,12 @@
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View, Image, TextInput, TouchableOpacity } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from 'expo-image-picker';
-import { ref, set, serverTimestamp } from 'firebase/database';
-import { auth, database } from '../../../FirebaseConfig';
+import { readAsStringAsync } from 'expo-file-system/legacy';
+import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { auth } from '../../../FirebaseConfig';
 import { s, vs } from "../../../src/constants/responsive";
+import { StoreRegistrationService } from '../../../src/services/StoreRegistrationService';
 
 interface StoreFormData {
   storeName: string;
@@ -27,11 +28,10 @@ interface StoreErrors {
 
 export default function StoreDetailsScreen() {
   // Get owner details from previous screen
-  const { ownerName, ownerMobile, ownerEmail, ownerPassword } = useLocalSearchParams<{
+  const { ownerName, ownerMobile, ownerEmail } = useLocalSearchParams<{
     ownerName?: string;
     ownerMobile?: string;
     ownerEmail?: string;
-    ownerPassword?: string;
   }>();
 
   const [formData, setFormData] = useState<StoreFormData>({
@@ -103,25 +103,42 @@ export default function StoreDetailsScreen() {
   };
 
   const handleImagePicker = async (type: 'logo' | 'coverImage') => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to upload images.');
-      return;
-    }
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to upload images.');
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: type === 'logo' ? [1, 1] : [16, 9],
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: type === 'logo' ? [1, 1] : [16, 9],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setFormData(prev => ({
-        ...prev,
-        [type]: result.assets[0].uri
-      }));
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+
+        // Convert image to Base64 (same as add-product)
+        const base64 = await readAsStringAsync(imageUri, {
+          encoding: 'base64',
+        });
+
+        // Create the data URL format
+        const imageBase64 = `data:image/jpeg;base64,${base64}`;
+
+        setFormData(prev => ({
+          ...prev,
+          [type]: imageBase64
+        }));
+
+        console.log(`✅ ${type} converted to Base64 and saved`);
+      }
+    } catch (error) {
+      console.error(`❌ Error picking ${type}:`, error);
+      Alert.alert('Error', `Failed to pick ${type}. Please try again.`);
     }
   };
 
@@ -141,16 +158,11 @@ export default function StoreDetailsScreen() {
     setLoading(true);
 
     try {
-      const userId = auth.currentUser.uid;
-
-      // Save store details to Firebase
-      const storeData = {
-        // Store owner personal details
+      // Use centralized service to update store details with standardized status
+      await StoreRegistrationService.updateStoreDetails({
         ownerName: ownerName || "",
         ownerMobile: ownerMobile || "",
         ownerEmail: ownerEmail || "",
-
-        // Store business details
         storeName: formData.storeName.trim(),
         description: formData.description.trim(),
         storeAddress: formData.storeAddress.trim(),
@@ -158,42 +170,19 @@ export default function StoreDetailsScreen() {
         zipCode: formData.zipCode.trim(),
         logo: formData.logo,
         coverImage: formData.coverImage,
-
-        // Store status and metadata
-        status: 'pending_documents', // Will change to 'pending_approval' after document upload
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-
-        // Business verification status
-        documentsUploaded: false,
-        businessVerified: false,
-        adminApproved: false,
-      };
-
-      // Save to Firebase under stores collection
-      const storeRef = ref(database, `stores/${userId}`);
-      await set(storeRef, storeData);
-
-      // Update user profile to indicate store details are complete
-      const userRef = ref(database, `users/${userId}/profile`);
-      await set(userRef, {
-        avatar: null,
-        phone: ownerMobile || null,
-        businessComplete: false, // Will be true after all steps
-        storeDetailsComplete: true,
       });
 
       Alert.alert(
         "Store Details Saved!",
-        "Your store details have been saved successfully. Next, you'll upload business documents for verification.",
+        "Your store details have been saved successfully. Next, you'll add your payment details.",
         [
           {
-            text: "Continue to Document Upload",
+            text: "Continue to Bank Details",
             onPress: () => {
-              console.log("Store details saved:", storeData);
-              // Pass all data to document upload screen
+              console.log("Store details saved for:", formData.storeName);
+              // Pass all data to bank details screen (improved flow)
               router.push({
-                pathname: "/(auth)/(store-owner)/DocumentUpload",
+                pathname: "/(auth)/(store-owner)/BankDetails",
                 params: {
                   storeName: formData.storeName,
                   ownerName: ownerName || "",
@@ -346,7 +335,7 @@ export default function StoreDetailsScreen() {
             {/* Figma: Store Name field at y:511 */}
             <FormInputField
               label="Store Name"
-              placeholder="Enter restaurant name"
+              placeholder="Enter store name"
               value={formData.storeName}
               onChangeText={(text) => setFormData({ ...formData, storeName: text })}
               style={styles.storeNameField}
@@ -365,7 +354,7 @@ export default function StoreDetailsScreen() {
             {/* Figma: Store Address field at y:735 */}
             <FormInputField
               label="Store Address"
-              placeholder="Enter restaurant address"
+              placeholder="Enter store address"
               value={formData.storeAddress}
               onChangeText={(text) => setFormData({ ...formData, storeAddress: text })}
               style={styles.addressField}

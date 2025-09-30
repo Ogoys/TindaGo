@@ -4,6 +4,12 @@
 
 This document reflects the **actual** Firebase Realtime Database structure as implemented in the TindaGo codebase, extracted from the live application code.
 
+Last Updated: 2025-10-01
+
+---
+
+## Complete Database Schema
+
 ```json
 {
   "users": {
@@ -18,20 +24,149 @@ This document reflects the **actual** Firebase Realtime Database structure as im
       "profile": {
         "avatar": null | "base64_image_string",
         "phone": null | "+639123456789",
-        "address": null,
-        "businessName": "Store Business Name",        // store_owner only
-        "businessType": "Sari-Sari Store",          // store_owner only
-        "businessAddress": "Complete Address",       // store_owner only
-        "businessPermitNumber": "BP-2025-001",      // store_owner only
-        "bankAccountNumber": "1234567890",          // store_owner only
-        "bankName": "BDO Unibank",                  // store_owner only
-        "businessComplete": false,                  // store_owner only
-        "storeDetailsComplete": true                // store_owner only
+        "address": null | "Complete Address",
+        "storeDetailsComplete": true,          // store_owner only
+        "documentsComplete": true,            // store_owner only
+        "bankDetailsComplete": true,          // store_owner only
+        "businessComplete": true              // store_owner only
       },
       "preferences": {
         "notifications": true,
         "theme": "light"
       }
+    }
+  },
+
+  "store_registrations": {
+    "firebase_auth_uid": {
+      "personalInfo": {
+        "name": "Owner Full Name",
+        "email": "owner@example.com",
+        "mobile": "+639123456789"
+      },
+      "businessInfo": {
+        "storeName": "Sari-Sari Store Name",
+        "description": "Store description text",
+        "address": "Complete Store Address",
+        "city": "Manila",
+        "zipCode": "1000",
+        "businessType": "Sari-Sari Store"
+      },
+      "documents": {
+        "barangayBusinessClearance": {
+          "name": "barangay_clearance.pdf",
+          "uri": "data:application/pdf;base64,{base64_string}",
+          "type": "application/pdf",
+          "uploaded": true,
+          "uploadedAt": { ".sv": "timestamp" }
+        },
+        "businessPermit": {
+          "name": "business_permit.pdf",
+          "uri": "data:application/pdf;base64,{base64_string}",
+          "type": "application/pdf",
+          "uploaded": true,
+          "uploadedAt": { ".sv": "timestamp" }
+        },
+        "dtiRegistration": {
+          "name": "dti_registration.pdf",
+          "uri": "data:application/pdf;base64,{base64_string}",
+          "type": "application/pdf",
+          "uploaded": true,
+          "uploadedAt": { ".sv": "timestamp" }
+        },
+        "validId": {
+          "name": "valid_id.pdf",
+          "uri": "data:image/jpeg;base64,{base64_string}",
+          "type": "image/jpeg",
+          "uploaded": true,
+          "uploadedAt": { ".sv": "timestamp" }
+        }
+      },
+      "paymentInfo": {
+        "method": "gcash" | "paymaya" | "bank_transfer",
+        "accountName": "Account Holder Name",
+        "accountNumber": "09123456789",
+        "verified": false,
+        "addedAt": { ".sv": "timestamp" }
+      },
+      "status": "pending_documents" | "pending" | "approved" | "rejected" | "active",
+      "createdAt": "2025-01-15T10:30:00.000Z",
+      "updatedAt": "2025-01-15T10:30:00.000Z",
+      "completedAt": 1736940600000,
+      "documentsUploadedAt": { ".sv": "timestamp" },
+      "paymentDetailsAt": { ".sv": "timestamp" }
+    }
+  },
+
+  "stores": {
+    "firebase_auth_uid": {
+      "personalInfo": {
+        "name": "Owner Full Name",
+        "email": "owner@example.com",
+        "mobile": "+639123456789"
+      },
+      "businessInfo": {
+        "storeName": "Sari-Sari Store Name",
+        "description": "Store description text",
+        "address": "Complete Store Address",
+        "city": "Manila",
+        "zipCode": "1000",
+        "businessType": "Sari-Sari Store"
+      },
+      "documents": {
+        "barangayBusinessClearance": {
+          "name": "barangay_clearance.pdf",
+          "uri": "data:application/pdf;base64,{base64_string}",
+          "type": "application/pdf",
+          "uploaded": true,
+          "uploadedAt": { ".sv": "timestamp" }
+        },
+        "businessPermit": {
+          "name": "business_permit.pdf",
+          "uri": "data:application/pdf;base64,{base64_string}",
+          "type": "application/pdf",
+          "uploaded": true,
+          "uploadedAt": { ".sv": "timestamp" }
+        },
+        "dtiRegistration": {
+          "name": "dti_registration.pdf",
+          "uri": "data:application/pdf;base64,{base64_string}",
+          "type": "application/pdf",
+          "uploaded": true,
+          "uploadedAt": { ".sv": "timestamp" }
+        },
+        "validId": {
+          "name": "valid_id.pdf",
+          "uri": "data:image/jpeg;base64,{base64_string}",
+          "type": "image/jpeg",
+          "uploaded": true,
+          "uploadedAt": { ".sv": "timestamp" }
+        }
+      },
+      "paymentInfo": {
+        "method": "gcash" | "paymaya" | "bank_transfer",
+        "accountName": "Account Holder Name",
+        "accountNumber": "09123456789",
+        "verified": false,
+        "addedAt": { ".sv": "timestamp" }
+      },
+      "logo": null | "data:image/jpeg;base64,{base64_string}",
+      "coverImage": null | "data:image/jpeg;base64,{base64_string}",
+      "status": "pending_documents" | "pending" | "approved" | "rejected" | "active",
+      "createdAt": "2025-01-15T10:30:00.000Z",
+      "updatedAt": "2025-01-15T10:30:00.000Z",
+      "isOpen": false,
+      "businessComplete": true,
+      "adminApproved": false,
+      "documentsUploaded": true,
+      "businessVerified": false,
+      "bankDetailsComplete": true,
+      "registrationCompletedAt": { ".sv": "timestamp" },
+      "lastReviewedAt": { ".sv": "timestamp" },
+      "approvedAt": { ".sv": "timestamp" },
+      "rejectedAt": { ".sv": "timestamp" },
+      "activatedAt": { ".sv": "timestamp" },
+      "adminNotes": "Admin review comments"
     }
   },
 
@@ -50,57 +185,19 @@ This document reflects the **actual** Firebase Realtime Database structure as im
       "updatedAt": "2025-01-15T10:30:00.000Z",
       "status": "active"
     }
-  },
-
-  "stores": {
-    "store_owner_uid": {
-      "storeId": "auto_generated_store_id",
-      "storeName": "Store Name",
-      "storeDescription": "Store description",
-      "storeCategory": "Grocery Store",
-      "storeAddress": "Complete store address",
-      "ownerName": "Store Owner Name",
-      "ownerMobile": "+639123456789",
-      "storeOwnerId": "firebase_auth_uid",
-      "createdAt": { ".sv": "timestamp" },
-      "updatedAt": { ".sv": "timestamp" },
-      "status": "pending_approval",
-      "adminApproved": false,
-      "businessDocuments": {
-        "businessPermit": "base64_document_string",
-        "validId": "base64_document_string",
-        "barangayClearance": "base64_document_string",
-        "dtiRegistration": "base64_document_string"
-      },
-      "bankDetails": {
-        "accountNumber": "1234567890",
-        "bankName": "BDO Unibank"
-      }
-    }
-  },
-
-  "store_registrations": {
-    "store_owner_uid": {
-      "personalDetails": {
-        "businessName": "Business Name",
-        "businessType": "Sari-Sari Store",
-        "businessAddress": "Complete Address",
-        "completedAt": { ".sv": "timestamp" }
-      },
-      "status": "personal_details_complete" | "store_details_complete" | "documents_uploaded" | "registration_complete",
-      "updatedAt": { ".sv": "timestamp" }
-    }
   }
 }
 ```
 
-## Database Paths and Operations
+---
 
-### 1. User Registration (Customer)
+## Database Operations by Feature
+
+### 1. Customer Registration
 **Path:** `users/{firebase_auth_uid}`
-**File:** `app/(auth)/register.tsx:172`
+**File:** `app/(auth)/register.tsx:153-173`
 
-```javascript
+```typescript
 const userData = {
   uid: user.uid,
   name: formData.name.trim(),
@@ -124,64 +221,78 @@ const userRef = ref(database, `users/${user.uid}`);
 await set(userRef, userData);
 ```
 
-### 2. Store Owner Registration
-**Path:** `store_registrations/{firebase_auth_uid}`
-**File:** `app/(auth)/(store-owner)/StoreRegistration.tsx:166`
+### 2. Store Owner Registration Flow
 
-```javascript
-const storeOwnerData = {
-  personalDetails: {
-    businessName: formData.businessName.trim(),
-    businessType: formData.businessType,
-    businessAddress: formData.businessAddress.trim(),
-    completedAt: serverTimestamp()
-  },
-  status: 'personal_details_complete',
-  updatedAt: serverTimestamp()
-};
+#### Step 1: Store Details
+**Paths:**
+- `stores/{uid}`
+- `store_registrations/{uid}`
 
-const storeOwnerRef = ref(database, `store_registrations/${userId}`);
-await update(storeOwnerRef, storeOwnerData);
+**File:** `src/services/StoreRegistrationService.ts:108-171`
+
+```typescript
+await StoreRegistrationService.updateStoreDetails({
+  ownerName: "Owner Name",
+  ownerMobile: "+639123456789",
+  ownerEmail: "owner@email.com",
+  storeName: "Store Name",
+  description: "Store description",
+  storeAddress: "Complete address",
+  city: "Manila",
+  zipCode: "1000",
+  logo: "data:image/jpeg;base64,...",
+  coverImage: "data:image/jpeg;base64,...",
+});
+
+// Creates structure in both stores and store_registrations
+// Status: "pending_documents"
 ```
 
-### 3. Store Details Creation
-**Path:** `stores/{store_owner_uid}`
-**File:** `app/(auth)/(store-owner)/StoreDetails.tsx:174`
+#### Step 2: Payment Details
+**File:** `src/services/StoreRegistrationService.ts:248-295`
 
-```javascript
-const storeData = {
-  storeId: generateStoreId(),
-  storeName: formData.storeName,
-  storeDescription: formData.storeDescription,
-  storeCategory: formData.storeCategory,
-  storeAddress: formData.storeAddress,
-  ownerName: ownerName,
-  ownerMobile: ownerMobile,
-  storeOwnerId: userId,
-  createdAt: serverTimestamp(),
-  updatedAt: serverTimestamp(),
-  status: 'pending_approval',
-  adminApproved: false,
-};
+```typescript
+await StoreRegistrationService.updatePaymentDetails({
+  paymentMethod: 'gcash' | 'paymaya' | 'bank_transfer',
+  accountName: "Account Name",
+  accountNumber: "09123456789",
+});
 
-const storeRef = ref(database, `stores/${userId}`);
-await set(storeRef, storeData);
+// Updates paymentInfo in both collections
+// Status remains: "pending_documents"
 ```
 
-### 4. Product Creation
+#### Step 3: Document Upload
+**File:** `src/services/StoreRegistrationService.ts:176-243`
+
+```typescript
+await StoreRegistrationService.updateDocuments({
+  barangayBusinessClearance: documentInfo,
+  businessPermit: documentInfo,
+  dtiRegistration: documentInfo,
+  validId: documentInfo,
+});
+
+// Updates documents object with base64 data
+// Status changes to: "pending" (ready for admin review)
+```
+
+### 3. Product Management
+
+#### Create Product
 **Path:** `products/{auto_generated_key}`
-**File:** `app/(main)/(store-owner)/profile/add-product.tsx:187`
+**File:** `app/(main)/(store-owner)/profile/add-product.tsx:171-189`
 
-```javascript
+```typescript
 const productData = {
   productName: productName.trim(),
   description: description.trim(),
-  category: selectedCategory,
+  category: selectedCategory, // From predefined list
   price: Number(price),
   quantity: Number(quantity),
   productSize: productSize.trim(),
-  unit: selectedUnit,
-  productImage: selectedImage, // Base64 string
+  unit: selectedUnit, // From predefined list
+  productImage: selectedImage, // Base64 data URL
   storeOwnerId: currentUser.uid,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -193,55 +304,283 @@ const newProductRef = push(productsRef);
 await set(newProductRef, productData);
 ```
 
-### 5. Product Query by Store Owner
-**Path:** Query `products` by `storeOwnerId`
-**File:** `app/(main)/(store-owner)/profile/store-product.tsx:146`
+#### Query Products by Store Owner
+**File:** `app/(main)/(store-owner)/profile/store-product.tsx:146-150`
 
-```javascript
+```typescript
 const productsRef = ref(database, 'products');
-const storeProductsQuery = query(
+const userProductsQuery = query(
   productsRef,
   orderByChild('storeOwnerId'),
-  equalTo(user.uid)
+  equalTo(currentUser.uid)
 );
 ```
 
+### 4. Admin Operations
+
+#### Update Store Status
+**File:** `src/services/StoreRegistrationService.ts:370-397`
+
+```typescript
+await StoreRegistrationService.updateStoreStatus(
+  userId,
+  'approved', // or 'rejected', 'active'
+  'Admin review notes'
+);
+
+// Updates status in both stores and store_registrations
+// Adds timestamps: lastReviewedAt, approvedAt/rejectedAt/activatedAt
+// For 'active' status: sets isOpen: true, adminApproved: true
+```
+
+---
+
+## Store Registration Status Flow
+
+Based on `src/constants/StoreStatus.ts`:
+
+```
+1. Store Details Entered
+   ↓
+   status: "pending_documents"
+   ↓
+2. Payment Details Added
+   ↓
+   status: "pending_documents"
+   ↓
+3. Documents Uploaded
+   ↓
+   status: "pending" (ready for admin review)
+   ↓
+4. Admin Reviews
+   ↓
+   status: "approved" or "rejected"
+   ↓
+5. Store Activated (if approved)
+   ↓
+   status: "active"
+   isOpen: true
+   adminApproved: true
+```
+
+### Status Constants
+
+```typescript
+export const STORE_STATUS = {
+  PENDING_DOCUMENTS: 'pending_documents',
+  PENDING_BANK_DETAILS: 'pending_bank_details',
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  ACTIVE: 'active',
+  DOCUMENTS_UPLOADED: 'documents_uploaded',
+  DOCUMENTS_VERIFIED: 'documents_verified',
+  DOCUMENTS_REJECTED: 'documents_rejected',
+} as const;
+```
+
+---
+
+## Predefined Data Constants
+
+### Product Categories
+From `app/(main)/(store-owner)/profile/add-product.tsx:41-49`:
+
+1. Fruit & Vegetable
+2. Dairy & Bakery
+3. Snacks
+4. Beverages
+5. Home & Kitchen
+6. Home Care
+7. Baby Care
+
+### Product Units
+From `app/(main)/(store-owner)/profile/add-product.tsx:52-65`:
+
+**Count-based:** pcs, pack, box, bottle, can, sachet
+**Weight-based:** g, kg
+**Volume-based:** ml, L
+**Length-based:** meter, cm
+
+### Payment Methods
+
+1. **gcash** - GCash mobile wallet (11-digit format: 09XXXXXXXXX)
+2. **paymaya** - PayMaya mobile wallet (11-digit format: 09XXXXXXXXX)
+3. **bank_transfer** - Bank account (minimum 10 digits)
+
+---
+
+## Data Storage Patterns
+
+### Image Storage
+All images (products, store logos, documents) are stored as **Base64 data URLs** directly in the Realtime Database.
+
+Format: `data:image/jpeg;base64,{base64_string}`
+
+**Files:**
+- `app/(main)/(store-owner)/profile/add-product.tsx:92-99`
+- `app/(auth)/(store-owner)/StoreDetails.tsx:124-131`
+- `app/(auth)/(store-owner)/DocumentUpload.tsx:88-104`
+
+### Timestamp Formats
+
+Two timestamp formats are used:
+
+1. **Firebase Server Timestamp:** `serverTimestamp()`
+   - Used for: createdAt, updatedAt in users
+   - Used for: uploadedAt, addedAt, lastReviewedAt, approvedAt
+
+2. **ISO String:** `new Date().toISOString()`
+   - Used for: createdAt, updatedAt in products
+   - Used for: createdAt, updatedAt in store_registrations and stores
+
+3. **Unix Timestamp (milliseconds):** `Date.now()`
+   - Used for: completedAt in store_registrations
+
+---
+
+## Dual Collection Pattern
+
+The app maintains **two parallel collections** for store data:
+
+### `stores/{uid}`
+- Used by **React Native app** for operational data
+- Contains full store information including status flags
+- Used for real-time store operations
+
+### `store_registrations/{uid}`
+- Used by **web admin dashboard** for registration review
+- Contains registration-specific metadata
+- Used for admin approval workflow
+
+**Both collections are kept in sync** by `StoreRegistrationService`:
+- `updateStoreDetails()` writes to both
+- `updateDocuments()` writes to both
+- `updatePaymentDetails()` writes to both
+- `updateStoreStatus()` writes to both
+
+**File:** `src/services/StoreRegistrationService.ts`
+
+---
+
 ## Key Implementation Notes
 
-### Data Types
-- **Timestamps**: Using both `serverTimestamp()` and ISO strings
-- **Images**: Stored as Base64 strings directly in database
-- **IDs**: Firebase Auth UIDs for users, auto-generated keys for products/stores
-- **Status**: String enums for tracking approval/completion states
+### Service Layer
+Centralized database operations through `StoreRegistrationService`:
+- Ensures data consistency between `stores` and `store_registrations`
+- Standardizes status management using `STORE_STATUS` constants
+- Provides real-time subscription methods
+- Handles admin operations
 
-### Predefined Categories
-**Product Categories:**
-- Fruit & Vegetable
-- Dairy & Bakery
-- Snacks
-- Beverages
-- Home & Kitchen
-- Home Care
-- Baby Care
+### User Profile Updates
+The `users/{uid}/profile` node is updated in parallel with store operations to track completion flags:
+- `storeDetailsComplete`
+- `documentsComplete`
+- `bankDetailsComplete`
+- `businessComplete`
 
-**Product Units:**
-- Count: pcs, pack, box, bottle, can, sachet
-- Weight: g, kg
-- Volume: ml, L
-- Length: meter, cm
+### Real-time Listeners
+The service provides subscription methods:
+```typescript
+StoreRegistrationService.subscribeToStatusUpdates(userId, callback)
+StoreRegistrationService.subscribeToRegistrationUpdates(userId, callback)
+```
 
-### Registration Flow
-1. **Store Owner Personal Details** → `store_registrations/{uid}`
-2. **Store Business Details** → `stores/{uid}`
-3. **Document Upload** → Update `stores/{uid}` with documents
-4. **Bank Details** → Update `stores/{uid}` with bank info
-5. **User Profile Updates** → `users/{uid}/profile`
+### Data Validation
+- **Mobile numbers:** Philippine format 09XXXXXXXXX (11 digits)
+- **Zip codes:** 4-digit format
+- **Bank accounts:** Minimum 10 digits
+- **Prices:** Numeric validation
+- **Quantities:** Numeric validation
+- **Images:** Base64 data URL format validation
 
-### Current Limitations
-- **No Orders Collection**: Not yet implemented
-- **No Reviews Collection**: Not yet implemented
-- **No Cart Collection**: Not yet implemented
-- **Image Storage**: Base64 in database (not Firebase Storage)
-- **No Real-time Listeners**: Most operations use single reads
+---
 
-This structure reflects the current state of development and will evolve as more features are implemented.
+## Not Yet Implemented
+
+Based on the capstone requirements, these collections are **planned but not yet implemented**:
+
+- ❌ `orders/{order_id}` - Customer orders
+- ❌ `cart/{user_id}` - Shopping cart items
+- ❌ `reviews/{review_id}` - Product reviews
+- ❌ `sales/{sale_id}` - Sales transactions
+- ❌ `inventory_logs/{log_id}` - Stock changes
+- ❌ `return_goods/{return_id}` - Customer returns
+- ❌ `damages_spoilage/{damage_id}` - Loss tracking
+
+---
+
+## Migration Notes
+
+### Legacy Status Values
+If migrating from older code, these legacy statuses may exist:
+- `pending_approval` → Migrate to `pending`
+- `completed_pending_approval` → Migrate to `pending`
+- Old store registration fields without `personalInfo`/`businessInfo` structure
+
+Use `StoreRegistrationService.migrateLegacyStatuses()` for batch migration.
+
+---
+
+## Database Security Considerations
+
+### Current Implementation
+- All operations require authenticated user (`auth.currentUser`)
+- Store owners can only create/read their own products (filtered by `storeOwnerId`)
+- Users can only modify their own user profile
+- No Firebase Security Rules are documented in codebase
+
+### Recommended Firebase Security Rules
+```json
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "stores": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "store_registrations": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "products": {
+      ".read": "auth != null",
+      "$productId": {
+        ".write": "data.child('storeOwnerId').val() === auth.uid || !data.exists()"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Testing & Development
+
+### Quick Test Commands
+See `TESTING_GUIDE.md` and `QUICK_TEST_SCRIPT.md` for detailed testing procedures.
+
+### Firebase Console
+View live data at: https://console.firebase.google.com/
+
+### Development Mode
+The app logs detailed Firebase operations to console:
+```
+✅ Product saved to Firebase
+✅ Store details saved successfully
+✅ Documents uploaded
+✅ Payment details saved
+```
+
+---
+
+This documentation reflects the **actual implementation** as of the latest commit and will be updated as new features are added.

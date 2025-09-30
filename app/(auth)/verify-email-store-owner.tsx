@@ -43,10 +43,10 @@ export default function VerifyEmailStoreOwnerScreen() {
         // Email is verified, proceed to store registration
         Alert.alert(
           "Email Verified!",
-          "Your email has been verified successfully. Now complete your business registration.",
+          "Your email has been verified successfully. Complete your business registration to continue.",
           [
             {
-              text: "Continue to Business Registration",
+              text: "Continue Setup",
               onPress: () => {
                 router.push({
                   pathname: "/(auth)/(store-owner)/StoreRegistration",

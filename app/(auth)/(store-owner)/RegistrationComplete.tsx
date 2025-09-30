@@ -1,11 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { StyleSheet, View, StatusBar, Alert } from "react-native";
+import { StyleSheet, View, StatusBar, Alert, RefreshControl, ScrollView } from "react-native";
 import { Image } from "expo-image";
 import { Button } from "../../../src/components/ui/Button";
 import { Typography } from "../../../src/components/ui/Typography";
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs } from "../../../src/constants/responsive";
+import { useStoreRegistration } from '../../../src/hooks/useStoreRegistration';
+import { STORE_STATUS, STATUS_LABELS, STATUS_COLORS } from '../../../src/constants/StoreStatus';
 
 export default function RegistrationCompleteScreen() {
   // Get store info from previous screen
@@ -14,6 +16,17 @@ export default function RegistrationCompleteScreen() {
     ownerName?: string;
     ownerEmail?: string;
   }>();
+
+  // Real-time status monitoring
+  const {
+    registrationData,
+    status,
+    loading,
+    error,
+    isComplete,
+    needsReview,
+    refreshStatus
+  } = useStoreRegistration();
 
   const handleContinueToDashboard = () => {
     Alert.alert(
@@ -35,9 +48,32 @@ export default function RegistrationCompleteScreen() {
   };
 
   const handleCheckStatus = () => {
+    const currentStatus = status || 'Unknown';
+    const statusLabel = STATUS_LABELS[currentStatus as keyof typeof STATUS_LABELS] || currentStatus;
+    const actualStoreName = registrationData?.businessInfo?.storeName || storeName || 'Your Store';
+    const actualOwnerName = registrationData?.personalInfo?.name || ownerName || 'Store Owner';
+
+    let statusMessage = '';
+    switch (currentStatus) {
+      case STORE_STATUS.PENDING:
+        statusMessage = 'Your application is being reviewed by our admin team. You\'ll receive a notification once approved.';
+        break;
+      case STORE_STATUS.APPROVED:
+        statusMessage = 'Congratulations! Your store has been approved and will be activated soon.';
+        break;
+      case STORE_STATUS.ACTIVE:
+        statusMessage = 'Your store is now live and customers can place orders!';
+        break;
+      case STORE_STATUS.REJECTED:
+        statusMessage = 'Your application needs some updates. Please check your email for details.';
+        break;
+      default:
+        statusMessage = 'Your application is being processed. You\'ll receive updates via email.';
+    }
+
     Alert.alert(
       "Application Status",
-      `Store: ${storeName || 'Your Store'}\nOwner: ${ownerName || 'Store Owner'}\nStatus: Pending Admin Approval\n\nYour application is being reviewed. You'll receive an email notification once approved.`,
+      `Store: ${actualStoreName}\nOwner: ${actualOwnerName}\nStatus: ${statusLabel}\n\n${statusMessage}`,
       [{ text: "OK" }]
     );
   };
@@ -52,7 +88,7 @@ export default function RegistrationCompleteScreen() {
           Get Started
         </Typography>
         <Typography variant="caption" style={styles.subtitleText}>
-          Register to create an account
+          Registration Complete
         </Typography>
 
         {/* Step Complete Icon */}
@@ -64,7 +100,18 @@ export default function RegistrationCompleteScreen() {
       </View>
 
       {/* Main Content Area */}
-      <View style={styles.mainContent}>
+      <ScrollView
+        style={styles.mainContent}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={refreshStatus}
+            tintColor={Colors.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
         {/* Registration Complete Card */}
         <View style={styles.completionCard}>
           {/* Figma: "Registration Complete" text at x:114, y:59 */}
@@ -89,10 +136,22 @@ export default function RegistrationCompleteScreen() {
             </Typography>
           </View>
 
-          {/* Status message */}
-          <Typography variant="body" style={styles.statusText}>
-            Your application is now pending admin approval. You&apos;ll receive an email notification once verified.
-          </Typography>
+          {/* Dynamic Status Display */}
+          <View style={styles.statusContainer}>
+            <View style={[styles.statusBadge, { backgroundColor: (status && Object.keys(STATUS_COLORS).includes(status) ? STATUS_COLORS[status as keyof typeof STATUS_COLORS] : '#007AFF') }]}>
+              <Typography variant="caption" style={styles.statusBadgeText}>
+                {STATUS_LABELS[status as keyof typeof STATUS_LABELS] || 'Processing'}
+              </Typography>
+            </View>
+
+            <Typography variant="body" style={styles.statusText}>
+              {status === STORE_STATUS.PENDING && 'Your application is being reviewed by our admin team. You\'ll receive a notification once approved.'}
+              {status === STORE_STATUS.APPROVED && 'Congratulations! Your store has been approved and will be activated soon.'}
+              {status === STORE_STATUS.ACTIVE && 'Your store is now live and customers can place orders!'}
+              {status === STORE_STATUS.REJECTED && 'Your application needs some updates. Please check your email for details.'}
+              {(!status || !Object.values(STORE_STATUS).includes(status as any)) && 'Your application is being processed. You\'ll receive updates via email.'}
+            </Typography>
+          </View>
         </View>
 
         {/* Action Buttons */}
@@ -110,7 +169,7 @@ export default function RegistrationCompleteScreen() {
             style={styles.dashboardButton}
           />
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -124,9 +183,9 @@ const styles = StyleSheet.create({
   // Header Section (Purple background area)
   headerSection: {
     // Maintain consistency with DocumentUpload screen
-    paddingTop: vs(84 - 54), // Account for status bar
+    paddingTop: vs(84 - 54 + 35), // Account for status bar + more padding
     paddingHorizontal: s(22),
-    paddingBottom: vs(45),
+    paddingBottom: vs(30), // Reduced bottom padding
   },
   getStartedText: {
     fontFamily: Fonts.primary,
@@ -146,7 +205,7 @@ const styles = StyleSheet.create({
     // Figma: x:329, y:45, width:100, height:100
     position: "absolute",
     right: s(11), // 440 - 329 - 100 = 11
-    top: vs(45 - 54), // Account for status bar
+    top: vs(45 - 54 + 60), // Account for status bar + much more padding for logo
     width: s(100),
     height: vs(100),
   },
@@ -157,9 +216,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundGray,
     borderTopLeftRadius: s(20),
     borderTopRightRadius: s(20),
+  },
+
+  scrollContent: {
     paddingTop: vs(50),
     paddingHorizontal: s(20),
     alignItems: "center",
+    paddingBottom: vs(50),
   },
 
   // Registration Complete Card
@@ -226,6 +289,27 @@ const styles = StyleSheet.create({
     fontWeight: Fonts.weights.normal,
     color: "rgba(30, 30, 30, 0.7)",
     textAlign: "center",
+  },
+
+  // Status Container
+  statusContainer: {
+    alignItems: 'center',
+    marginBottom: vs(10),
+  },
+
+  statusBadge: {
+    paddingHorizontal: s(12),
+    paddingVertical: vs(6),
+    borderRadius: s(20),
+    marginBottom: vs(15),
+  },
+
+  statusBadgeText: {
+    fontFamily: Fonts.primary,
+    fontSize: s(12),
+    fontWeight: Fonts.weights.semiBold,
+    color: Colors.white,
+    textAlign: 'center',
   },
 
   // Status Text

@@ -5,3 +5,4 @@ export { ProductCard } from "./ProductCard";
 export type { ProductCardProps } from "./ProductCard";
 export { StoreCard } from "./StoreCard";
 export type { StoreCardProps } from "./StoreCard";
+export { PendingApprovalDetails } from "./PendingApprovalDetails";

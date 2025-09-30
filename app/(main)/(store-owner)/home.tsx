@@ -41,50 +41,24 @@ export default function StoreHomeScreen() {
             // Try multiple possible data structures
             console.log('🔍 Checking different data paths...');
 
-            // Method 1: Check if store data is directly in user object
-            if (userData.storeName || userData.storeAddress || userData.store) {
-              console.log('📍 Found store data in user object');
-              const storeInfo = userData.store || userData;
+            // Method 1: Try stores collection with user UID (primary method)
+            console.log('🏪 Fetching store data from stores collection with UID');
+            const storeRef = ref(database, `stores/${user.uid}`);
+            const storeSnapshot = await get(storeRef);
+
+            if (storeSnapshot.exists()) {
+              const store = storeSnapshot.val();
+              console.log('🏪 Found store data:', store);
+
+              // Use new nested businessInfo structure
+              const businessInfo = store.businessInfo || {};
               setStoreData({
-                storeName: storeInfo.storeName || userData.storeName || 'Store Owner',
-                storeAddress: storeInfo.storeAddress || userData.storeAddress || 'Jacinto Street',
-                city: storeInfo.city || userData.city || 'Davao City'
+                storeName: businessInfo.storeName || 'Store Owner',
+                storeAddress: businessInfo.address || 'Jacinto Street',
+                city: businessInfo.city || 'Davao City'
               });
-            }
-            // Method 2: Get store data if storeId exists
-            else if (userData.storeId) {
-              console.log('🏪 Store ID found:', userData.storeId);
-              const storeRef = ref(database, `stores/${userData.storeId}`);
-              const storeSnapshot = await get(storeRef);
-
-              console.log('🏪 Store snapshot exists:', storeSnapshot.exists());
-
-              if (storeSnapshot.exists()) {
-                const store = storeSnapshot.val();
-                console.log('🏪 Store data:', store);
-                setStoreData({
-                  storeName: store.storeName || 'Store Owner',
-                  storeAddress: store.storeAddress || 'Jacinto Street',
-                  city: store.city || 'Davao City'
-                });
-              }
             } else {
-              console.log('⚠️ No store data in user object, trying stores collection with UID');
-              // Method 3: Try stores collection with user UID
-              const storeRef = ref(database, `stores/${user.uid}`);
-              const storeSnapshot = await get(storeRef);
-
-              if (storeSnapshot.exists()) {
-                const store = storeSnapshot.val();
-                console.log('🏪 Found store data by UID:', store);
-                setStoreData({
-                  storeName: store.storeName || 'Store Owner',
-                  storeAddress: store.storeAddress || 'Jacinto Street',
-                  city: store.city || 'Davao City'
-                });
-              } else {
-                console.log('⚠️ No store data found anywhere, using defaults');
-              }
+              console.log('⚠️ No store data found, using defaults');
             }
           } else {
             console.log('❌ No user data found');

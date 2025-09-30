@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import { ref, push, set } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
@@ -90,8 +90,8 @@ const AddProductScreen = () => {
         const imageUri = result.assets[0].uri;
 
         // Convert image to Base64
-        const base64 = await FileSystem.readAsStringAsync(imageUri, {
-          encoding: FileSystem.EncodingType.Base64, // Legacy API format
+        const base64 = await readAsStringAsync(imageUri, {
+          encoding: 'base64',
         });
 
         // Create the data URL format

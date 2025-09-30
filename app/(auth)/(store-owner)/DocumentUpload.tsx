@@ -3,12 +3,13 @@ import { useState } from "react";
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as DocumentPicker from "expo-document-picker";
-import { ref, update, serverTimestamp } from "firebase/database";
-import { auth, database } from "../../../FirebaseConfig";
+import { readAsStringAsync } from "expo-file-system/legacy";
+import { auth } from "../../../FirebaseConfig";
 import { Button } from "../../../src/components/ui/Button";
 // import { FormInput } from "../../../src/components/ui/FormInput";
 import { Colors } from "../../../src/constants/Colors";
 import { s, vs } from "../../../src/constants/responsive";
+import { StoreRegistrationService } from '../../../src/services/StoreRegistrationService';
 
 interface DocumentUploadData {
   barangayBusinessClearance: any;
@@ -56,22 +57,18 @@ export default function DocumentUploadScreen() {
       validId: "",
     };
 
-    // Required documents based on your capstone requirements
-    if (!formData.barangayBusinessClearance) {
-      newErrors.barangayBusinessClearance = "Barangay Business Clearance is required";
-    }
-
+    // Essential documents for business verification
+    // Only Business Permit and Valid ID are mandatory for now
     if (!formData.businessPermit) {
       newErrors.businessPermit = "Business Permit is required";
-    }
-
-    if (!formData.dtiRegistration) {
-      newErrors.dtiRegistration = "DTI Registration is required";
     }
 
     if (!formData.validId) {
       newErrors.validId = "Valid Government ID is required";
     }
+
+    // Optional documents (can be added later)
+    // Barangay Business Clearance and DTI Registration are not mandatory for testing
 
     setErrors(newErrors);
     return Object.values(newErrors).every(error => error === "");
@@ -85,10 +82,44 @@ export default function DocumentUploadScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setFormData({ ...formData, [documentType]: result.assets[0] });
+        const document = result.assets[0];
+        const documentUri = document.uri;
+
+        // Convert document to Base64 (same as add-product)
+        const base64 = await readAsStringAsync(documentUri, {
+          encoding: 'base64',
+        });
+
+        // Determine MIME type based on file extension or type
+        let mimeType = 'application/pdf'; // Default for PDFs
+        if (document.mimeType) {
+          mimeType = document.mimeType;
+        } else if (document.name && document.name.toLowerCase().includes('.jpg')) {
+          mimeType = 'image/jpeg';
+        } else if (document.name && document.name.toLowerCase().includes('.png')) {
+          mimeType = 'image/png';
+        }
+
+        // Create the data URL format
+        const documentBase64 = `data:${mimeType};base64,${base64}`;
+
+        // Create document info object with base64 data
+        const documentInfo = {
+          name: document.name || `${documentType}.pdf`,
+          uri: documentBase64, // Store base64 instead of local URI
+          type: mimeType,
+          size: document.size || 0,
+          uploaded: true,
+          uploadedAt: new Date().toISOString()
+        };
+
+        setFormData({ ...formData, [documentType]: documentInfo });
         setErrors({ ...errors, [documentType]: "" });
+
+        console.log(`✅ ${documentType} converted to Base64 and saved`);
       }
     } catch (error) {
+      console.error(`❌ Error picking ${documentType}:`, error);
       Alert.alert("Error", "Failed to pick document. Please try again.");
     }
   };
@@ -109,75 +140,24 @@ export default function DocumentUploadScreen() {
     setLoading(true);
 
     try {
-      const userId = auth.currentUser.uid;
-
-      // Save document information to database
-      // In production, you would upload files to Firebase Storage first
-      const documentsData = {
-        documents: {
-          barangayBusinessClearance: {
-            name: formData.barangayBusinessClearance?.name || "",
-            uri: formData.barangayBusinessClearance?.uri || "",
-            type: formData.barangayBusinessClearance?.mimeType || "",
-            uploaded: true,
-            uploadedAt: serverTimestamp()
-          },
-          businessPermit: {
-            name: formData.businessPermit?.name || "",
-            uri: formData.businessPermit?.uri || "",
-            type: formData.businessPermit?.mimeType || "",
-            uploaded: true,
-            uploadedAt: serverTimestamp()
-          },
-          dtiRegistration: {
-            name: formData.dtiRegistration?.name || "",
-            uri: formData.dtiRegistration?.uri || "",
-            type: formData.dtiRegistration?.mimeType || "",
-            uploaded: true,
-            uploadedAt: serverTimestamp()
-          },
-          validId: {
-            name: formData.validId?.name || "",
-            uri: formData.validId?.uri || "",
-            type: formData.validId?.mimeType || "",
-            uploaded: true,
-            uploadedAt: serverTimestamp()
-          }
-        },
-        status: 'pending_bank_details',
-        documentsUploaded: true,
-        updatedAt: serverTimestamp()
-      };
-
-      // Update store data
-      const storeRef = ref(database, `stores/${userId}`);
-      await update(storeRef, documentsData);
-
-      // Update user profile progress
-      const userProfileRef = ref(database, `users/${userId}/profile`);
-      await update(userProfileRef, {
-        documentsComplete: true,
-        updatedAt: serverTimestamp()
-      });
-
-      // Update store registration progress
-      const storeRegRef = ref(database, `store_registrations/${userId}`);
-      await update(storeRegRef, {
-        status: 'documents_uploaded',
-        documentsUploadedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+      // Use centralized service to update documents with standardized status
+      await StoreRegistrationService.updateDocuments({
+        barangayBusinessClearance: formData.barangayBusinessClearance,
+        businessPermit: formData.businessPermit,
+        dtiRegistration: formData.dtiRegistration,
+        validId: formData.validId,
       });
 
       Alert.alert(
-        "Documents Uploaded!",
-        "Your business documents have been uploaded successfully. Next, you'll add your bank details for payments.",
+        "Registration Complete!",
+        "Your store registration has been completed successfully. We'll review your application and notify you once approved.",
         [
           {
-            text: "Continue to Bank Details",
+            text: "View Status",
             onPress: () => {
-              console.log("Documents uploaded for:", storeName);
+              console.log("Registration completed for:", storeName);
               router.push({
-                pathname: "/(auth)/(store-owner)/BankDetails",
+                pathname: "/(auth)/(store-owner)/RegistrationComplete",
                 params: {
                   storeName: storeName || "",
                   ownerName: ownerName || "",
@@ -229,12 +209,12 @@ export default function DocumentUploadScreen() {
 
         {/* Card Container */}
         <View style={styles.cardContainer}>
-          {/* Progress Indicator - Step 3 of 4 */}
+          {/* Progress Indicator - Step 4 of 4 */}
           <View style={styles.progressContainer}>
             <View style={[styles.progressSegment, styles.progressActive]} />
             <View style={[styles.progressSegment, styles.progressActive]} />
+            <View style={[styles.progressSegment, styles.progressActive]} />
             <View style={[styles.progressSegment, styles.progressCurrent]} />
-            <View style={[styles.progressSegment, styles.progressInactive]} />
           </View>
 
           {/* Register Title */}
@@ -247,7 +227,7 @@ export default function DocumentUploadScreen() {
           <View style={styles.formSection}>
             {/* Barangay Business Clearance */}
             <View style={styles.uploadSection}>
-              <Text style={styles.uploadLabel}>Barangay Business Clearance</Text>
+              <Text style={styles.uploadLabel}>Barangay Business Clearance <Text style={styles.optionalLabel}>(Optional)</Text></Text>
               <TouchableOpacity
                 style={styles.uploadContainer}
                 onPress={() => handleDocumentUpload('barangayBusinessClearance')}
@@ -270,7 +250,7 @@ export default function DocumentUploadScreen() {
 
             {/* Business Permit */}
             <View style={styles.uploadSection}>
-              <Text style={styles.uploadLabel}>Business Permit</Text>
+              <Text style={styles.uploadLabel}>Business Permit <Text style={styles.requiredLabel}>*</Text></Text>
               <TouchableOpacity
                 style={styles.uploadContainer}
                 onPress={() => handleDocumentUpload('businessPermit')}
@@ -293,7 +273,7 @@ export default function DocumentUploadScreen() {
 
             {/* DTI Registration */}
             <View style={styles.uploadSection}>
-              <Text style={styles.uploadLabel}>DTI Business Name Registration</Text>
+              <Text style={styles.uploadLabel}>DTI Business Name Registration <Text style={styles.optionalLabel}>(Optional)</Text></Text>
               <TouchableOpacity
                 style={styles.uploadContainer}
                 onPress={() => handleDocumentUpload('dtiRegistration')}
@@ -316,7 +296,7 @@ export default function DocumentUploadScreen() {
 
             {/* Valid ID */}
             <View style={styles.uploadSection}>
-              <Text style={styles.uploadLabel}>Valid Government ID</Text>
+              <Text style={styles.uploadLabel}>Valid Government ID <Text style={styles.requiredLabel}>*</Text></Text>
               <TouchableOpacity
                 style={styles.uploadContainer}
                 onPress={() => handleDocumentUpload('validId')}
@@ -488,6 +468,17 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: Colors.black,
     marginBottom: vs(15),
+  },
+
+  requiredLabel: {
+    color: '#EF4444', // Red color for required asterisk
+    fontWeight: "600",
+  },
+
+  optionalLabel: {
+    color: '#6B7280', // Gray color for optional text
+    fontWeight: "400",
+    fontSize: s(14),
   },
   uploadContainer: {
     // Touch target for upload

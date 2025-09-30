@@ -2,9 +2,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, Image, TextInput, TouchableOpacity } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { ref, update, serverTimestamp } from 'firebase/database';
-import { auth, database } from '../../../FirebaseConfig';
+import { auth } from '../../../FirebaseConfig';
 import { s, vs } from "../../../src/constants/responsive";
+import { StoreRegistrationService } from '../../../src/services/StoreRegistrationService';
 
 interface BankDetailsFormData {
   paymentMethod: 'gcash' | 'paymaya' | 'bank_transfer';
@@ -96,55 +96,23 @@ export default function BankDetailsScreen() {
     setLoading(true);
 
     try {
-      const userId = auth.currentUser.uid;
-
-      // Save payment details to database
-      const paymentData = {
-        paymentInfo: {
-          method: formData.paymentMethod,
-          accountName: formData.accountName.trim(),
-          accountNumber: formData.accountNumber.trim(),
-          verified: false, // Will be verified by admin
-          addedAt: serverTimestamp()
-        },
-        status: 'pending_approval', // Ready for admin approval
-        bankDetailsComplete: true,
-        businessComplete: true, // All steps completed
-        registrationCompletedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-
-      // Update store data
-      const storeRef = ref(database, `stores/${userId}`);
-      await update(storeRef, paymentData);
-
-      // Update user profile progress
-      const userProfileRef = ref(database, `users/${userId}/profile`);
-      await update(userProfileRef, {
-        bankDetailsComplete: true,
-        businessComplete: true, // All registration steps completed
-        updatedAt: serverTimestamp()
-      });
-
-      // Update store registration progress
-      const storeRegRef = ref(database, `store_registrations/${userId}`);
-      await update(storeRegRef, {
-        status: 'completed_pending_approval',
-        paymentDetailsAt: serverTimestamp(),
-        completedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+      // Use centralized service to update payment details with standardized status
+      await StoreRegistrationService.updatePaymentDetails({
+        paymentMethod: formData.paymentMethod,
+        accountName: formData.accountName,
+        accountNumber: formData.accountNumber,
       });
 
       Alert.alert(
-        "Registration Complete!",
-        "Your store registration has been completed successfully. We'll review your application and notify you once approved.",
+        "Payment Details Saved!",
+        "Your payment details have been saved successfully. Next: Upload your business documents.",
         [
           {
-            text: "View Status",
+            text: "Continue",
             onPress: () => {
-              console.log("Registration completed for:", storeName);
+              console.log("Payment details saved for:", storeName);
               router.push({
-                pathname: "/(auth)/(store-owner)/RegistrationComplete",
+                pathname: "/(auth)/(store-owner)/DocumentUpload",
                 params: {
                   storeName: storeName || "",
                   ownerName: ownerName || "",
@@ -244,12 +212,12 @@ export default function BankDetailsScreen() {
             {/* Figma: Register title at x:183, y:204 */}
             <Text style={styles.registerTitle}>Register</Text>
 
-            {/* Progress Line - Figma: y:252, 4 segments of 88px each, step 4 active */}
+            {/* Progress Line - Figma: y:252, 4 segments of 88px each, step 3 active */}
             <View style={styles.progressContainer}>
               <View style={[styles.progressSegment, styles.progressSegmentActive]} />
               <View style={[styles.progressSegment, styles.progressSegmentActive]} />
-              <View style={[styles.progressSegment, styles.progressSegmentActive]} />
               <View style={[styles.progressSegment, styles.progressSegmentCurrent]} />
+              <View style={[styles.progressSegment, styles.progressSegmentInactive]} />
             </View>
 
             {/* Figma: Section label "Add Payment Details" at x:20, y:272 */}

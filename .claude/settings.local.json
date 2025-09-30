@@ -10,7 +10,8 @@
       "Bash(npx tsc:*)",
       "Bash(npx eslint:*)",
       "Bash(rm:*)",
-      "Bash(npx expo start:*)"
+      "Bash(npx expo start:*)",
+      "Read(//c/Users/Toph/Desktop/Github/Projects/React Native Projects/tindago-admin/src/components/admin/**)"
     ],
     "deny": [],
     "ask": []
