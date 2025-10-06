@@ -10,6 +10,8 @@ import { SignInGlassCard } from "../../src/components/ui/SignInGlassCard";
 import { Colors } from "../../src/constants/Colors";
 import { s, vs } from "../../src/constants/responsive";
 import { useUser, User, UserRole } from "../../src/contexts/UserContext";
+import { StoreRegistrationService } from "../../src/services/StoreRegistrationService";
+import { STORE_STATUS } from "../../src/constants/StoreStatus";
 
 export default function SignInScreen() {
   const [emailOrPhone, setEmailOrPhone] = useState("");
@@ -148,15 +150,35 @@ export default function SignInScreen() {
         Alert.alert("Success", `Welcome back, ${userData.name}! (${welcomeIdentifier})`, [
           {
             text: "OK",
-            onPress: () => {
+            onPress: async () => {
               if (userData.userType === 'store_owner') {
-                // Check if store owner has completed business registration
-                if (userData.profile?.businessComplete) {
-                  // Navigate to store owner dashboard (index.tsx)
-                  router.replace("/(main)/(store-owner)");
-                } else {
-                  // Store owner hasn't completed registration, continue registration flow
-                  console.log("Store owner needs to complete registration");
+                // Check store_registrations collection for registration status
+                try {
+                  const registrationData = await StoreRegistrationService.getRegistrationData(user.uid);
+
+                  if (registrationData && registrationData.status) {
+                    // Store owner has started/completed registration
+                    console.log("Store registration found with status:", registrationData.status);
+
+                    // Check if approved/active - go directly to dashboard
+                    if (registrationData.status === STORE_STATUS.APPROVED ||
+                        registrationData.status === STORE_STATUS.ACTIVE) {
+                      // Store is approved/active - navigate to dashboard
+                      console.log("✅ Store is approved/active - navigating to dashboard");
+                      router.replace("/(main)/(store-owner)/home");
+                    } else {
+                      // Pending, rejected, etc. - show RegistrationComplete status screen
+                      console.log("📋 Store status:", registrationData.status, "- showing RegistrationComplete");
+                      router.replace("/(auth)/(store-owner)/RegistrationComplete");
+                    }
+                  } else {
+                    // No registration found - start registration flow
+                    console.log("No store registration found - starting registration");
+                    router.replace("/(auth)/(store-owner)/StoreRegistration");
+                  }
+                } catch (error) {
+                  console.error("Error checking store registration:", error);
+                  // On error, redirect to StoreRegistration as fallback
                   router.replace("/(auth)/(store-owner)/StoreRegistration");
                 }
               } else {

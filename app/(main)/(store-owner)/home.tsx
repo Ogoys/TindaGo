@@ -7,6 +7,7 @@ import { Typography } from "../../../src/components/ui/Typography";
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
+import { StoreRegistrationService } from "../../../src/services/StoreRegistrationService";
 
 export default function StoreHomeScreen() {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
@@ -14,54 +15,45 @@ export default function StoreHomeScreen() {
 
   // Store data from Firebase
   const [storeData, setStoreData] = useState({
-    storeName: 'Store Owner', // This will show the actual store name like "Kelly Store"
+    storeName: 'Store Owner',
+    ownerName: 'Owner',
     storeAddress: 'Jacinto Street',
-    city: 'Davao City'
+    city: 'Davao City',
+    logo: null as string | null,
   });
   const [loading, setLoading] = useState(true);
 
-  // Fetch store data from Firebase
+  // Fetch store data from Firebase Realtime Database (store_registrations)
   useEffect(() => {
     const fetchStoreData = async () => {
       try {
         const user = auth.currentUser;
-        console.log('🔥 Current user:', user?.uid);
+        console.log('🔥 Fetching store data for user:', user?.uid);
 
         if (user) {
-          // Get user data
-          const userRef = ref(database, `users/${user.uid}`);
-          const userSnapshot = await get(userRef);
+          // Fetch from store_registrations collection
+          const registrationData = await StoreRegistrationService.getRegistrationData(user.uid);
 
-          console.log('👤 User snapshot exists:', userSnapshot.exists());
+          if (registrationData) {
+            console.log('✅ Store registration data found:', registrationData);
 
-          if (userSnapshot.exists()) {
-            const userData = userSnapshot.val();
-            console.log('👤 User data:', userData);
+            const businessInfo = registrationData.businessInfo || {};
+            const personalInfo = registrationData.personalInfo || {};
 
-            // Try multiple possible data structures
-            console.log('🔍 Checking different data paths...');
+            setStoreData({
+              storeName: businessInfo.storeName || 'Store Owner',
+              ownerName: personalInfo.name || 'Owner',
+              storeAddress: businessInfo.address || 'Jacinto Street',
+              city: businessInfo.city || 'Davao City',
+              logo: businessInfo.logo || null,
+            });
 
-            // Method 1: Try stores collection with user UID (primary method)
-            console.log('🏪 Fetching store data from stores collection with UID');
-            const storeRef = ref(database, `stores/${user.uid}`);
-            const storeSnapshot = await get(storeRef);
-
-            if (storeSnapshot.exists()) {
-              const store = storeSnapshot.val();
-              console.log('🏪 Found store data:', store);
-
-              // Use new nested businessInfo structure
-              const businessInfo = store.businessInfo || {};
-              setStoreData({
-                storeName: businessInfo.storeName || 'Store Owner',
-                storeAddress: businessInfo.address || 'Jacinto Street',
-                city: businessInfo.city || 'Davao City'
-              });
-            } else {
-              console.log('⚠️ No store data found, using defaults');
-            }
+            console.log('🏪 Store data updated:', {
+              storeName: businessInfo.storeName,
+              logo: businessInfo.logo ? 'Logo exists' : 'No logo'
+            });
           } else {
-            console.log('❌ No user data found');
+            console.log('⚠️ No store registration data found, using defaults');
           }
         } else {
           console.log('❌ No authenticated user');
@@ -131,18 +123,27 @@ export default function StoreHomeScreen() {
           {/* Profile Section - Figma: Profile Group at 20,74 165x42 */}
           <View style={styles.profileSection}>
             <View style={styles.profilePicture}>
-              <Image
-                source={require('../../../src/assets/images/store-owner-dashboard/profile-picture.png')}
-                style={styles.profileImage}
-                resizeMode="cover"
-              />
+              {/* Dynamic Logo from Firebase */}
+              {storeData.logo ? (
+                <Image
+                  source={{ uri: storeData.logo }}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Image
+                  source={require('../../../src/assets/images/store-owner-dashboard/profile-picture.png')}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
+              )}
             </View>
             <View style={styles.profileInfo}>
               {/* Welcome Text - Figma: 71,74 58x22 */}
               <Typography style={styles.welcomeText}>Welcome</Typography>
               {/* Store Name Text - Dynamic from Firebase (e.g., "Kelly Store") - Figma: 70,94 115x22 */}
               <Typography style={styles.storeOwnerText}>
-                {loading ? 'Store Owner' : storeData.storeName}
+                {loading ? 'Loading...' : storeData.storeName}
               </Typography>
             </View>
           </View>

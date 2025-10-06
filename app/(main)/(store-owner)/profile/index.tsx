@@ -70,8 +70,8 @@ export default function ProfileScreen() {
             console.log('👤 User data:', data);
 
             setUserData({
-              ownerName: data.ownerName || data.fullName || data.name || 'Store Owner',
-              ownerEmail: data.ownerEmail || data.email || user.email || 'owner@gmail.com'
+              ownerName: data.name || 'Store Owner',
+              ownerEmail: data.email || user.email || 'owner@gmail.com'
             });
           } else {
             console.log('❌ No user data found');

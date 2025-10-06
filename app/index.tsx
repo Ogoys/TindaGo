@@ -40,20 +40,21 @@ export default function Index() {
               setRedirectPath("/(auth)/role-selection");
             } else {
               // Has registration - check status and route accordingly
-              switch (status) {
-                case STORE_STATUS.PENDING:
-                case STORE_STATUS.APPROVED:
-                case STORE_STATUS.ACTIVE:
-                case STORE_STATUS.REJECTED:
-                case STORE_STATUS.DOCUMENTS_VERIFIED:
-                case STORE_STATUS.DOCUMENTS_REJECTED:
-                  console.log('🏪 Store registration found - redirecting to RegistrationComplete');
-                  setRedirectPath("/(auth)/(store-owner)/RegistrationComplete");
-                  break;
-
-                default:
-                  console.log('❓ Unknown status - redirecting to role selection');
-                  setRedirectPath("/(auth)/role-selection");
+              if (status === STORE_STATUS.APPROVED || status === STORE_STATUS.ACTIVE) {
+                // Store is approved/active - go directly to dashboard
+                console.log('✅ Store is approved/active - redirecting to dashboard');
+                setRedirectPath("/(main)/(store-owner)/home");
+              } else if (status === STORE_STATUS.PENDING ||
+                         status === STORE_STATUS.REJECTED ||
+                         status === STORE_STATUS.DOCUMENTS_VERIFIED ||
+                         status === STORE_STATUS.DOCUMENTS_REJECTED) {
+                // Other statuses - show RegistrationComplete
+                console.log('📋 Store status:', status, '- redirecting to RegistrationComplete');
+                setRedirectPath("/(auth)/(store-owner)/RegistrationComplete");
+              } else {
+                // Unknown status - go to role selection
+                console.log('❓ Unknown status - redirecting to role selection');
+                setRedirectPath("/(auth)/role-selection");
               }
             }
           } catch (error) {
