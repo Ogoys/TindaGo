@@ -11,7 +11,11 @@
       "Bash(npx eslint:*)",
       "Bash(rm:*)",
       "Bash(npx expo start:*)",
-      "Read(//c/Users/Toph/Desktop/Github/Projects/React Native Projects/tindago-admin/src/components/admin/**)"
+      "Read(//c/Users/Toph/Desktop/Github/Projects/React Native Projects/tindago-admin/src/components/admin/**)",
+      "Bash(if [ -f .env ])",
+      "Bash(then cat .env)",
+      "Bash(else echo \".env file not found\")",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []
