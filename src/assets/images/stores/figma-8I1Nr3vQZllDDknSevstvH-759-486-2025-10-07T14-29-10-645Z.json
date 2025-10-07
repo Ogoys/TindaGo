@@ -1,0 +1,666 @@
+{
+  "metadata": {
+    "name": "TindaGo Share",
+    "lastModified": "2025-10-07T09:33:43Z",
+    "thumbnailUrl": "https://s3-alpha.figma.com/thumbnails/32a01a34-a63a-413a-b84c-70ff3042d2f5?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQ4GOSFWCUI57WO7Q%2F20251005%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20251005T120000Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=9beda518b119594bade80d53ffd7671de5fceee5588a1338179840e81ac1db88"
+  },
+  "nodes": [
+    {
+      "id": "759:486",
+      "name": "Store",
+      "type": "GROUP",
+      "boundingBox": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 660
+      },
+      "layout": "layout_BAPH0I",
+      "borderRadius": "0px 0px 0px 0px",
+      "children": [
+        {
+          "id": "759:487",
+          "name": "Store ",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 0,
+            "y": 0,
+            "width": 400,
+            "height": 150
+          },
+          "effects": "effect_OQ8UDZ",
+          "layout": "layout_0KLFI4",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "759:488",
+              "name": "Rectangle 20",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 399.00250244140625,
+                "height": 150
+              },
+              "fills": "fill_FC6Z0K",
+              "layout": "layout_047LP8",
+              "borderRadius": "20px"
+            },
+            {
+              "id": "759:489",
+              "name": "Rectangle 21",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 0.99755859375,
+                "y": 0,
+                "width": 399.00250244140625,
+                "height": 90
+              },
+              "fills": "fill_XJZFRX",
+              "layout": "layout_QVHCCL",
+              "borderRadius": "20px 20px 0px 0px"
+            },
+            {
+              "id": "759:490",
+              "name": "Ellipse 8",
+              "type": "ELLIPSE",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 50,
+                "width": 29.925186157226562,
+                "height": 30
+              },
+              "fills": "fill_TFR32V",
+              "layout": "layout_8TG2HR"
+            },
+            {
+              "id": "759:491",
+              "name": "Golis Sari-sari",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 96,
+                "width": 123.6907730102539,
+                "height": 22
+              },
+              "textStyle": "style_YY5YPE",
+              "fills": "fill_6Z6W4J",
+              "layout": "layout_ACYNLN",
+              "text": "Golis Sari-sari"
+            },
+            {
+              "id": "759:492",
+              "name": "1.3 km",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 52.8677978515625,
+                "y": 117,
+                "width": 31.92020034790039,
+                "height": 22
+              },
+              "textStyle": "style_GDBM0K",
+              "fills": "fill_7JP2ZD",
+              "layout": "layout_LWCSQK",
+              "text": "1.3 km"
+            },
+            {
+              "id": "759:493",
+              "name": "5.0",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 25.9351806640625,
+                "y": 117,
+                "width": 16.957605361938477,
+                "height": 22
+              },
+              "textStyle": "style_GDBM0K",
+              "fills": "fill_7JP2ZD",
+              "layout": "layout_QAXQIX",
+              "text": "5.0"
+            },
+            {
+              "id": "759:494",
+              "name": "Star",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 123,
+                "width": 9.975062370300293,
+                "height": 10
+              },
+              "fills": "fill_8MTPWS",
+              "layout": "layout_IKNZVW"
+            }
+          ]
+        },
+        {
+          "id": "759:495",
+          "name": "Store ",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 0,
+            "y": 170,
+            "width": 400,
+            "height": 150
+          },
+          "effects": "effect_OQ8UDZ",
+          "layout": "layout_8GPQLU",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "759:496",
+              "name": "Rectangle 20",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 0,
+                "y": 170,
+                "width": 399.00250244140625,
+                "height": 150
+              },
+              "fills": "fill_FC6Z0K",
+              "layout": "layout_047LP8",
+              "borderRadius": "20px"
+            },
+            {
+              "id": "759:497",
+              "name": "Rectangle 21",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 0.99755859375,
+                "y": 170,
+                "width": 399.00250244140625,
+                "height": 90
+              },
+              "fills": "fill_XJZFRX",
+              "layout": "layout_QVHCCL",
+              "borderRadius": "20px 20px 0px 0px"
+            },
+            {
+              "id": "759:498",
+              "name": "Ellipse 8",
+              "type": "ELLIPSE",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 220,
+                "width": 29.925186157226562,
+                "height": 30
+              },
+              "fills": "fill_TFR32V",
+              "layout": "layout_8TG2HR"
+            },
+            {
+              "id": "759:499",
+              "name": "Golis Sari-sari",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 266,
+                "width": 123.6907730102539,
+                "height": 22
+              },
+              "textStyle": "style_YY5YPE",
+              "fills": "fill_6Z6W4J",
+              "layout": "layout_ACYNLN",
+              "text": "Golis Sari-sari"
+            },
+            {
+              "id": "759:500",
+              "name": "1.3 km",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 52.8677978515625,
+                "y": 287,
+                "width": 31.92020034790039,
+                "height": 22
+              },
+              "textStyle": "style_GDBM0K",
+              "fills": "fill_7JP2ZD",
+              "layout": "layout_LWCSQK",
+              "text": "1.3 km"
+            },
+            {
+              "id": "759:501",
+              "name": "5.0",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 25.9351806640625,
+                "y": 287,
+                "width": 16.957605361938477,
+                "height": 22
+              },
+              "textStyle": "style_GDBM0K",
+              "fills": "fill_7JP2ZD",
+              "layout": "layout_QAXQIX",
+              "text": "5.0"
+            },
+            {
+              "id": "759:502",
+              "name": "Star",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 293,
+                "width": 9.975062370300293,
+                "height": 10
+              },
+              "fills": "fill_8MTPWS",
+              "layout": "layout_IKNZVW"
+            }
+          ]
+        },
+        {
+          "id": "759:503",
+          "name": "Store ",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 0,
+            "y": 340,
+            "width": 400,
+            "height": 150
+          },
+          "effects": "effect_OQ8UDZ",
+          "layout": "layout_UUCICB",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "759:504",
+              "name": "Rectangle 20",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 0,
+                "y": 340,
+                "width": 399.00250244140625,
+                "height": 150
+              },
+              "fills": "fill_FC6Z0K",
+              "layout": "layout_047LP8",
+              "borderRadius": "20px"
+            },
+            {
+              "id": "759:505",
+              "name": "Rectangle 21",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 0.99755859375,
+                "y": 340,
+                "width": 399.00250244140625,
+                "height": 90
+              },
+              "fills": "fill_XJZFRX",
+              "layout": "layout_QVHCCL",
+              "borderRadius": "20px 20px 0px 0px"
+            },
+            {
+              "id": "759:506",
+              "name": "Ellipse 8",
+              "type": "ELLIPSE",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 390,
+                "width": 29.925186157226562,
+                "height": 30
+              },
+              "fills": "fill_TFR32V",
+              "layout": "layout_8TG2HR"
+            },
+            {
+              "id": "759:507",
+              "name": "Golis Sari-sari",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 436,
+                "width": 123.6907730102539,
+                "height": 22
+              },
+              "textStyle": "style_YY5YPE",
+              "fills": "fill_6Z6W4J",
+              "layout": "layout_ACYNLN",
+              "text": "Golis Sari-sari"
+            },
+            {
+              "id": "759:508",
+              "name": "1.3 km",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 52.8677978515625,
+                "y": 457,
+                "width": 31.92020034790039,
+                "height": 22
+              },
+              "textStyle": "style_GDBM0K",
+              "fills": "fill_7JP2ZD",
+              "layout": "layout_LWCSQK",
+              "text": "1.3 km"
+            },
+            {
+              "id": "759:509",
+              "name": "5.0",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 25.9351806640625,
+                "y": 457,
+                "width": 16.957605361938477,
+                "height": 22
+              },
+              "textStyle": "style_GDBM0K",
+              "fills": "fill_7JP2ZD",
+              "layout": "layout_QAXQIX",
+              "text": "5.0"
+            },
+            {
+              "id": "759:510",
+              "name": "Star",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 463,
+                "width": 9.975062370300293,
+                "height": 10
+              },
+              "fills": "fill_8MTPWS",
+              "layout": "layout_IKNZVW"
+            }
+          ]
+        },
+        {
+          "id": "759:511",
+          "name": "Store ",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 0,
+            "y": 510,
+            "width": 400,
+            "height": 150
+          },
+          "effects": "effect_OQ8UDZ",
+          "layout": "layout_1HWEUQ",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "759:512",
+              "name": "Rectangle 20",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 0,
+                "y": 510,
+                "width": 399.00250244140625,
+                "height": 150
+              },
+              "fills": "fill_FC6Z0K",
+              "layout": "layout_047LP8",
+              "borderRadius": "20px"
+            },
+            {
+              "id": "759:513",
+              "name": "Rectangle 21",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 0.99755859375,
+                "y": 510,
+                "width": 399.00250244140625,
+                "height": 90
+              },
+              "fills": "fill_XJZFRX",
+              "layout": "layout_QVHCCL",
+              "borderRadius": "20px 20px 0px 0px"
+            },
+            {
+              "id": "759:514",
+              "name": "Ellipse 8",
+              "type": "ELLIPSE",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 560,
+                "width": 29.925186157226562,
+                "height": 30
+              },
+              "fills": "fill_TFR32V",
+              "layout": "layout_8TG2HR"
+            },
+            {
+              "id": "759:515",
+              "name": "Golis Sari-sari",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 606,
+                "width": 123.6907730102539,
+                "height": 22
+              },
+              "textStyle": "style_YY5YPE",
+              "fills": "fill_6Z6W4J",
+              "layout": "layout_ACYNLN",
+              "text": "Golis Sari-sari"
+            },
+            {
+              "id": "759:516",
+              "name": "1.3 km",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 52.8677978515625,
+                "y": 627,
+                "width": 31.92020034790039,
+                "height": 22
+              },
+              "textStyle": "style_GDBM0K",
+              "fills": "fill_7JP2ZD",
+              "layout": "layout_LWCSQK",
+              "text": "1.3 km"
+            },
+            {
+              "id": "759:517",
+              "name": "5.0",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 25.9351806640625,
+                "y": 627,
+                "width": 16.957605361938477,
+                "height": 22
+              },
+              "textStyle": "style_GDBM0K",
+              "fills": "fill_7JP2ZD",
+              "layout": "layout_QAXQIX",
+              "text": "5.0"
+            },
+            {
+              "id": "759:518",
+              "name": "Star",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 10.9725341796875,
+                "y": 633,
+                "width": 9.975062370300293,
+                "height": 10
+              },
+              "fills": "fill_8MTPWS",
+              "layout": "layout_IKNZVW"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "globalVars": {
+    "styles": {
+      "layout_BAPH0I": {
+        "mode": "none",
+        "dimensions": {
+          "width": 400,
+          "height": 660
+        }
+      },
+      "effect_OQ8UDZ": {
+        "boxShadow": "0px 4px 10px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_0KLFI4": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 150
+        }
+      },
+      "fill_FC6Z0K": [
+        "#FFFFFF"
+      ],
+      "layout_047LP8": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 399,
+          "height": 150
+        }
+      },
+      "fill_XJZFRX": [
+        {
+          "type": "IMAGE",
+          "imageRef": "d59304f3f318bb0f35945cbfc5af6a3d78553922",
+          "scaleMode": "STRETCH"
+        }
+      ],
+      "layout_QVHCCL": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 1,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 399,
+          "height": 90
+        }
+      },
+      "fill_TFR32V": [
+        "#3BB77E",
+        {
+          "type": "IMAGE",
+          "imageRef": "7b8b9c4c2496bec6c0d767dca646d7d5fed8ee61",
+          "scaleMode": "FILL"
+        }
+      ],
+      "layout_8TG2HR": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 10.97,
+          "y": 50
+        },
+        "dimensions": {
+          "width": 29.93,
+          "height": 30
+        }
+      },
+      "style_YY5YPE": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "fill_6Z6W4J": [
+        "#1E1E1E"
+      ],
+      "layout_ACYNLN": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 10.97,
+          "y": 96
+        },
+        "dimensions": {
+          "width": 123.69,
+          "height": 22
+        }
+      },
+      "style_GDBM0K": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 400,
+        "fontSize": 12,
+        "lineHeight": "1.8333333333333333em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "fill_7JP2ZD": [
+        "rgba(0, 0, 0, 0.5)"
+      ],
+      "layout_LWCSQK": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 52.87,
+          "y": 117
+        },
+        "dimensions": {
+          "width": 31.92,
+          "height": 22
+        }
+      },
+      "layout_QAXQIX": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 25.94,
+          "y": 117
+        },
+        "dimensions": {
+          "width": 16.96,
+          "height": 22
+        }
+      },
+      "fill_8MTPWS": [
+        {
+          "type": "IMAGE",
+          "imageRef": "551ea082c41277a9239aec8372982dff8a188244",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_IKNZVW": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 10.97,
+          "y": 123
+        },
+        "dimensions": {
+          "width": 9.98,
+          "height": 10
+        }
+      },
+      "layout_8GPQLU": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 170
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 150
+        }
+      },
+      "layout_UUCICB": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 340
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 150
+        }
+      },
+      "layout_1HWEUQ": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 510
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 150
+        }
+      }
+    }
+  }
+}

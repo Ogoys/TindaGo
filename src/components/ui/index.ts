@@ -6,3 +6,4 @@ export type { ProductCardProps } from "./ProductCard";
 export { StoreCard } from "./StoreCard";
 export type { StoreCardProps } from "./StoreCard";
 export { PendingApprovalDetails } from "./PendingApprovalDetails";
+export { default as BottomNavigation } from "./BottomNavigation";
