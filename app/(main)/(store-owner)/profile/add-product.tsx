@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Alert,
   Image,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-import { ref, push, set } from 'firebase/database';
+import { ref, push, set, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
@@ -36,6 +36,43 @@ const AddProductScreen = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Helper function: Format product name (Capitalize first letter of each word)
+  const formatProductName = (name: string): string => {
+    return name
+      .trim()
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Helper function: Format price to 2 decimal places
+  const formatPrice = (price: number): number => {
+    return Math.round(price * 100) / 100;
+  };
+
+  // Memoized handlers to prevent keyboard issues
+  const handleProductNameChange = useCallback((text: string) => {
+    setProductName(text);
+  }, []);
+
+  const handleDescriptionChange = useCallback((text: string) => {
+    setDescription(text);
+  }, []);
+
+  const handlePriceChange = useCallback((text: string) => {
+    setPrice(text);
+  }, []);
+
+  const handleQuantityChange = useCallback((text: string) => {
+    setQuantity(text);
+  }, []);
+
+  const handleProductSizeChange = useCallback((text: string) => {
+    setProductSize(text);
+  }, []);
 
   // Product categories as specified by user
   const categories: CategoryItem[] = [
@@ -125,28 +162,90 @@ const AddProductScreen = () => {
   };
 
   const handleAddProduct = async () => {
+    // Prevent double-click
+    if (isSaving) return;
+
     try {
-      // Validation
+      setIsSaving(true);
+
+      // ========================================
+      // 1. PRODUCT NAME VALIDATION
+      // ========================================
       if (!productName.trim()) {
         Alert.alert('Error', 'Please enter a product name');
         return;
       }
+      if (productName.trim().length < 2) {
+        Alert.alert('Error', 'Product name must be at least 2 characters');
+        return;
+      }
+      if (productName.trim().length > 100) {
+        Alert.alert('Error', 'Product name cannot exceed 100 characters');
+        return;
+      }
+
+      // ========================================
+      // 2. DESCRIPTION VALIDATION
+      // ========================================
       if (!description.trim()) {
         Alert.alert('Error', 'Please enter a product description');
         return;
       }
+
+      // ========================================
+      // 3. CATEGORY VALIDATION
+      // ========================================
       if (!selectedCategory) {
         Alert.alert('Error', 'Please select a product category');
         return;
       }
-      if (!price.trim() || isNaN(Number(price))) {
+
+      // ========================================
+      // 4. PRICE VALIDATION
+      // ========================================
+      const priceNum = Number(price);
+      if (!price.trim() || isNaN(priceNum)) {
         Alert.alert('Error', 'Please enter a valid price');
         return;
       }
-      if (!quantity.trim() || isNaN(Number(quantity))) {
+      if (priceNum <= 0) {
+        Alert.alert('Error', 'Price must be greater than ₱0');
+        return;
+      }
+      if (priceNum > 999999) {
+        Alert.alert('Error', 'Price cannot exceed ₱999,999');
+        return;
+      }
+      // Check decimal places
+      if (price.includes('.') && price.split('.')[1].length > 2) {
+        Alert.alert('Error', 'Price can only have up to 2 decimal places (e.g., ₱12.50)');
+        return;
+      }
+
+      // ========================================
+      // 5. QUANTITY VALIDATION
+      // ========================================
+      const quantityNum = Number(quantity);
+      if (!quantity.trim() || isNaN(quantityNum)) {
         Alert.alert('Error', 'Please enter a valid quantity');
         return;
       }
+      if (quantityNum <= 0) {
+        Alert.alert('Error', 'Quantity must be greater than 0');
+        return;
+      }
+      if (!Number.isInteger(quantityNum)) {
+        Alert.alert('Error', 'Quantity must be a whole number (no decimals like 10.5)');
+        return;
+      }
+      if (quantityNum > 99999) {
+        Alert.alert('Error', 'Quantity cannot exceed 99,999');
+        return;
+      }
+
+      // ========================================
+      // 6. SIZE & UNIT VALIDATION
+      // ========================================
       if (!productSize.trim()) {
         Alert.alert('Error', 'Please enter a product size');
         return;
@@ -155,25 +254,79 @@ const AddProductScreen = () => {
         Alert.alert('Error', 'Please select a unit');
         return;
       }
+
+      // ========================================
+      // 7. IMAGE VALIDATION
+      // ========================================
       if (!selectedImage) {
         Alert.alert('Error', 'Please select a product image');
         return;
       }
 
-      // Get current user
+      // ========================================
+      // 8. USER AUTHENTICATION CHECK
+      // ========================================
       const currentUser = auth.currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'User not authenticated');
         return;
       }
 
-      // Prepare product data
+      // ========================================
+      // 9. DUPLICATE PRODUCT CHECK
+      // ========================================
+      console.log('🔍 Checking for duplicate products...');
+      const productsRef = ref(database, 'products');
+      const storeProductsQuery = query(
+        productsRef,
+        orderByChild('storeOwnerId'),
+        equalTo(currentUser.uid)
+      );
+
+      const snapshot = await get(storeProductsQuery);
+      if (snapshot.exists()) {
+        const existingProducts = snapshot.val();
+        const isDuplicate = Object.values(existingProducts).some((product: any) => {
+          const sameName = product.productName.toLowerCase().trim() === productName.toLowerCase().trim();
+          const sameSize = product.productSize.toLowerCase().trim() === productSize.toLowerCase().trim();
+          const sameUnit = product.unit.toLowerCase() === selectedUnit.toLowerCase();
+
+          return sameName && sameSize && sameUnit;
+        });
+
+        if (isDuplicate) {
+          const formattedName = formatProductName(productName);
+          Alert.alert(
+            'Duplicate Product',
+            `${formattedName} (${productSize}${selectedUnit}) already exists in your inventory.\n\nTo add more stock, go to Store Product and update the existing product.`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+      console.log('✅ No duplicate found - proceeding with save');
+
+      // ========================================
+      // 10. FORMAT DATA
+      // ========================================
+      const formattedProductName = formatProductName(productName);
+      const formattedPrice = formatPrice(priceNum);
+      const formattedQuantity = Math.floor(quantityNum);
+
+      console.log('📝 Formatted data:');
+      console.log('  - Name:', formattedProductName);
+      console.log('  - Price: ₱', formattedPrice);
+      console.log('  - Quantity:', formattedQuantity);
+
+      // ========================================
+      // 11. PREPARE PRODUCT DATA
+      // ========================================
       const productData = {
-        productName: productName.trim(),
+        productName: formattedProductName,
         description: description.trim(),
         category: selectedCategory,
-        price: Number(price),
-        quantity: Number(quantity),
+        price: formattedPrice,
+        quantity: formattedQuantity,
         productSize: productSize.trim(),
         unit: selectedUnit,
         productImage: selectedImage, // Base64 string
@@ -183,20 +336,27 @@ const AddProductScreen = () => {
         status: 'active'
       };
 
-      // Save to Firebase Realtime Database
-      const productsRef = ref(database, 'products');
+      // ========================================
+      // 12. SAVE TO FIREBASE
+      // ========================================
+      console.log('💾 Saving to Firebase...');
       const newProductRef = push(productsRef);
       await set(newProductRef, productData);
 
-      console.log('Product saved to Firebase:', productData);
+      console.log('✅ Product saved successfully:', productData.productName);
 
+      // ========================================
+      // 13. SUCCESS FEEDBACK
+      // ========================================
       Alert.alert('Success', 'Product added successfully!', [
         { text: 'OK', onPress: () => router.back() }
       ]);
 
     } catch (error) {
-      console.error('Error adding product:', error);
+      console.error('❌ Error adding product:', error);
       Alert.alert('Error', 'Failed to add product. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -258,7 +418,7 @@ const AddProductScreen = () => {
               placeholder="Enter product name"
               placeholderTextColor="rgba(30, 30, 30, 0.5)"
               value={productName}
-              onChangeText={setProductName}
+              onChangeText={handleProductNameChange}
             />
           </View>
         </View>
@@ -272,7 +432,7 @@ const AddProductScreen = () => {
               placeholder="Enter product description"
               placeholderTextColor="rgba(30, 30, 30, 0.5)"
               value={description}
-              onChangeText={setDescription}
+              onChangeText={handleDescriptionChange}
               multiline
               textAlignVertical="top"
             />
@@ -305,7 +465,7 @@ const AddProductScreen = () => {
                 placeholder="₱0.00"
                 placeholderTextColor="rgba(30, 30, 30, 0.5)"
                 value={price}
-                onChangeText={setPrice}
+                onChangeText={handlePriceChange}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -320,7 +480,7 @@ const AddProductScreen = () => {
                 placeholder="0"
                 placeholderTextColor="rgba(30, 30, 30, 0.5)"
                 value={quantity}
-                onChangeText={setQuantity}
+                onChangeText={handleQuantityChange}
                 keyboardType="number-pad"
               />
             </View>
@@ -338,7 +498,7 @@ const AddProductScreen = () => {
                 placeholder="Enter size"
                 placeholderTextColor="rgba(30, 30, 30, 0.5)"
                 value={productSize}
-                onChangeText={setProductSize}
+                onChangeText={handleProductSizeChange}
                 keyboardType="default"
               />
             </View>
@@ -360,8 +520,15 @@ const AddProductScreen = () => {
         </View>
 
         {/* Add Product Button - Figma: x: 20, y: 850, width: 400, height: 50 */}
-        <TouchableOpacity style={styles.addButton} onPress={handleAddProduct} activeOpacity={0.7}>
-          <Text style={styles.addButtonText}>Add Product</Text>
+        <TouchableOpacity
+          style={[styles.addButton, isSaving && styles.addButtonDisabled]}
+          onPress={handleAddProduct}
+          activeOpacity={0.7}
+          disabled={isSaving}
+        >
+          <Text style={styles.addButtonText}>
+            {isSaving ? 'Adding Product...' : 'Add Product'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -759,6 +926,12 @@ const styles = StyleSheet.create({
     lineHeight: vs(22), // 1.1em line height
     color: Colors.white,
     textAlign: 'center',
+  },
+
+  // Disabled button style
+  addButtonDisabled: {
+    backgroundColor: 'rgba(59, 183, 126, 0.5)', // Faded green
+    opacity: 0.7,
   },
 
   // Modal Styles

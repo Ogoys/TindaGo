@@ -107,7 +107,7 @@ export default function DocumentUploadScreen() {
         const documentInfo = {
           name: document.name || `${documentType}.pdf`,
           uri: documentBase64, // Store base64 instead of local URI
-          type: mimeType,
+          mimeType: mimeType, // Changed from 'type' to 'mimeType' to match StoreRegistrationService
           size: document.size || 0,
           uploaded: true,
           uploadedAt: new Date().toISOString()
@@ -116,7 +116,11 @@ export default function DocumentUploadScreen() {
         setFormData({ ...formData, [documentType]: documentInfo });
         setErrors({ ...errors, [documentType]: "" });
 
-        console.log(`✅ ${documentType} converted to Base64 and saved`);
+        console.log(`✅ ${documentType} converted to Base64 and saved locally`);
+        console.log(`  - Name: ${documentInfo.name}`);
+        console.log(`  - Type: ${documentInfo.mimeType}`);
+        console.log(`  - Size: ${documentInfo.size} bytes`);
+        console.log(`  - Base64 preview: ${documentBase64.substring(0, 100)}...`);
       }
     } catch (error) {
       console.error(`❌ Error picking ${documentType}:`, error);
@@ -140,6 +144,12 @@ export default function DocumentUploadScreen() {
     setLoading(true);
 
     try {
+      console.log('📤 Uploading documents to Firebase...');
+      console.log('  - Barangay Clearance:', formData.barangayBusinessClearance ? '✅ Uploaded' : '⏭️ Skipped');
+      console.log('  - Business Permit:', formData.businessPermit ? '✅ Uploaded' : '❌ Missing');
+      console.log('  - DTI Registration:', formData.dtiRegistration ? '✅ Uploaded' : '⏭️ Skipped');
+      console.log('  - Valid ID:', formData.validId ? '✅ Uploaded' : '❌ Missing');
+
       // Use centralized service to update documents with standardized status
       await StoreRegistrationService.updateDocuments({
         barangayBusinessClearance: formData.barangayBusinessClearance,
@@ -147,6 +157,10 @@ export default function DocumentUploadScreen() {
         dtiRegistration: formData.dtiRegistration,
         validId: formData.validId,
       });
+
+      console.log('✅ Documents uploaded successfully to Firebase');
+      console.log('  - Status changed to: pending (ready for admin review)');
+      console.log('  - Documents saved to: stores/{userId} and store_registrations/{userId}');
 
       Alert.alert(
         "Registration Complete!",

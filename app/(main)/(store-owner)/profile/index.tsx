@@ -6,6 +6,7 @@ import { ref, get } from "firebase/database";
 import { CustomStatusBar } from "../../../../src/components/ui/StatusBar";
 import { Colors } from "../../../../src/constants/Colors";
 import { s, vs } from "../../../../src/constants/responsive";
+import { StoreRegistrationService } from "../../../../src/services/StoreRegistrationService";
 
 interface SettingItemProps {
   title: string;
@@ -47,7 +48,8 @@ export default function ProfileScreen() {
   // User data state
   const [userData, setUserData] = useState({
     ownerName: 'Store Owner',
-    ownerEmail: 'owner@gmail.com'
+    ownerEmail: 'owner@gmail.com',
+    logo: null as string | null,
   });
   const [loading, setLoading] = useState(true);
 
@@ -65,20 +67,28 @@ export default function ProfileScreen() {
 
           console.log('👤 User snapshot exists:', userSnapshot.exists());
 
+          // Get store registration data for logo
+          const registrationData = await StoreRegistrationService.getRegistrationData(user.uid);
+          const logo = registrationData?.businessInfo?.logo || null;
+
+          console.log('🏪 Store logo:', logo ? 'Logo exists' : 'No logo');
+
           if (userSnapshot.exists()) {
             const data = userSnapshot.val();
             console.log('👤 User data:', data);
 
             setUserData({
               ownerName: data.name || 'Store Owner',
-              ownerEmail: data.email || user.email || 'owner@gmail.com'
+              ownerEmail: data.email || user.email || 'owner@gmail.com',
+              logo: logo,
             });
           } else {
             console.log('❌ No user data found');
             // Fallback to auth email if available
             setUserData({
               ownerName: 'Store Owner',
-              ownerEmail: user.email || 'owner@gmail.com'
+              ownerEmail: user.email || 'owner@gmail.com',
+              logo: logo,
             });
           }
         } else {
@@ -154,11 +164,20 @@ export default function ProfileScreen() {
 
         {/* Profile Section - Figma: x: 20, y: 149, width: 400, height: 80 */}
         <View style={styles.profileSection}>
-          {/* Profile Avatar - Figma: x: 35, y: 164, width: 50, height: 50 */}
-          <Image
-            source={require("../../../../src/assets/images/store-owner-profile/profile-avatar.png")}
-            style={styles.profileAvatar}
-          />
+          {/* Profile Avatar / Store Logo - Dynamic from Firebase */}
+          {userData.logo ? (
+            <Image
+              source={{ uri: userData.logo }}
+              style={styles.profileAvatar}
+              resizeMode="cover"
+            />
+          ) : (
+            <Image
+              source={require("../../../../src/assets/images/store-owner-profile/profile-avatar.png")}
+              style={styles.profileAvatar}
+              resizeMode="cover"
+            />
+          )}
 
           {/* Name Section - Figma: x: 100, y: 171 */}
           <View style={styles.nameSection}>

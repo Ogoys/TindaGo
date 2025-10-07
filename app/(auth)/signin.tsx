@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
@@ -19,6 +19,15 @@ export default function SignInScreen() {
   const [loading, setLoading] = useState(false);
 
   const { setUser } = useUser();
+
+  // Memoized handlers to prevent keyboard issues
+  const handleEmailOrPhoneChange = useCallback((text: string) => {
+    setEmailOrPhone(text);
+  }, []);
+
+  const handlePasswordChange = useCallback((text: string) => {
+    setPassword(text);
+  }, []);
 
   const handleLogin = async () => {
     if (!emailOrPhone.trim() || !password.trim()) {
@@ -261,7 +270,7 @@ export default function SignInScreen() {
           <FormInput
             placeholder="Email or Phone"
             value={emailOrPhone}
-            onChangeText={setEmailOrPhone}
+            onChangeText={handleEmailOrPhoneChange}
             keyboardType="email-address"
             style={styles.emailInput}
           />
@@ -269,7 +278,7 @@ export default function SignInScreen() {
           <FormInput
             placeholder="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={handlePasswordChange}
             secureTextEntry
             style={styles.passwordInput}
           />

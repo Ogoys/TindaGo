@@ -4,7 +4,7 @@
 
 This document reflects the **actual** Firebase Realtime Database structure as implemented in the TindaGo codebase, extracted from the live application code.
 
-Last Updated: 2025-10-01
+Last Updated: 2025-10-07
 
 ---
 
@@ -50,7 +50,9 @@ Last Updated: 2025-10-01
         "address": "Complete Store Address",
         "city": "Manila",
         "zipCode": "1000",
-        "businessType": "Sari-Sari Store"
+        "businessType": "Sari-Sari Store",
+        "logo": "data:image/jpeg;base64,{base64_string}",
+        "coverImage": "data:image/jpeg;base64,{base64_string}"
       },
       "documents": {
         "barangayBusinessClearance": {
@@ -111,7 +113,9 @@ Last Updated: 2025-10-01
         "address": "Complete Store Address",
         "city": "Manila",
         "zipCode": "1000",
-        "businessType": "Sari-Sari Store"
+        "businessType": "Sari-Sari Store",
+        "logo": "data:image/jpeg;base64,{base64_string}",
+        "coverImage": "data:image/jpeg;base64,{base64_string}"
       },
       "documents": {
         "barangayBusinessClearance": {
@@ -150,8 +154,6 @@ Last Updated: 2025-10-01
         "verified": false,
         "addedAt": { ".sv": "timestamp" }
       },
-      "logo": null | "data:image/jpeg;base64,{base64_string}",
-      "coverImage": null | "data:image/jpeg;base64,{base64_string}",
       "status": "pending_documents" | "pending" | "approved" | "rejected" | "active",
       "createdAt": "2025-01-15T10:30:00.000Z",
       "updatedAt": "2025-01-15T10:30:00.000Z",
@@ -240,11 +242,13 @@ await StoreRegistrationService.updateStoreDetails({
   storeAddress: "Complete address",
   city: "Manila",
   zipCode: "1000",
-  logo: "data:image/jpeg;base64,...",
-  coverImage: "data:image/jpeg;base64,...",
+  logo: "data:image/jpeg;base64,...",          // REQUIRED
+  coverImage: "data:image/jpeg;base64,...",    // REQUIRED
 });
 
 // Creates structure in both stores and store_registrations
+// Logo and cover image are saved inside businessInfo object
+// Both logo and coverImage are REQUIRED fields validated during registration
 // Status: "pending_documents"
 ```
 
@@ -417,6 +421,12 @@ All images (products, store logos, documents) are stored as **Base64 data URLs**
 
 Format: `data:image/jpeg;base64,{base64_string}`
 
+**Store Logo and Cover Image:**
+- Stored inside `businessInfo` object (not at root level)
+- Both are **REQUIRED fields** during store registration
+- Validated in `StoreDetails.tsx` before allowing user to proceed
+- Used for store branding on the dashboard and profile pages
+
 **Files:**
 - `app/(main)/(store-owner)/profile/add-product.tsx:92-99`
 - `app/(auth)/(store-owner)/StoreDetails.tsx:124-131`
@@ -493,6 +503,8 @@ StoreRegistrationService.subscribeToRegistrationUpdates(userId, callback)
 - **Prices:** Numeric validation
 - **Quantities:** Numeric validation
 - **Images:** Base64 data URL format validation
+- **Store Logo:** REQUIRED field in store registration (validated in StoreDetails.tsx)
+- **Store Cover Image:** REQUIRED field in store registration (validated in StoreDetails.tsx)
 
 ---
 

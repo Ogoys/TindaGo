@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { ref, set, serverTimestamp } from 'firebase/database';
@@ -31,6 +31,19 @@ export default function RegisterScreen() {
   });
 
   const [loading, setLoading] = useState(false);
+
+  // Memoized handlers to prevent keyboard issues
+  const handleNameChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, name: text }));
+  }, []);
+
+  const handleEmailOrPhoneChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, emailOrPhone: text }));
+  }, []);
+
+  const handlePasswordChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, password: text }));
+  }, []);
 
   const validateForm = () => {
     const newErrors = {
@@ -327,14 +340,14 @@ export default function RegisterScreen() {
             <FormInput
               placeholder="Your Name"
               value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
+              onChangeText={handleNameChange}
               style={styles.nameInput}
             />
 
             <FormInput
               placeholder={formData.userType === "store_owner" ? "Business Email" : "Email or Phone"}
               value={formData.emailOrPhone}
-              onChangeText={(text) => setFormData({ ...formData, emailOrPhone: text })}
+              onChangeText={handleEmailOrPhoneChange}
               keyboardType="email-address"
               style={styles.emailInput}
             />
@@ -342,7 +355,7 @@ export default function RegisterScreen() {
             <FormInput
               placeholder="Password"
               value={formData.password}
-              onChangeText={(text) => setFormData({ ...formData, password: text })}
+              onChangeText={handlePasswordChange}
               secureTextEntry
               style={styles.passwordInput}
             />

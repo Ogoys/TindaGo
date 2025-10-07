@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { auth } from '../../../FirebaseConfig';
 import { s, vs } from "../../../src/constants/responsive";
@@ -24,7 +24,41 @@ interface StoreErrors {
   storeAddress: string;
   city: string;
   zipCode: string;
+  logo: string;
+  coverImage: string;
 }
+
+// FormInput component - defined outside to prevent re-creation on every render
+const FormInputField = React.memo(({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  style,
+  isTextArea = false
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  style?: any;
+  isTextArea?: boolean;
+}) => (
+  <View style={[styles.inputContainer, style]}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <View style={[styles.inputBox, isTextArea && styles.textAreaBox]}>
+      <TextInput
+        style={[styles.textInput, isTextArea && styles.textAreaInput]}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(30, 30, 30, 0.5)"
+        value={value}
+        onChangeText={onChangeText}
+        multiline={isTextArea}
+        numberOfLines={isTextArea ? 4 : 1}
+      />
+    </View>
+  </View>
+));
 
 export default function StoreDetailsScreen() {
   // Get owner details from previous screen
@@ -50,9 +84,32 @@ export default function StoreDetailsScreen() {
     storeAddress: "",
     city: "",
     zipCode: "",
+    logo: "",
+    coverImage: "",
   });
 
   const [loading, setLoading] = useState(false);
+
+  // Memoized handlers to prevent keyboard issues
+  const handleStoreNameChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, storeName: text }));
+  }, []);
+
+  const handleDescriptionChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, description: text }));
+  }, []);
+
+  const handleStoreAddressChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, storeAddress: text }));
+  }, []);
+
+  const handleCityChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, city: text }));
+  }, []);
+
+  const handleZipCodeChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, zipCode: text }));
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: StoreErrors = {
@@ -61,6 +118,8 @@ export default function StoreDetailsScreen() {
       storeAddress: "",
       city: "",
       zipCode: "",
+      logo: "",
+      coverImage: "",
     };
 
     // Store Name validation
@@ -96,6 +155,16 @@ export default function StoreDetailsScreen() {
       newErrors.zipCode = "Zip code is required";
     } else if (!/^\d{4}$/.test(formData.zipCode.trim())) {
       newErrors.zipCode = "Please enter a valid 4-digit zip code";
+    }
+
+    // Logo validation (REQUIRED)
+    if (!formData.logo) {
+      newErrors.logo = "Store logo is required";
+    }
+
+    // Cover Image validation (REQUIRED)
+    if (!formData.coverImage) {
+      newErrors.coverImage = "Store cover image is required";
     }
 
     setErrors(newErrors);
@@ -209,38 +278,6 @@ export default function StoreDetailsScreen() {
     }
   };
 
-  // Custom FormInput component matching Figma design
-  const FormInputField = ({
-    label,
-    placeholder,
-    value,
-    onChangeText,
-    style,
-    isTextArea = false
-  }: {
-    label: string;
-    placeholder: string;
-    value: string;
-    onChangeText: (text: string) => void;
-    style?: any;
-    isTextArea?: boolean;
-  }) => (
-    <View style={[styles.inputContainer, style]}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View style={[styles.inputBox, isTextArea && styles.textAreaBox]}>
-        <TextInput
-          style={[styles.textInput, isTextArea && styles.textAreaInput]}
-          placeholder={placeholder}
-          placeholderTextColor="rgba(30, 30, 30, 0.5)"
-          value={value}
-          onChangeText={onChangeText}
-          multiline={isTextArea}
-          numberOfLines={isTextArea ? 4 : 1}
-        />
-      </View>
-    </View>
-  );
-
   // Upload Component for Logo and Cover Image
   const UploadComponent = ({
     title,
@@ -252,9 +289,15 @@ export default function StoreDetailsScreen() {
     style?: any;
   }) => (
     <View style={[styles.uploadContainer, style]}>
-      <Text style={styles.uploadLabel}>{title}</Text>
+      <View style={styles.uploadLabelContainer}>
+        <Text style={styles.uploadLabel}>{title}</Text>
+        <Text style={styles.requiredIndicator}>*Required</Text>
+      </View>
       <TouchableOpacity
-        style={styles.uploadBox}
+        style={[
+          styles.uploadBox,
+          errors[type] ? styles.uploadBoxError : null
+        ]}
         onPress={() => handleImagePicker(type)}
         activeOpacity={0.8}
       >
@@ -270,6 +313,9 @@ export default function StoreDetailsScreen() {
           </View>
         )}
       </TouchableOpacity>
+      {errors[type] ? (
+        <Text style={styles.uploadErrorText}>{errors[type]}</Text>
+      ) : null}
     </View>
   );
 
@@ -337,7 +383,7 @@ export default function StoreDetailsScreen() {
               label="Store Name"
               placeholder="Enter store name"
               value={formData.storeName}
-              onChangeText={(text) => setFormData({ ...formData, storeName: text })}
+              onChangeText={handleStoreNameChange}
               style={styles.storeNameField}
             />
 
@@ -346,7 +392,7 @@ export default function StoreDetailsScreen() {
               label="Description"
               placeholder="Enter description"
               value={formData.description}
-              onChangeText={(text) => setFormData({ ...formData, description: text })}
+              onChangeText={handleDescriptionChange}
               style={styles.descriptionField}
               isTextArea={true}
             />
@@ -356,7 +402,7 @@ export default function StoreDetailsScreen() {
               label="Store Address"
               placeholder="Enter store address"
               value={formData.storeAddress}
-              onChangeText={(text) => setFormData({ ...formData, storeAddress: text })}
+              onChangeText={handleStoreAddressChange}
               style={styles.addressField}
             />
 
@@ -366,14 +412,14 @@ export default function StoreDetailsScreen() {
                 label="City"
                 placeholder="Enter city"
                 value={formData.city}
-                onChangeText={(text) => setFormData({ ...formData, city: text })}
+                onChangeText={handleCityChange}
                 style={styles.cityField}
               />
               <FormInputField
                 label="Zip Code"
                 placeholder="Enter zip code"
                 value={formData.zipCode}
-                onChangeText={(text) => setFormData({ ...formData, zipCode: text })}
+                onChangeText={handleZipCodeChange}
                 style={styles.zipField}
               />
             </View>
@@ -546,6 +592,13 @@ const styles = StyleSheet.create({
     marginRight: s(10),
   },
 
+  // Upload Label Container
+  uploadLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: vs(5),
+  },
+
   // Upload Label - Figma: Logo/Cover Image text
   uploadLabel: {
     fontFamily: 'Clash Grotesk Variable',
@@ -553,7 +606,15 @@ const styles = StyleSheet.create({
     fontSize: s(16),
     lineHeight: vs(22),
     color: '#000000',
-    marginBottom: vs(5),
+  },
+
+  // Required Indicator
+  requiredIndicator: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(12),
+    color: '#FF3B30',
+    marginLeft: s(4),
   },
 
   // Upload Box - Figma: 150x150 with border radius
@@ -568,6 +629,20 @@ const styles = StyleSheet.create({
     shadowRadius: s(5),
     elevation: 3,
     overflow: 'hidden',
+  },
+
+  // Upload Box Error State
+  uploadBoxError: {
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+  },
+
+  // Upload Error Text
+  uploadErrorText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontSize: s(12),
+    color: '#FF3B30',
+    marginTop: vs(4),
   },
 
   uploadPlaceholder: {

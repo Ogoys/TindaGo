@@ -24,6 +24,8 @@ export interface StoreRegistrationData {
     city: string;
     zipCode: string;
     businessType: string;
+    logo?: string | null;
+    coverImage?: string | null;
   };
   documents?: {
     barangayBusinessClearance?: DocumentInfo;
@@ -77,6 +79,8 @@ export class StoreRegistrationService {
         city: registrationData.businessInfo?.city || '',
         zipCode: registrationData.businessInfo?.zipCode || '',
         businessType: 'Sari-Sari Store',
+        logo: registrationData.businessInfo?.logo || null,
+        coverImage: registrationData.businessInfo?.coverImage || null,
       },
       documents: registrationData.documents,
       paymentInfo: registrationData.paymentInfo,
@@ -137,9 +141,9 @@ export class StoreRegistrationService {
         city: storeData.city,
         zipCode: storeData.zipCode,
         businessType: 'Sari-Sari Store',
+        logo: storeData.logo,
+        coverImage: storeData.coverImage,
       },
-      logo: storeData.logo,
-      coverImage: storeData.coverImage,
       status: STORE_STATUS.PENDING_DOCUMENTS,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -147,6 +151,12 @@ export class StoreRegistrationService {
       businessVerified: false,
       adminApproved: false,
     };
+
+    // Debug logging
+    console.log('📸 Saving store details with images:');
+    console.log('  - Logo:', storeData.logo ? `${storeData.logo.substring(0, 50)}...` : 'null');
+    console.log('  - Cover:', storeData.coverImage ? `${storeData.coverImage.substring(0, 50)}...` : 'null');
+    console.log('  - Path: store_registrations/' + userId + '/businessInfo');
 
     // Update both collections
     const storeRef = ref(database, `stores/${userId}`);
@@ -159,6 +169,10 @@ export class StoreRegistrationService {
       status: STORE_STATUS.PENDING_DOCUMENTS,
       updatedAt: timestamp,
     });
+
+    console.log('✅ Store details saved to Firebase successfully');
+    console.log('  - Stores collection: stores/' + userId);
+    console.log('  - Registrations collection: store_registrations/' + userId);
 
     // Update user profile
     const userRef = ref(database, `users/${userId}/profile`);
@@ -186,35 +200,67 @@ export class StoreRegistrationService {
     const userId = auth.currentUser.uid;
     const timestamp = new Date().toISOString();
 
+    // Debug logging for document upload status
+    console.log('📄 Processing documents for Firebase:');
+    console.log('  - Barangay Clearance:', documents.barangayBusinessClearance ? '✅ Uploaded' : '⏭️ Skipped (uploaded: false)');
+    console.log('  - Business Permit:', documents.businessPermit ? '✅ Uploaded' : '❌ Missing (uploaded: false)');
+    console.log('  - DTI Registration:', documents.dtiRegistration ? '✅ Uploaded' : '⏭️ Skipped (uploaded: false)');
+    console.log('  - Valid ID:', documents.validId ? '✅ Uploaded' : '❌ Missing (uploaded: false)');
+
+    // Build documents object - only mark as uploaded if document exists
     const documentsData = {
       documents: {
-        barangayBusinessClearance: {
-          name: documents.barangayBusinessClearance?.name || '',
-          uri: documents.barangayBusinessClearance?.uri || '',
-          type: documents.barangayBusinessClearance?.mimeType || '',
+        barangayBusinessClearance: documents.barangayBusinessClearance ? {
+          name: documents.barangayBusinessClearance.name || '',
+          uri: documents.barangayBusinessClearance.uri || '',
+          type: documents.barangayBusinessClearance.mimeType || '',
           uploaded: true,
           uploadedAt: serverTimestamp(),
+        } : {
+          name: '',
+          uri: '',
+          type: '',
+          uploaded: false,
+          uploadedAt: null,
         },
-        businessPermit: {
-          name: documents.businessPermit?.name || '',
-          uri: documents.businessPermit?.uri || '',
-          type: documents.businessPermit?.mimeType || '',
+        businessPermit: documents.businessPermit ? {
+          name: documents.businessPermit.name || '',
+          uri: documents.businessPermit.uri || '',
+          type: documents.businessPermit.mimeType || '',
           uploaded: true,
           uploadedAt: serverTimestamp(),
+        } : {
+          name: '',
+          uri: '',
+          type: '',
+          uploaded: false,
+          uploadedAt: null,
         },
-        dtiRegistration: {
-          name: documents.dtiRegistration?.name || '',
-          uri: documents.dtiRegistration?.uri || '',
-          type: documents.dtiRegistration?.mimeType || '',
+        dtiRegistration: documents.dtiRegistration ? {
+          name: documents.dtiRegistration.name || '',
+          uri: documents.dtiRegistration.uri || '',
+          type: documents.dtiRegistration.mimeType || '',
           uploaded: true,
           uploadedAt: serverTimestamp(),
+        } : {
+          name: '',
+          uri: '',
+          type: '',
+          uploaded: false,
+          uploadedAt: null,
         },
-        validId: {
-          name: documents.validId?.name || '',
-          uri: documents.validId?.uri || '',
-          type: documents.validId?.mimeType || '',
+        validId: documents.validId ? {
+          name: documents.validId.name || '',
+          uri: documents.validId.uri || '',
+          type: documents.validId.mimeType || '',
           uploaded: true,
           uploadedAt: serverTimestamp(),
+        } : {
+          name: '',
+          uri: '',
+          type: '',
+          uploaded: false,
+          uploadedAt: null,
         },
       },
       status: STORE_STATUS.PENDING, // Changed: DocumentUpload is now final step

@@ -50,7 +50,7 @@ export default function StoreHomeScreen() {
 
             console.log('🏪 Store data updated:', {
               storeName: businessInfo.storeName,
-              logo: businessInfo.logo ? 'Logo exists' : 'No logo'
+              logo: businessInfo.logo ? 'Logo exists' : 'No logo',
             });
           } else {
             console.log('⚠️ No store registration data found, using defaults');
@@ -114,6 +114,7 @@ export default function StoreHomeScreen() {
       >
         {/* Header Background Image - Figma: Rectangle 50 at 0,0 440x210 */}
         <View style={styles.headerBackground}>
+          {/* Static Header Background (Cover image reserved for customer view) */}
           <Image
             source={require('../../../src/assets/images/store-owner-dashboard/header-background.png')}
             style={styles.headerBackgroundImage}

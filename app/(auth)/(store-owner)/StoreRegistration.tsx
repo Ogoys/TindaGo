@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, Image, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { ref, update, serverTimestamp } from 'firebase/database';
+import { ref, update, serverTimestamp, get } from 'firebase/database';
 import { auth, database } from '../../../FirebaseConfig';
 import { s, vs } from "../../../src/constants/responsive";
 
@@ -22,6 +22,55 @@ interface Errors {
   confirmPassword: string;
 }
 
+// FormInput component - defined outside to prevent re-creation on every render
+const FormInputField = React.memo(({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  secureTextEntry = false,
+  keyboardType = "default",
+  style,
+  editable = true,
+  isPrefilled = false
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  secureTextEntry?: boolean;
+  keyboardType?: "default" | "email-address" | "phone-pad";
+  style?: any;
+  editable?: boolean;
+  isPrefilled?: boolean;
+}) => (
+  <View style={[styles.inputContainer, style]}>
+    <Text style={styles.inputLabel}>
+      {label}
+      {isPrefilled && <Text style={styles.prefilledIndicator}> (from registration)</Text>}
+    </Text>
+    <View style={[styles.inputBox, !editable && styles.inputBoxDisabled]}>
+      <TextInput
+        style={[styles.textInput, !editable && styles.textInputDisabled]}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(30, 30, 30, 0.5)"
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="off"
+        textContentType="none"
+        blurOnSubmit={false}
+        returnKeyType="next"
+        enablesReturnKeyAutomatically={false}
+        editable={editable}
+      />
+    </View>
+  </View>
+));
+
 export default function StoreOwnerRegisterScreen() {
   // Get pre-filled data from navigation params
   const { name, email, uid, prefilledName, prefilledEmail, prefilledPassword } = useLocalSearchParams<{
@@ -40,6 +89,53 @@ export default function StoreOwnerRegisterScreen() {
     password: "",
     confirmPassword: "",
   });
+
+  const [mobilePreFilled, setMobilePreFilled] = useState(false);
+
+  // Fetch user's phone number from Firebase profile
+  useEffect(() => {
+    const fetchUserPhone = async () => {
+      if (!auth.currentUser) return;
+
+      try {
+        const userId = auth.currentUser.uid;
+
+        // Try to get phone from user profile
+        const phoneRef = ref(database, `users/${userId}/profile/phone`);
+        const phoneSnapshot = await get(phoneRef);
+
+        if (phoneSnapshot.exists() && phoneSnapshot.val()) {
+          const phone = phoneSnapshot.val();
+          console.log('📱 Auto-filled mobile number from profile:', phone);
+          setFormData(prev => ({ ...prev, mobileNumber: phone }));
+          setMobilePreFilled(true);
+          return;
+        }
+
+        // If profile.phone is null, check if user registered with phone number
+        // (phone would be in the email field)
+        const userRef = ref(database, `users/${userId}`);
+        const userSnapshot = await get(userRef);
+
+        if (userSnapshot.exists()) {
+          const userData = userSnapshot.val();
+          const emailOrPhone = userData.email || '';
+
+          // Check if email field contains a phone number
+          const phoneRegex = /^(\+63|0)[0-9]{10}$/;
+          if (phoneRegex.test(emailOrPhone.replace(/\s/g, ''))) {
+            console.log('📱 Auto-filled mobile number from email field:', emailOrPhone);
+            setFormData(prev => ({ ...prev, mobileNumber: emailOrPhone }));
+            setMobilePreFilled(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user phone:', error);
+      }
+    };
+
+    fetchUserPhone();
+  }, []);
 
   // Pre-fill form with data from previous registration step
   useEffect(() => {
@@ -63,6 +159,27 @@ export default function StoreOwnerRegisterScreen() {
   });
 
   const [loading, setLoading] = useState(false);
+
+  // Memoized handlers to prevent keyboard issues
+  const handleNameChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, name: text }));
+  }, []);
+
+  const handleMobileChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, mobileNumber: text }));
+  }, []);
+
+  const handleEmailChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, email: text }));
+  }, []);
+
+  const handlePasswordChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, password: text }));
+  }, []);
+
+  const handleConfirmPasswordChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, confirmPassword: text }));
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: Errors = {
@@ -204,55 +321,6 @@ export default function StoreOwnerRegisterScreen() {
     }
   };
 
-  // Custom FormInput component with fixed keyboard handling
-  const FormInputField = ({
-    label,
-    placeholder,
-    value,
-    onChangeText,
-    secureTextEntry = false,
-    keyboardType = "default",
-    style,
-    editable = true,
-    isPrefilled = false
-  }: {
-    label: string;
-    placeholder: string;
-    value: string;
-    onChangeText: (text: string) => void;
-    secureTextEntry?: boolean;
-    keyboardType?: "default" | "email-address" | "phone-pad";
-    style?: any;
-    editable?: boolean;
-    isPrefilled?: boolean;
-  }) => (
-    <View style={[styles.inputContainer, style]}>
-      <Text style={styles.inputLabel}>
-        {label}
-        {isPrefilled && <Text style={styles.prefilledIndicator}> (from registration)</Text>}
-      </Text>
-      <View style={[styles.inputBox, !editable && styles.inputBoxDisabled]}>
-        <TextInput
-          style={[styles.textInput, !editable && styles.textInputDisabled]}
-          placeholder={placeholder}
-          placeholderTextColor="rgba(30, 30, 30, 0.5)"
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType}
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="off"
-          textContentType="none"
-          blurOnSubmit={false}
-          returnKeyType="next"
-          enablesReturnKeyAutomatically={false}
-          editable={editable}
-        />
-      </View>
-    </View>
-  );
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -309,7 +377,7 @@ export default function StoreOwnerRegisterScreen() {
               label="Name"
               placeholder="Enter your name"
               value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
+              onChangeText={handleNameChange}
               keyboardType="default"
               style={styles.nameField}
               editable={!formData.name || formData.name === ""}
@@ -321,9 +389,10 @@ export default function StoreOwnerRegisterScreen() {
               label="Mobile Number"
               placeholder="Enter your mobile number"
               value={formData.mobileNumber}
-              onChangeText={(text) => setFormData({ ...formData, mobileNumber: text })}
+              onChangeText={handleMobileChange}
               keyboardType="phone-pad"
               style={styles.mobileField}
+              isPrefilled={mobilePreFilled}
             />
 
             {/* Figma: Email field at y:508 */}
@@ -331,7 +400,7 @@ export default function StoreOwnerRegisterScreen() {
               label="Email"
               placeholder="Enter your email"
               value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
+              onChangeText={handleEmailChange}
               keyboardType="email-address"
               style={styles.emailField}
               editable={!formData.email || formData.email === ""}
@@ -343,7 +412,7 @@ export default function StoreOwnerRegisterScreen() {
               label="Password"
               placeholder="Enter your password"
               value={formData.password}
-              onChangeText={(text) => setFormData({ ...formData, password: text })}
+              onChangeText={handlePasswordChange}
               secureTextEntry
               style={styles.passwordField}
               editable={!formData.password || formData.password === ""}
@@ -355,7 +424,7 @@ export default function StoreOwnerRegisterScreen() {
               label="Confirmed Password"
               placeholder="Enter your confirmed password"
               value={formData.confirmPassword}
-              onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
+              onChangeText={handleConfirmPasswordChange}
               secureTextEntry
               style={styles.confirmPasswordField}
               editable={!formData.confirmPassword || formData.confirmPassword === ""}

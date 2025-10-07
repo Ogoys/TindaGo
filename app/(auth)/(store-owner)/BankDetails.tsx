@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, Image, TextInput, TouchableOpacity } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { auth } from '../../../FirebaseConfig';
@@ -17,6 +17,40 @@ interface BankDetailsErrors {
   accountName: string;
   accountNumber: string;
 }
+
+// FormInput component - defined outside to prevent re-creation on every render
+const FormInputField = React.memo(({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  style,
+  secureTextEntry = false,
+  keyboardType = "default"
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  style?: any;
+  secureTextEntry?: boolean;
+  keyboardType?: any;
+}) => (
+  <View style={[styles.inputContainer, style]}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <View style={styles.inputBox}>
+      <TextInput
+        style={styles.textInput}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(30, 30, 30, 0.5)"
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+      />
+    </View>
+  </View>
+));
 
 export default function BankDetailsScreen() {
   // Get store info from previous screen
@@ -39,6 +73,15 @@ export default function BankDetailsScreen() {
   });
 
   const [loading, setLoading] = useState(false);
+
+  // Memoized handlers to prevent keyboard issues
+  const handleAccountNameChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, accountName: text }));
+  }, []);
+
+  const handleAccountNumberChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, accountNumber: text }));
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: BankDetailsErrors = {
@@ -139,40 +182,6 @@ export default function BankDetailsScreen() {
       setLoading(false);
     }
   };
-
-  // Custom FormInput component matching Figma design
-  const FormInputField = ({
-    label,
-    placeholder,
-    value,
-    onChangeText,
-    style,
-    secureTextEntry = false,
-    keyboardType = "default"
-  }: {
-    label: string;
-    placeholder: string;
-    value: string;
-    onChangeText: (text: string) => void;
-    style?: any;
-    secureTextEntry?: boolean;
-    keyboardType?: any;
-  }) => (
-    <View style={[styles.inputContainer, style]}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View style={styles.inputBox}>
-        <TextInput
-          style={styles.textInput}
-          placeholder={placeholder}
-          placeholderTextColor="rgba(30, 30, 30, 0.5)"
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType}
-        />
-      </View>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -278,7 +287,7 @@ export default function BankDetailsScreen() {
                 label="Account Name"
                 placeholder="Enter account name"
                 value={formData.accountName}
-                onChangeText={(text) => setFormData({ ...formData, accountName: text })}
+                onChangeText={handleAccountNameChange}
                 style={styles.accountNameField}
               />
               {errors.accountName ? (
@@ -292,7 +301,7 @@ export default function BankDetailsScreen() {
                 label={`${formData.paymentMethod === 'bank_transfer' ? 'Bank Account' : formData.paymentMethod.toUpperCase()} Number`}
                 placeholder={`Enter your ${formData.paymentMethod === 'bank_transfer' ? 'bank account' : formData.paymentMethod} number`}
                 value={formData.accountNumber}
-                onChangeText={(text) => setFormData({ ...formData, accountNumber: text })}
+                onChangeText={handleAccountNumberChange}
                 style={styles.accountNumberField}
                 keyboardType="numeric"
               />
