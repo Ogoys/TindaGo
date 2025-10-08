@@ -1,6 +1,6 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { router, usePathname } from "expo-router";
+import React from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { s, vs } from "../../constants/responsive";
 
 /**
@@ -75,15 +75,17 @@ export default function BottomNavigation({ activeTab = "home" }: BottomNavigatio
         </Text>
       </TouchableOpacity>
 
-      {/* CART BUTTON (CENTER) - Figma: I759:610;61:34, x:195, y:20, width:50, height:50 */}
+      {/* CART BUTTON (CENTER) - White circle with green circle inside */}
       <TouchableOpacity
         style={styles.cartButton}
         onPress={() => router.push("/(main)/(customer)/cart")}
         activeOpacity={0.7}
       >
-        {/* Cart Circle Background - Figma: I759:610;61:33, Ellipse with shadow */}
+        {/* White Outer Circle Background */}
+        <View style={styles.cartWhiteCircle} />
+        {/* Cart Green Circle Background */}
         <View style={styles.cartCircle} />
-        {/* Cart Icon - Figma: I759:610;61:25, x:12, y:12, width:25, height:25 */}
+        {/* Cart Icon */}
         <Image
           source={require("../../assets/images/customer-home/nav-cart.png")}
           style={styles.cartIcon}
@@ -137,81 +139,96 @@ export default function BottomNavigation({ activeTab = "home" }: BottomNavigatio
 }
 
 const styles = StyleSheet.create({
-  // Container - Figma: 759:610, width:440, height:120
+  // Container - Navigation bar with extended height for overlap
   container: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     width: "100%",
-    height: vs(120),
+    height: vs(120), // Extended to accommodate overlapping cart
   },
 
-  // Background - Figma: I759:610;47:9, Rectangle 28
+  // Background - White navigation bar with more space above icons
   background: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     width: "100%",
-    height: vs(120),
-    backgroundColor: "#FFFFFF", // Figma: fill_7CHBW6
+    height: vs(100), // Increased to 100 for more spacing above icons
+    backgroundColor: "#FFFFFF",
   },
 
-  // Home Tab - Figma: I759:610;61:45, x:35, y:50, width:31, height:52
+  // Home Tab - Aligned on white background with more top space
   homeTab: {
     position: "absolute",
-    left: s(35),
-    bottom: vs(18), // 120 - 50 - 52 = 18
-    width: s(31),
-    height: vs(52),
+    left: s(20),
+    bottom: vs(15),
+    width: s(60),
+    height: vs(80),
     alignItems: "center",
     justifyContent: "flex-start",
   },
 
-  // Home Icon - Figma: I759:610;61:18, width:30, height:30
+  // Home Icon - width:30, height:30
   homeIcon: {
     width: s(30),
     height: s(30),
+    marginBottom: vs(4),
   },
 
-  // Orders Tab - Figma: I759:610;61:47, x:126, y:51, width:38, height:51
+  // Orders Tab - Aligned on white background with more top space
   ordersTab: {
     position: "absolute",
-    left: s(126),
-    bottom: vs(17), // 120 - 51 - 52 = 17
-    width: s(38),
-    height: vs(51),
+    left: s(100),
+    bottom: vs(15),
+    width: s(60),
+    height: vs(80),
     alignItems: "center",
     justifyContent: "flex-start",
   },
 
-  // Orders Icon - Figma: I759:610;61:38, x:4, y:0, width:30, height:30
+  // Orders Icon - width:30, height:30
   ordersIcon: {
     width: s(30),
     height: s(30),
-    marginLeft: s(4),
+    marginBottom: vs(4),
   },
 
-  // Cart Button - Figma: I759:610;61:34, x:195, y:20, width:50, height:50
+  // Cart Button - Centered on white background, overlapping
   cartButton: {
     position: "absolute",
-    left: s(195),
-    bottom: vs(50), // 120 - 20 - 50 = 50
-    width: s(50),
-    height: s(50),
+    left: s(190),
+    bottom: vs(50), // Centered on 100px white background
+    width: s(60),
+    height: s(60),
     alignItems: "center",
     justifyContent: "center",
   },
 
-  // Cart Circle - Figma: I759:610;61:33, Ellipse 1 with shadow
+  // Cart White Outer Circle - Creates overlap effect
+  cartWhiteCircle: {
+    position: "absolute",
+    width: s(60),
+    height: s(60),
+    borderRadius: s(30),
+    backgroundColor: "#FFFFFF",
+    shadowColor: "rgba(0, 0, 0, 0.15)",
+    shadowOffset: { width: 0, height: vs(2) },
+    shadowOpacity: 1,
+    shadowRadius: s(8),
+    elevation: 3,
+  },
+
+  // Cart Green Circle - Inside white circle
   cartCircle: {
     position: "absolute",
     width: s(50),
     height: s(50),
     borderRadius: s(25),
-    backgroundColor: "#3BB77E", // Figma: fill_S68V5W
-    shadowColor: "rgba(0, 0, 0, 0.25)", // Figma: effect_WEP1BK
+    backgroundColor: "#3BB77E",
+    shadowColor: "rgba(0, 0, 0, 0.25)",
     shadowOffset: { width: 0, height: vs(4) },
     shadowOpacity: 1,
     shadowRadius: s(5),
@@ -224,56 +241,55 @@ const styles = StyleSheet.create({
     height: s(25),
   },
 
-  // Category Tab - Figma: I759:610;61:46, x:270, y:50, width:49, height:52
+  // Category Tab - Aligned on white background with more top space
   categoryTab: {
     position: "absolute",
-    left: s(270),
-    bottom: vs(18), // 120 - 50 - 52 = 18
-    width: s(49),
-    height: vs(52),
+    left: s(280),
+    bottom: vs(15),
+    width: s(60),
+    height: vs(80),
     alignItems: "center",
     justifyContent: "flex-start",
   },
 
-  // Category Icon - Figma: I759:610;61:29, x:10, y:0, width:30, height:30
+  // Category Icon - width:30, height:30
   categoryIcon: {
     width: s(30),
     height: s(30),
-    marginLeft: s(10),
+    marginBottom: vs(4),
   },
 
-  // Profile Tab - Figma: I759:610;61:44, x:373, y:50, width:33, height:52
+  // Profile Tab - Aligned on white background with more top space
   profileTab: {
     position: "absolute",
-    left: s(373),
-    bottom: vs(18), // 120 - 50 - 52 = 18
-    width: s(33),
-    height: vs(52),
+    left: s(360),
+    bottom: vs(15),
+    width: s(60),
+    height: vs(80),
     alignItems: "center",
     justifyContent: "flex-start",
   },
 
-  // Profile Icon - Figma: I759:610;61:31, x:2, y:0, width:30, height:30
+  // Profile Icon - width:30, height:30
   profileIcon: {
     width: s(30),
     height: s(30),
-    marginLeft: s(2),
+    marginBottom: vs(4),
   },
 
-  // Tab Label - Figma: fontSize:12, fontWeight:400
+  // Tab Label - fontSize:11, fontWeight:400
   tabLabel: {
-    marginTop: vs(0),
     fontFamily: "Clash Grotesk Variable",
-    fontWeight: "400", // Figma: style_DEANF8
-    fontSize: 12,
-    lineHeight: 12 * 1.833,
-    color: "rgba(30, 30, 30, 0.5)", // Figma: fill_9N9TWO
+    fontWeight: "400",
+    fontSize: 11,
+    lineHeight: 11 * 1.5,
+    color: "rgba(30, 30, 30, 0.5)",
     textAlign: "center",
   },
 
-  // Active Tab Label - Figma: fill_3YQ32C
+  // Active Tab Label
   tabLabelActive: {
     color: "#1E1E1E",
-    fontWeight: "400",
+    fontWeight: "500",
   },
 });

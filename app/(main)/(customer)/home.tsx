@@ -270,7 +270,9 @@ export default function HomeScreen() {
                 style={styles.locationIcon}
               />
               {/* Location Text - Figma: 759:597 */}
-              <Text style={styles.locationText}>Jacinto st. Davao City</Text>
+              <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
+                Jacinto st. Davao City
+              </Text>
             </View>
           </View>
         </View>
@@ -469,7 +471,7 @@ const styles = StyleSheet.create({
   // Figma: x:0, y:0, width:440, height:230
   headerSection: {
     width: s(440),
-    height: vs(230),
+    height: vs(150), // Reduced from 230 to match compact layout
     position: "relative",
   },
 
@@ -479,14 +481,14 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     width: s(440),
-    height: vs(230),
+    height: vs(150), // Reduced from 230 to match new compact layout
   },
 
   // Profile Section - Figma: 759:593, x:20, y:74, width:179, height:40
   profileSection: {
     position: "absolute",
     left: s(20),
-    top: vs(74),
+    top: vs(20), // Moved up from 74 to reduce empty space
     width: s(179),
     height: vs(40),
     flexDirection: "row",
@@ -515,6 +517,7 @@ const styles = StyleSheet.create({
   profileInfo: {
     marginLeft: s(10),
     flex: 1,
+    maxWidth: s(280), // Limit width to prevent overflow with notification button
   },
 
   // Profile Name - Figma: 759:599, x:70, y:74
@@ -530,7 +533,8 @@ const styles = StyleSheet.create({
   profileLocation: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: vs(4),
+    marginTop: vs(2),
+    flexWrap: "nowrap", // Prevent wrapping to keep on one line
   },
 
   // Location Icon - Figma: 759:598, width:15, height:15
@@ -544,16 +548,17 @@ const styles = StyleSheet.create({
   locationText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: 12,
-    lineHeight: 12 * 1.833,
+    fontSize: 11, // Slightly smaller to fit on one line
+    lineHeight: 11 * 1.5,
     color: "#FFFFFF",
+    flex: 1, // Take available space but don't overflow
   },
 
   // Notification Button - Figma: 759:205, x:375, y:74, width:40, height:40
   notificationButton: {
     position: "absolute",
     left: s(375),
-    top: vs(74),
+    top: vs(20), // Moved up from 74 to align with profile
     width: s(40),
     height: s(40),
   },
@@ -585,7 +590,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     position: "absolute",
     left: s(20),
-    top: vs(134),
+    top: vs(80), // Moved up from 134 to reduce spacing
     width: s(400),
     height: vs(50),
     flexDirection: "row",
@@ -638,7 +643,7 @@ const styles = StyleSheet.create({
   // ============ CATEGORY SECTION ============
   // Figma: 759:212, x:1, y:198, width:439, height:90
   categorySection: {
-    marginTop: vs(14), // Adjusted from 198-184=14
+    marginTop: vs(10), // Reduced spacing for compact header
     height: vs(90),
   },
 
@@ -797,46 +802,43 @@ const styles = StyleSheet.create({
   // Product Label Container - Figma: 759:271, x:27, y:111, width:65, height:66
   productLabelContainer: {
     position: "absolute",
-    left: s(27),
-    top: vs(111),
-    width: s(65),
-    height: vs(66),
+    left: s(10),
+    top: vs(105),
+    width: s(100),
+    height: vs(70),
+    alignItems: "center", // Center align all text
   },
 
-  // Product Name - Figma: 759:272, x:12, y:0, fontSize:16
+  // Product Name - Figma: 759:272, positioned relative to container
   productName: {
-    position: "absolute",
-    left: s(12),
-    top: 0,
     fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: 16,
-    lineHeight: 16 * 1.375,
-    color: "#1E1E1E",
+    fontWeight: "600", // Bold
+    fontSize: 14,
+    lineHeight: 14 * 1.4,
+    color: "#000000", // Pure black
+    marginBottom: vs(2),
+    textAlign: "center",
   },
 
-  // Product Shop - Figma: 759:273, x:0, y:22, fontSize:12
+  // Product Shop - Figma: 759:273, positioned relative to container
   productShop: {
-    position: "absolute",
-    left: 0,
-    top: vs(22),
     fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: 12,
-    lineHeight: 12 * 1.833,
-    color: "#1E1E1E",
+    fontWeight: "600", // Bold
+    fontSize: 11,
+    lineHeight: 11 * 1.5,
+    color: "#000000", // Pure black
+    marginBottom: vs(2),
+    textAlign: "center",
   },
 
-  // Product Weight - Figma: 759:274, x:17, y:44, fontSize:12
+  // Product Weight - Figma: 759:274, positioned relative to container
   productWeight: {
-    position: "absolute",
-    left: s(17),
-    top: vs(44),
     fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: 12,
-    lineHeight: 12 * 1.833,
+    fontWeight: "400",
+    fontSize: 11,
+    lineHeight: 11 * 1.5,
     color: "rgba(0, 0, 0, 0.5)",
+    textAlign: "center",
   },
 
   // Product Add Button - Figma: 759:275, x:10, y:179, width:100, height:30
@@ -981,7 +983,7 @@ const styles = StyleSheet.create({
   // ============ POPULAR PICKS SECTION ============
   // Figma: 759:519, x:0, y:1332, width:440, height:100
   popularPicksSection: {
-    height: vs(100),
+    height: vs(120), // Increased from 100 to accommodate taller cards
     marginBottom: vs(20),
   },
 
@@ -993,7 +995,7 @@ const styles = StyleSheet.create({
   // Popular Pick Card - Figma: 759:520, width:180, height:80
   popularPickCard: {
     width: s(180),
-    height: vs(80),
+    height: vs(100), // Increased from 80 to prevent text overlap
     marginRight: s(10),
     position: "relative",
   },
@@ -1002,7 +1004,7 @@ const styles = StyleSheet.create({
   popularPickBackground: {
     position: "absolute",
     width: s(180),
-    height: vs(80),
+    height: vs(100), // Increased from 80 to match card height
     backgroundColor: "#FFFFFF",
     borderRadius: s(20),
     shadowColor: "rgba(0, 0, 0, 0.25)",
@@ -1012,20 +1014,20 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
-  // Popular Pick Picture Container - Figma: 759:522, x:10, y:10, width:60, height:60
+  // Popular Pick Picture Container - Figma: 759:522, x:10, y:10, width:60, height:80 (increased)
   popularPickPictureContainer: {
     position: "absolute",
     left: s(10),
     top: vs(10),
     width: s(60),
-    height: s(60),
+    height: vs(80), // Increased to meet card height
   },
 
   // Popular Pick Picture Background - Figma: 759:523, Rectangle 24 with shadow
   popularPickPictureBackground: {
     position: "absolute",
     width: s(60),
-    height: s(60),
+    height: vs(80), // Increased to match container
     backgroundColor: "#FFFFFF",
     borderRadius: s(16),
     shadowColor: "rgba(0, 0, 0, 0.25)",
@@ -1035,54 +1037,51 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // Popular Pick Image - Figma: 759:524, x:13, y:10, width:33, height:40
+  // Popular Pick Image - Figma: 759:524, increased to fill height
   popularPickImage: {
     position: "absolute",
-    left: s(13),
-    top: s(10),
-    width: s(33),
-    height: s(40),
+    left: s(8),
+    top: vs(10),
+    width: s(44), // Increased width
+    height: vs(60), // Increased height to meet card
   },
 
   // Popular Pick Labels - Figma: 759:525, x:80, y:13, width:75, height:55
   popularPickLabels: {
     position: "absolute",
     left: s(80),
-    top: vs(13),
-    width: s(75),
-    height: vs(55),
+    top: vs(15),
+    width: s(90),
+    height: vs(75),
+    justifyContent: "space-between",
   },
 
-  // Popular Pick Name - Figma: 759:527, x:0, y:0, fontSize:16
+  // Popular Pick Name - Figma: 759:527, fontSize:16
   popularPickName: {
-    position: "absolute",
-    top: 0,
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 16,
-    lineHeight: 16 * 1.375,
+    fontSize: 14,
+    lineHeight: 14 * 1.4,
     color: "#1E1E1E",
+    marginBottom: vs(4),
   },
 
-  // Popular Pick Description - Figma: 759:528, x:0, y:16, fontSize:10
+  // Popular Pick Description - Figma: 759:528, fontSize:10
   popularPickDescription: {
-    position: "absolute",
-    top: vs(16),
     fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
+    fontWeight: "400",
     fontSize: 10,
-    lineHeight: 10 * 2.2,
+    lineHeight: 10 * 1.5,
     color: "rgba(0, 0, 0, 0.5)",
+    marginBottom: vs(4),
   },
 
-  // Popular Pick Price - Figma: 759:526, x:0, y:33, fontSize:12
+  // Popular Pick Price - Figma: 759:526, fontSize:12
   popularPickPrice: {
-    position: "absolute",
-    top: vs(33),
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
     fontSize: 12,
-    lineHeight: 12 * 1.833,
+    lineHeight: 12 * 1.5,
     color: "#1E1E1E",
   },
 
