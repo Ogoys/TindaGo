@@ -42,14 +42,6 @@ export default function SeeMoreScreen() {
       
       {/* Header Background - Figma: x:0, y:0, width:440, height:180 */}
       <View style={styles.headerBackground}>
-        {/* Status Bar - Figma: x:0, y:0, width:439.5, height:54 */}
-        <View style={styles.statusBar}>
-          <Text style={styles.timeText}>9:41</Text>
-          <View style={styles.statusIndicators}>
-            <Text style={styles.batteryText}>100%</Text>
-          </View>
-        </View>
-
         {/* Back Button - Figma: x:20, y:79, width:30, height:30 */}
         <TouchableOpacity 
           style={styles.backButton}
@@ -61,8 +53,10 @@ export default function SeeMoreScreen() {
           />
         </TouchableOpacity>
 
-        {/* Title - Figma: x:157, y:83, width:126, height:22 */}
-        <Text style={styles.headerTitle}>Daily Essential</Text>
+        {/* Title - Fixed positioning to prevent text cropping */}
+        <Text style={styles.headerTitle} numberOfLines={1} allowFontScaling={false}>
+          Daily Essential
+        </Text>
 
         {/* Notification Button - Figma: x:375, y:74, width:40, height:40 */}
         <TouchableOpacity style={styles.notificationButton}>
@@ -121,44 +115,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F6F6", // Figma background color
   },
   
-  // Header Background - Figma: x:0, y:0, width:440, height:180
+  // Header Background - Adjusted height for better spacing
   headerBackground: {
     backgroundColor: "#02545F",
-    height: vs(205), // Adjusted to include search bar spacing
+    height: vs(165), // Reduced height after removing status bar
+    paddingTop: vs(20),
     paddingBottom: vs(20),
   },
-  
-  // Status Bar - Figma: x:0, y:0, width:439.5, height:54
-  statusBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    height: vs(54),
-    paddingHorizontal: s(20),
-    paddingTop: vs(10),
-  },
-  timeText: {
-    color: Colors.white,
-    fontSize: 17,
-    fontFamily: Fonts.secondary, // ABeeZee from Figma
-    fontWeight: "400",
-  },
-  statusIndicators: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  batteryText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-  },
-  
-  // Back Button - Figma: x:20, y:79, width:30, height:30
+
+  // Back Button - Adjusted position
   backButton: {
     position: "absolute",
     left: s(20),
-    top: vs(79),
+    top: vs(30),
     width: s(30),
     height: vs(30),
     backgroundColor: Colors.white,
@@ -175,27 +144,29 @@ const styles = StyleSheet.create({
     width: s(15),
     height: s(15),
   },
-  
-  // Header Title - Figma: x:157, y:83, width:126, height:22
+
+  // Header Title - Fixed to prevent text cropping
   headerTitle: {
     position: "absolute",
-    left: s(157),
-    top: vs(83),
-    width: s(126),
-    height: vs(22),
+    left: s(120), // Adjusted left position to center properly
+    top: vs(32),
+    width: s(200), // Increased width to prevent horizontal cropping of "Daily"
+    height: vs(28), // Increased height to prevent vertical cropping
     color: Colors.white,
     fontSize: 20,
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
     textAlign: "center",
-    lineHeight: 20 * 1.1, // Figma line height
+    lineHeight: 24,
+    includeFontPadding: false,
+    overflow: "visible", // Ensure text doesn't get clipped
   },
-  
-  // Notification Button - Figma: x:375, y:74, width:40, height:40
+
+  // Notification Button - Adjusted position
   notificationButton: {
     position: "absolute",
     left: s(375),
-    top: vs(74),
+    top: vs(25),
     width: s(40),
     height: vs(40),
     backgroundColor: Colors.white,
@@ -212,12 +183,12 @@ const styles = StyleSheet.create({
     width: s(25),
     height: s(25),
   },
-  
-  // Search Container - Figma: x:20, y:155, width:400, height:50
+
+  // Search Container - Adjusted position for better spacing
   searchContainer: {
     position: "absolute",
     left: s(20),
-    top: vs(155),
+    top: vs(95),
     width: s(400),
     height: vs(50),
     flexDirection: "row",
@@ -249,11 +220,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   
-  // Section Label Container - Figma: x:23, y:225, width:80, height:22
+  // Section Label Container - Better spacing
   sectionLabelContainer: {
     marginLeft: s(23),
-    marginTop: vs(20),
-    marginBottom: vs(20),
+    marginTop: vs(25),
+    marginBottom: vs(25),
   },
   sectionLabel: {
     fontSize: 20,
@@ -267,8 +238,9 @@ const styles = StyleSheet.create({
   productsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: s(22),
+    paddingHorizontal: s(20),
     justifyContent: "space-between",
+    gap: vs(20), // Add vertical and horizontal spacing between items
   },
   
   bottomPadding: {

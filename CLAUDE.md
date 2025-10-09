@@ -6,39 +6,66 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TindaGo is a React Native mobile application built with Expo, designed as a sari-sari store marketplace for ordering and inventory management. The app uses Firebase for backend services and is optimized for Philippine mobile commerce.
 
-## Development Commands
+## Getting Started
 
-### Essential Commands
-- `npm install` - Install dependencies
-- `npm start` - Start development server (alias for expo start)
+### Initial Setup
+1. `npm install` - Install dependencies
+2. Copy `.env.example` to `.env` and add Firebase credentials
+3. Ensure Firebase project is configured with Realtime Database enabled
+4. `npm start` - Start development server
+
+### Development Commands
+- `npm start` or `npx expo start` - Start development server
 - `npm run android` - Run on Android emulator
 - `npm run ios` - Run on iOS simulator
 - `npm run web` - Run in web browser
 - `npm run lint` - Run ESLint for code quality
+- `npm run reset-project` - Reset to blank app template (use with caution)
 
 ### TypeScript & Linting
 - `npx tsc --noEmit` - Type checking without compilation
 - `npx eslint . --ext .ts,.tsx` - Manual linting
 
+### Development Server Options
+Once `expo start` is running, you can:
+- Press `a` - Open Android emulator
+- Press `i` - Open iOS simulator
+- Press `w` - Open web browser
+- Scan QR code with Expo Go app for physical device testing
+
 ## Architecture & Structure
 
-### File-based Routing (Expo Router v5.1.4)
+### File-based Routing (Expo Router v6.0.7)
 The app uses file-based routing with nested route groups:
-- `app/(auth)/` - Authentication flow screens (onboarding, signin, signup, verification)
-  - `app/(auth)/(store-owner)/` - Store owner registration flow
+- `app/(auth)/` - Authentication flow screens (onboarding, signin, register, verification)
+  - `app/(auth)/(store-owner)/` - Store owner registration flow (StoreRegistration, StoreDetails, DocumentUpload, BankDetails, RegistrationComplete)
 - `app/(main)/` - Main app screens with role-based structure
-  - `app/(main)/(customer)/` - Customer-specific screens (home, cart, orders, category)
-  - `app/(main)/(store-owner)/` - Store owner-specific screens (home, inventory)
+  - `app/(main)/(customer)/` - Customer-specific screens (home, cart, orders, category, see-more)
+  - `app/(main)/(store-owner)/` - Store owner-specific screens (home, orders, category, profile/*)
   - `app/(main)/shared/` - Shared screens (profile, product-details)
-- `app/_layout.tsx` - Root layout with navigation stack
+- `app/_layout.tsx` - Root layout with UserProvider context wrapper
+- `app/(main)/_layout.tsx` - Main layout with auth/role validation and auto-routing
 - `app/index.tsx` - Entry point that redirects to onboarding
 - `app/role-selection.tsx` - User type selection screen
 
+**Navigation Pattern:**
+- Customer screens use Stack navigation with custom BottomNavigation component
+- Store owner screens use nested layouts with profile subroutes
+- Auto-redirects based on user state (no user → auth, no role → role-selection, role → home)
+
 ### Key Architectural Patterns
 - **Component-first**: Reusable UI components in `src/components/ui/`
-- **Service layer**: Business logic in `src/services/` (e.g., PhoneVerificationService)
+- **Service layer**: Business logic in `src/services/` (PhoneVerificationService, StoreRegistrationService, NotificationService)
+- **Context-based state**: UserContext (`src/contexts/UserContext.tsx`) manages global user state with AsyncStorage persistence
 - **Responsive design**: Figma baseline (440x956) with scaling functions
 - **Type safety**: Full TypeScript with strict mode and path aliases (@/* → src/*)
+
+### State Management
+- **UserContext**: Global user state managed via React Context
+  - User data persisted to AsyncStorage
+  - Provides: `user`, `isLoading`, `setUser`, `setUserRole`, `logout`, `updateUserProfile`
+  - User model: `{ id, email, role, phoneNumber, isEmailVerified, isPhoneVerified, profileComplete }`
+  - Roles: `'customer' | 'store-owner'`
 
 ### Core Technologies
 - **React Native 0.79.5** with **React 19.0.0**
@@ -49,9 +76,12 @@ The app uses file-based routing with nested route groups:
 ## Styling & Responsive Design
 
 ### Design System
-- **Colors**: Centralized in `src/constants/Colors.ts` (primary: #3BB77E)
+- **Colors**: Centralized in `src/constants/Colors.ts` (primary: #3BB77E, green theme)
 - **Responsive scaling**: Based on Figma baseline (440x956) in `src/constants/responsive.ts`
+  - Note: Individual screens may have different baselines (e.g., customer home uses 440x1827)
+  - Always check Figma file comments for actual baseline dimensions
 - **Fonts**: Managed in `src/constants/Fonts.ts`
+- **Constants**: Additional constants in `src/constants/StoreStatus.ts`
 
 ### Scaling Functions
 ```typescript
@@ -69,9 +99,9 @@ Components use exact Figma positioning with responsive scaling:
 
 ### Configuration
 - Firebase config in `FirebaseConfig.ts` with v12+ SDK
-- Services: Authentication, Realtime Database, Storage
+- Services initialized: Authentication (`getAuth`), Realtime Database (`getDatabase`), Firestore (`getFirestore`), Storage (`getStorage`)
 - Database region: Asia Southeast (Singapore)
-- **Environment Variables**: Required EXPO_PUBLIC_ prefixed variables:
+- **Environment Variables**: Required EXPO_PUBLIC_ prefixed variables in `.env` file:
   - `EXPO_PUBLIC_FIREBASE_API_KEY`
   - `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
   - `EXPO_PUBLIC_FIREBASE_DATABASE_URL`
@@ -79,6 +109,7 @@ Components use exact Figma positioning with responsive scaling:
   - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
   - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
   - `EXPO_PUBLIC_FIREBASE_APP_ID`
+- **Note**: Use `.env.example` as template for local setup
 
 ### Authentication Flow
 1. Email/password registration with Firebase Auth
@@ -88,18 +119,26 @@ Components use exact Figma positioning with responsive scaling:
 5. Additional business verification for store owners
 
 ### Database Structure
-Firebase Firestore NoSQL collections based on capstone requirements:
-- **Users**: Customer and store owner profiles with role-based access
-- **Stores**: Store information, business documents, verification status
-- **Products**: Product catalog with inventory levels, pricing, descriptions
-- **Orders**: Customer orders with pickup-only fulfillment
-- **Sales**: Transaction tracking and revenue monitoring
-- **Inventory_Logs**: Stock changes and purchase order history
-- **Return_Goods**: Customer return tracking and stock adjustments
-- **Damages_Spoilage**: Loss tracking for damaged/expired items
-- **Reviews**: Customer feedback and store ratings
+Firebase Realtime Database (JSON tree structure) with these main collections:
 
-See `firebase-database-structure.md` for complete schema details.
+**Primary Collections:**
+- **users/{uid}**: Customer and store owner profiles with role-based access
+  - Fields: `uid, name, email, userType, emailVerified, profile{avatar, phone, address}, preferences`
+- **store_registrations/{uid}**: Store owner registration data (separate from users)
+  - `personalInfo, businessInfo{storeName, description, address, logo, coverImage}, documents{barangayBusinessClearance, businessPermit, dtiRegistration, validId}, bankDetails`
+- **stores/{storeId}**: Active store information after approval
+- **products/{productId}**: Product catalog with inventory levels, pricing, descriptions
+- **orders/{orderId}**: Customer orders with pickup-only fulfillment
+- **sales/{saleId}**: Transaction tracking and revenue monitoring
+- **inventory_logs/{logId}**: Stock changes and purchase order history
+- **return_goods/{returnId}**: Customer return tracking and stock adjustments
+- **damages_spoilage/{damageId}**: Loss tracking for damaged/expired items
+- **reviews/{reviewId}**: Customer feedback and store ratings
+
+**Important Notes:**
+- Store registration data is in `store_registrations/{uid}` during approval process
+- Documents stored as base64 strings in Realtime Database (not Storage)
+- See `firebase-database-structure.md` and `firebase-actual-database-structure.md` for complete schemas
 
 ## Component Architecture
 
@@ -107,19 +146,35 @@ See `firebase-database-structure.md` for complete schema details.
 - `Button.tsx` - Primary/secondary buttons with responsive design
 - `FormInput.tsx` - Form input fields
 - `GlassMorphismCard.tsx` - Modern card designs with blur effects and absolute positioning
-- `ProductCard.tsx`, `StoreCard.tsx` - Display cards
+- `ProductCard.tsx`, `StoreCard.tsx` - Display cards for products and stores
 - `Typography.tsx` - Text styling components
+- `BottomNavigation.tsx` - Custom bottom tab navigation (replaces @react-navigation/bottom-tabs)
+- `CheckboxWithText.tsx` - Checkbox component with text labels
+- `UserTypePicker.tsx` - Role selection UI component
+- `PendingApprovalDetails.tsx` - Store owner approval status display
+- `StatusBar.tsx` - Custom status bar wrapper
+- `SignInGlassCard.tsx` - Signin screen glass card component
 
 ### Feature Components
-- `onboarding/` - Onboarding flow components with hero images
-- `phone-verification/` - SMS verification screens with custom service
+- `onboarding/` - Onboarding flow components (HeroImageStack, OnboardingContent, ActionButtons)
+- `phone-verification/` - SMS verification screens (PhoneVerificationScreen, PhoneVerificationCodeScreen)
 
-### Phone Verification System
-- Custom service at `src/services/PhoneVerificationService.ts`
-- Development mode: Logs verification codes to console
-- Production ready: Supports Twilio/AWS SNS integration
-- Philippine phone number validation with international fallback
-- 4-digit codes with 5-minute expiry and 3-attempt limit
+### Services Layer (`src/services/`)
+- **PhoneVerificationService**: SMS verification system
+  - Development mode: Logs verification codes to console
+  - Production ready: Supports Twilio/AWS SNS integration
+  - Philippine phone number validation with international fallback
+  - 4-digit codes with 5-minute expiry and 3-attempt limit
+- **StoreRegistrationService**: Handles store owner registration workflow
+  - Multi-step registration (personal info, business info, documents, bank details)
+  - Document upload with base64 encoding
+  - Firebase Realtime Database integration
+- **NotificationService**: Push notification handling (Expo Notifications)
+
+### Asset Organization
+- Assets stored in `src/assets/images/[screen-name]/` following Figma structure
+- Images organized by feature (e.g., `customer-home/categories/`, `customer-home/nav-*.png`)
+- Icons and images downloaded from Figma using MCP tools
 
 ## Development Workflow
 
@@ -136,6 +191,18 @@ See `firebase-database-structure.md` for complete schema details.
 3. Use responsive scaling functions for consistent design
 4. Follow glassmorphism patterns for modern aesthetic
 5. **Use exact Figma coordinates** with baseline scaling for positioning
+6. Add Figma documentation comments at top of screen files:
+```typescript
+/**
+ * SCREEN NAME - DESCRIPTION
+ *
+ * Figma File: [fileKey]
+ * Node: [nodeId] (Node Name)
+ * Baseline: [width]x[height]
+ *
+ * Additional notes...
+ */
+```
 
 ### Business Requirements Implementation
 Based on capstone project documentation, prioritize features in this order:
@@ -167,8 +234,19 @@ Based on capstone project documentation, prioritize features in this order:
 
 ### Import Paths
 - Use `@/` alias for src imports: `import { Button } from '@/components/ui'`
-- Path alias configured in tsconfig.json
+- Path alias configured in tsconfig.json and works in all files
 - Maintain clean import structure with index.ts exports
+- **Exception**: Some existing components use relative paths for constants (e.g., `import { Colors } from "../../constants/Colors"`)
+
+### Package Management
+- Key dependencies:
+  - `expo-router` (v6.0.7) - File-based routing
+  - `firebase` (v12.2.1) - Backend services
+  - `react-native-size-matters` - Responsive scaling utilities
+  - `@react-native-async-storage/async-storage` - Local data persistence
+  - `expo-blur` - Glassmorphism effects
+  - `expo-image-picker`, `expo-document-picker` - File uploads
+  - `figma-context-mcp` - Figma design integration
 
 ### Styling Patterns
 - Always use responsive scaling functions (s, vs, ms)

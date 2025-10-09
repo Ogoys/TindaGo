@@ -1,0 +1,1599 @@
+{
+  "metadata": {
+    "name": "TindaGo Share",
+    "lastModified": "2025-10-09T17:09:21Z",
+    "thumbnailUrl": "https://s3-alpha.figma.com/thumbnails/7cbc5f7c-8f9f-4d04-98a8-ccdee05e3042?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQ4GOSFWCUI57WO7Q%2F20251009%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20251009T000000Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=6a633ca75a28a86cfdf6db9ad0f6ea9057bfa73d11231954bee2166b140f27b9"
+  },
+  "nodes": [
+    {
+      "id": "759:4154",
+      "name": "Profile",
+      "type": "FRAME",
+      "boundingBox": {
+        "x": 0,
+        "y": 0,
+        "width": 440,
+        "height": 990
+      },
+      "fills": "fill_XELGNE",
+      "layout": "layout_KDAMQ2",
+      "children": [
+        {
+          "id": "759:4155",
+          "name": "Rectangle 73",
+          "type": "IMAGE-SVG",
+          "boundingBox": {
+            "x": 0,
+            "y": 1,
+            "width": 440,
+            "height": 384
+          },
+          "fills": "fill_JIFCP1",
+          "effects": "effect_PZ6JIA",
+          "layout": "layout_BUEV19",
+          "borderRadius": "0px 0px 0px 0px"
+        },
+        {
+          "id": "759:4156",
+          "name": "Notif",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 375,
+            "y": 74,
+            "width": 40,
+            "height": 40
+          },
+          "layout": "layout_0IIP75",
+          "children": [
+            {
+              "id": "759:4157",
+              "name": "Notif",
+              "type": "ELLIPSE",
+              "boundingBox": {
+                "x": 375,
+                "y": 74,
+                "width": 40,
+                "height": 40
+              },
+              "fills": "fill_F50MMD",
+              "effects": "effect_W3TANB",
+              "layout": "layout_A1NMKY"
+            },
+            {
+              "id": "759:4158",
+              "name": "Notification",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 382,
+                "y": 81,
+                "width": 25,
+                "height": 25
+              },
+              "fills": "fill_X5UB0J",
+              "layout": "layout_7CX6H0"
+            }
+          ]
+        },
+        {
+          "id": "759:4159",
+          "name": "Profile",
+          "type": "TEXT",
+          "boundingBox": {
+            "x": 190,
+            "y": 83,
+            "width": 61,
+            "height": 22
+          },
+          "textStyle": "style_X2C8AV",
+          "fills": "fill_4FC9ZD",
+          "layout": "layout_7NQTH7",
+          "text": "Profile"
+        },
+        {
+          "id": "759:4160",
+          "name": "Back",
+          "type": "FRAME",
+          "fills": "fill_F50MMD",
+          "effects": "effect_XMH9U0",
+          "layout": "layout_RRZFL9",
+          "borderRadius": "20px",
+          "children": [
+            {
+              "id": "759:4161",
+              "name": "Chevron Left",
+              "type": "RECTANGLE",
+              "fills": "fill_9NPCVT",
+              "layout": "layout_B3NBJY"
+            }
+          ]
+        },
+        {
+          "id": "759:4162",
+          "name": "Logo",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 160,
+            "y": 155,
+            "width": 120,
+            "height": 120
+          },
+          "layout": "layout_4X0PAY",
+          "children": [
+            {
+              "id": "759:4163",
+              "name": "Ellipse 43",
+              "type": "ELLIPSE",
+              "boundingBox": {
+                "x": 160,
+                "y": 155,
+                "width": 120,
+                "height": 120
+              },
+              "fills": "fill_IVSSAD",
+              "effects": "effect_PZ6JIA",
+              "layout": "layout_CB1PIV"
+            },
+            {
+              "id": "759:4164",
+              "name": "DO",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 187,
+                "y": 186,
+                "width": 66,
+                "height": 59
+              },
+              "textStyle": "style_EY2T07",
+              "fills": "fill_F50MMD",
+              "layout": "layout_TAYWIT",
+              "text": "DO"
+            }
+          ]
+        },
+        {
+          "id": "759:4165",
+          "name": "Maynard Dotarot",
+          "type": "TEXT",
+          "boundingBox": {
+            "x": 128,
+            "y": 295,
+            "width": 185,
+            "height": 30
+          },
+          "textStyle": "style_BSO4I8",
+          "fills": "fill_4FC9ZD",
+          "layout": "layout_CKZWV1",
+          "text": "Maynard Dotarot"
+        },
+        {
+          "id": "759:4166",
+          "name": "dotarot@gmail.com",
+          "type": "TEXT",
+          "boundingBox": {
+            "x": 149,
+            "y": 325,
+            "width": 143,
+            "height": 20
+          },
+          "textStyle": "style_UIJ4RQ",
+          "fills": "fill_7BV7Q0",
+          "layout": "layout_4YNWBT",
+          "text": "dotarot@gmail.com"
+        },
+        {
+          "id": "759:4167",
+          "name": "Notif",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 500,
+            "width": 400,
+            "height": 75
+          },
+          "effects": "effect_PZ6JIA",
+          "layout": "layout_HFI9Y7",
+          "borderRadius": "16px",
+          "children": [
+            {
+              "id": "759:4168",
+              "name": "Rectangle 68",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 500,
+                "width": 400,
+                "height": 75
+              },
+              "fills": "fill_F50MMD",
+              "layout": "layout_8YM0CM",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "759:4169",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 35,
+                "y": 515,
+                "width": 176,
+                "height": 50
+              },
+              "layout": "layout_GLGI92",
+              "borderRadius": "16px",
+              "children": [
+                {
+                  "id": "759:4170",
+                  "name": "Order History",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 100,
+                    "y": 529,
+                    "width": 111,
+                    "height": 22
+                  },
+                  "textStyle": "style_YX23BI",
+                  "fills": "fill_4FC9ZD",
+                  "layout": "layout_A6OQVE",
+                  "text": "Order History"
+                },
+                {
+                  "id": "759:4171",
+                  "name": "Ellipse 42",
+                  "type": "ELLIPSE",
+                  "boundingBox": {
+                    "x": 35,
+                    "y": 515,
+                    "width": 50,
+                    "height": 50
+                  },
+                  "strokes": "stroke_OAK4OC",
+                  "effects": "effect_PZ6JIA",
+                  "layout": "layout_22C0MI"
+                },
+                {
+                  "id": "759:4172",
+                  "name": "Purchase Order",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 45,
+                    "y": 525,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_W14AGK",
+                  "layout": "layout_4R3QFG",
+                  "borderRadius": "16px"
+                }
+              ]
+            },
+            {
+              "id": "759:4173",
+              "name": "Forward",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 375,
+                "y": 525,
+                "width": 30,
+                "height": 30
+              },
+              "fills": "fill_JOFN8K",
+              "layout": "layout_GZR9SO",
+              "borderRadius": "16px"
+            }
+          ]
+        },
+        {
+          "id": "759:4174",
+          "name": "E wallet",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 595,
+            "width": 400,
+            "height": 75
+          },
+          "effects": "effect_PZ6JIA",
+          "layout": "layout_MJCBHH",
+          "borderRadius": "16px",
+          "children": [
+            {
+              "id": "759:4175",
+              "name": "Rectangle 68",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 595,
+                "width": 400,
+                "height": 75
+              },
+              "fills": "fill_F50MMD",
+              "layout": "layout_8YM0CM",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "759:4176",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 35,
+                "y": 610,
+                "width": 189,
+                "height": 50
+              },
+              "layout": "layout_FFTLP3",
+              "borderRadius": "16px",
+              "children": [
+                {
+                  "id": "759:4177",
+                  "name": "E-Wallet Details",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 100,
+                    "y": 624,
+                    "width": 124,
+                    "height": 22
+                  },
+                  "textStyle": "style_YX23BI",
+                  "fills": "fill_4FC9ZD",
+                  "layout": "layout_88TIU7",
+                  "text": "E-Wallet Details"
+                },
+                {
+                  "id": "759:4178",
+                  "name": "Ellipse 42",
+                  "type": "ELLIPSE",
+                  "boundingBox": {
+                    "x": 35,
+                    "y": 610,
+                    "width": 50,
+                    "height": 50
+                  },
+                  "strokes": "stroke_OAK4OC",
+                  "effects": "effect_PZ6JIA",
+                  "layout": "layout_22C0MI"
+                },
+                {
+                  "id": "759:4179",
+                  "name": "Card Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 45,
+                    "y": 620,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_JG80GA",
+                  "layout": "layout_4R3QFG",
+                  "borderRadius": "16px"
+                }
+              ]
+            },
+            {
+              "id": "759:4180",
+              "name": "Forward",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 375,
+                "y": 620,
+                "width": 30,
+                "height": 30
+              },
+              "fills": "fill_JOFN8K",
+              "layout": "layout_GZR9SO",
+              "borderRadius": "16px"
+            }
+          ]
+        },
+        {
+          "id": "759:4181",
+          "name": "Lincense",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 690,
+            "width": 400,
+            "height": 75
+          },
+          "effects": "effect_PZ6JIA",
+          "layout": "layout_QIWWI8",
+          "borderRadius": "16px",
+          "children": [
+            {
+              "id": "759:4182",
+              "name": "Rectangle 68",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 690,
+                "width": 400,
+                "height": 75
+              },
+              "fills": "fill_F50MMD",
+              "layout": "layout_8YM0CM",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "759:4183",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 35,
+                "y": 705,
+                "width": 187,
+                "height": 50
+              },
+              "layout": "layout_P9VWQS",
+              "borderRadius": "16px",
+              "children": [
+                {
+                  "id": "759:4184",
+                  "name": "Help & Support",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 100,
+                    "y": 719,
+                    "width": 122,
+                    "height": 22
+                  },
+                  "textStyle": "style_YX23BI",
+                  "fills": "fill_4FC9ZD",
+                  "layout": "layout_ERB1UA",
+                  "text": "Help & Support"
+                },
+                {
+                  "id": "759:4185",
+                  "name": "Ellipse 42",
+                  "type": "ELLIPSE",
+                  "boundingBox": {
+                    "x": 35,
+                    "y": 705,
+                    "width": 50,
+                    "height": 50
+                  },
+                  "strokes": "stroke_OAK4OC",
+                  "effects": "effect_PZ6JIA",
+                  "layout": "layout_22C0MI"
+                },
+                {
+                  "id": "759:4186",
+                  "name": "Online Support",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 45,
+                    "y": 715,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_3JHQ5T",
+                  "layout": "layout_4R3QFG",
+                  "borderRadius": "16px"
+                }
+              ]
+            },
+            {
+              "id": "759:4187",
+              "name": "Forward",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 375,
+                "y": 715,
+                "width": 30,
+                "height": 30
+              },
+              "fills": "fill_JOFN8K",
+              "layout": "layout_GZR9SO",
+              "borderRadius": "16px"
+            }
+          ]
+        },
+        {
+          "id": "759:4188",
+          "name": "Store info",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 785,
+            "width": 400,
+            "height": 75
+          },
+          "effects": "effect_PZ6JIA",
+          "layout": "layout_7PWGWR",
+          "borderRadius": "16px",
+          "children": [
+            {
+              "id": "759:4189",
+              "name": "Rectangle 68",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 785,
+                "width": 400,
+                "height": 75
+              },
+              "fills": "fill_F50MMD",
+              "layout": "layout_8YM0CM",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "759:4190",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 35,
+                "y": 800,
+                "width": 238,
+                "height": 50
+              },
+              "layout": "layout_WSINVU",
+              "borderRadius": "16px",
+              "children": [
+                {
+                  "id": "759:4191",
+                  "name": "Term & Privacy Policy",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 100,
+                    "y": 814,
+                    "width": 173,
+                    "height": 22
+                  },
+                  "textStyle": "style_YX23BI",
+                  "fills": "fill_4FC9ZD",
+                  "layout": "layout_7ZC72V",
+                  "text": "Term & Privacy Policy"
+                },
+                {
+                  "id": "759:4192",
+                  "name": "Ellipse 42",
+                  "type": "ELLIPSE",
+                  "boundingBox": {
+                    "x": 35,
+                    "y": 800,
+                    "width": 50,
+                    "height": 50
+                  },
+                  "strokes": "stroke_OAK4OC",
+                  "effects": "effect_PZ6JIA",
+                  "layout": "layout_22C0MI"
+                },
+                {
+                  "id": "759:4193",
+                  "name": "Privacy Policy",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 45,
+                    "y": 810,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_95JH7L",
+                  "layout": "layout_4R3QFG",
+                  "borderRadius": "16px"
+                }
+              ]
+            },
+            {
+              "id": "759:4194",
+              "name": "Forward",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 375,
+                "y": 810,
+                "width": 30,
+                "height": 30
+              },
+              "fills": "fill_JOFN8K",
+              "layout": "layout_GZR9SO",
+              "borderRadius": "16px"
+            }
+          ]
+        },
+        {
+          "id": "759:4195",
+          "name": "Store menu",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 880,
+            "width": 400,
+            "height": 75
+          },
+          "effects": "effect_PZ6JIA",
+          "layout": "layout_85HWX7",
+          "borderRadius": "16px",
+          "children": [
+            {
+              "id": "759:4196",
+              "name": "Rectangle 68",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 880,
+                "width": 400,
+                "height": 75
+              },
+              "fills": "fill_F50MMD",
+              "layout": "layout_8YM0CM",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "759:4197",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 35,
+                "y": 895,
+                "width": 128,
+                "height": 50
+              },
+              "layout": "layout_ITIRHP",
+              "borderRadius": "16px",
+              "children": [
+                {
+                  "id": "759:4198",
+                  "name": "Log Out",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 100,
+                    "y": 909,
+                    "width": 63,
+                    "height": 22
+                  },
+                  "textStyle": "style_YX23BI",
+                  "fills": "fill_4FC9ZD",
+                  "layout": "layout_MOTHD0",
+                  "text": "Log Out"
+                },
+                {
+                  "id": "759:4199",
+                  "name": "Ellipse 42",
+                  "type": "ELLIPSE",
+                  "boundingBox": {
+                    "x": 35,
+                    "y": 895,
+                    "width": 50,
+                    "height": 50
+                  },
+                  "strokes": "stroke_OAK4OC",
+                  "effects": "effect_PZ6JIA",
+                  "layout": "layout_22C0MI"
+                },
+                {
+                  "id": "759:4200",
+                  "name": "Open Pane",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 45,
+                    "y": 905,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_EDYH4M",
+                  "layout": "layout_4R3QFG",
+                  "borderRadius": "16px"
+                }
+              ]
+            },
+            {
+              "id": "759:4201",
+              "name": "Forward",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 375,
+                "y": 905,
+                "width": 30,
+                "height": 30
+              },
+              "fills": "fill_JOFN8K",
+              "layout": "layout_GZR9SO",
+              "borderRadius": "16px"
+            }
+          ]
+        },
+        {
+          "id": "759:4202",
+          "name": "Myaccount",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 405,
+            "width": 400,
+            "height": 75
+          },
+          "effects": "effect_PZ6JIA",
+          "layout": "layout_Y22ZC9",
+          "borderRadius": "16px",
+          "children": [
+            {
+              "id": "759:4203",
+              "name": "Rectangle 68",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 405,
+                "width": 400,
+                "height": 75
+              },
+              "fills": "fill_F50MMD",
+              "layout": "layout_8YM0CM",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "759:4204",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 35,
+                "y": 420,
+                "width": 162,
+                "height": 50
+              },
+              "layout": "layout_JHT4OH",
+              "borderRadius": "16px",
+              "children": [
+                {
+                  "id": "759:4205",
+                  "name": "My Account",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 100,
+                    "y": 434,
+                    "width": 97,
+                    "height": 22
+                  },
+                  "textStyle": "style_YX23BI",
+                  "fills": "fill_4FC9ZD",
+                  "layout": "layout_LHONBW",
+                  "text": "My Account"
+                },
+                {
+                  "id": "759:4206",
+                  "name": "Ellipse 42",
+                  "type": "ELLIPSE",
+                  "boundingBox": {
+                    "x": 35,
+                    "y": 420,
+                    "width": 50,
+                    "height": 50
+                  },
+                  "strokes": "stroke_OAK4OC",
+                  "effects": "effect_PZ6JIA",
+                  "layout": "layout_22C0MI"
+                },
+                {
+                  "id": "759:4207",
+                  "name": "Writer male",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 45,
+                    "y": 430,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_5VCPZP",
+                  "layout": "layout_4R3QFG",
+                  "borderRadius": "16px"
+                }
+              ]
+            },
+            {
+              "id": "759:4208",
+              "name": "Forward",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 375,
+                "y": 430,
+                "width": 30,
+                "height": 30
+              },
+              "fills": "fill_JOFN8K",
+              "layout": "layout_GZR9SO",
+              "borderRadius": "16px"
+            }
+          ]
+        },
+        {
+          "id": "759:4209",
+          "name": "Status Bar",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 0,
+            "y": 0,
+            "width": 439.5,
+            "height": 54
+          },
+          "layout": "layout_S0TZ4K",
+          "children": [
+            {
+              "id": "759:4210",
+              "name": "Time",
+              "type": "FRAME",
+              "boundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 140.5,
+                "height": 54
+              },
+              "layout": "layout_21GRKY",
+              "children": [
+                {
+                  "id": "759:4211",
+                  "name": "Time",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 51.9239501953125,
+                    "y": 18.33984375,
+                    "width": 36,
+                    "height": 22
+                  },
+                  "textStyle": "style_PVHV72",
+                  "fills": "fill_AGNQOE",
+                  "layout": "layout_OVLDXQ",
+                  "text": "9:41"
+                }
+              ]
+            },
+            {
+              "id": "759:4212",
+              "name": "Levels",
+              "type": "FRAME",
+              "boundingBox": {
+                "x": 299,
+                "y": 0,
+                "width": 140.5,
+                "height": 54
+              },
+              "layout": "layout_7E3EOD",
+              "children": [
+                {
+                  "id": "759:4213",
+                  "name": "Battery",
+                  "type": "GROUP",
+                  "boundingBox": {
+                    "x": 380,
+                    "y": 23,
+                    "width": 27.32803726196289,
+                    "height": 13
+                  },
+                  "fills": "fill_F50MMD",
+                  "layout": "layout_DNEAM0",
+                  "borderRadius": "0px 0px 0px 0px",
+                  "children": [
+                    {
+                      "id": "759:4214",
+                      "name": "Border",
+                      "type": "RECTANGLE",
+                      "boundingBox": {
+                        "x": 380,
+                        "y": 23,
+                        "width": 25,
+                        "height": 13
+                      },
+                      "strokes": "stroke_W3IET1",
+                      "layout": "layout_SNOWI5",
+                      "opacity": 0.3499999940395355,
+                      "borderRadius": "4.300000190734863px"
+                    },
+                    {
+                      "id": "759:4215",
+                      "name": "Cap",
+                      "type": "IMAGE-SVG",
+                      "boundingBox": {
+                        "x": 406,
+                        "y": 27.78125,
+                        "width": 1.328037977218628,
+                        "height": 4.075471878051758
+                      },
+                      "fills": "fill_AGNQOE",
+                      "layout": "layout_8BWNR9",
+                      "opacity": 0.4000000059604645
+                    },
+                    {
+                      "id": "759:4216",
+                      "name": "Capacity",
+                      "type": "RECTANGLE",
+                      "boundingBox": {
+                        "x": 382,
+                        "y": 25,
+                        "width": 21,
+                        "height": 9
+                      },
+                      "fills": "fill_AGNQOE",
+                      "layout": "layout_QABXWT",
+                      "borderRadius": "2.5px"
+                    }
+                  ]
+                },
+                {
+                  "id": "759:4217",
+                  "name": "Wifi",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 355.69921875,
+                    "y": 23.6376953125,
+                    "width": 17.141666412353516,
+                    "height": 12.328306198120117
+                  },
+                  "fills": "fill_AGNQOE",
+                  "layout": "layout_GBW14J"
+                },
+                {
+                  "id": "759:4218",
+                  "name": "Cellular Connection",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 329,
+                    "y": 23.5361328125,
+                    "width": 19.200000762939453,
+                    "height": 12.226415634155273
+                  },
+                  "fills": "fill_AGNQOE",
+                  "layout": "layout_IDW7JL"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "globalVars": {
+    "styles": {
+      "fill_XELGNE": [
+        "#F4F6F6"
+      ],
+      "layout_KDAMQ2": {
+        "mode": "none",
+        "clipsContent": true,
+        "dimensions": {
+          "width": 440,
+          "height": 990
+        }
+      },
+      "fill_JIFCP1": [
+        "#EBFBEA"
+      ],
+      "effect_PZ6JIA": {
+        "boxShadow": "0px 0px 5px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_BUEV19": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 1
+        },
+        "dimensions": {
+          "width": 440,
+          "height": 384
+        }
+      },
+      "layout_0IIP75": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 375,
+          "y": 74
+        },
+        "dimensions": {
+          "width": 40,
+          "height": 40
+        }
+      },
+      "fill_F50MMD": [
+        "#FFFFFF"
+      ],
+      "effect_W3TANB": {
+        "boxShadow": "0px 0px 10px 2px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_A1NMKY": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 40,
+          "height": 40
+        }
+      },
+      "fill_X5UB0J": [
+        {
+          "type": "IMAGE",
+          "imageRef": "a26963fe6f8e5aea543001e9da2b55ff12efe5fb",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_7CX6H0": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 7,
+          "y": 7
+        },
+        "dimensions": {
+          "width": 25,
+          "height": 25
+        }
+      },
+      "style_X2C8AV": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 600,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_4FC9ZD": [
+        "#1E1E1E"
+      ],
+      "layout_7NQTH7": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 190,
+          "y": 83
+        },
+        "dimensions": {
+          "width": 61,
+          "height": 22
+        }
+      },
+      "effect_XMH9U0": {
+        "boxShadow": "0px 0px 4px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_RRZFL9": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "10px",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 79
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "fill_9NPCVT": [
+        {
+          "type": "IMAGE",
+          "imageRef": "948e36170b4e3f8527469d0bf252daa59b1d6861",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_B3NBJY": {
+        "mode": "none",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "dimensions": {
+          "width": 15,
+          "height": 15
+        }
+      },
+      "layout_4X0PAY": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 160,
+          "y": 155
+        },
+        "dimensions": {
+          "width": 120,
+          "height": 120
+        }
+      },
+      "fill_IVSSAD": [
+        "#3B82F6"
+      ],
+      "layout_CB1PIV": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 120,
+          "height": 120
+        }
+      },
+      "style_EY2T07": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 48,
+        "lineHeight": "1.2300000190734863em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_TAYWIT": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 27,
+          "y": 31
+        },
+        "dimensions": {
+          "width": 66,
+          "height": 59
+        }
+      },
+      "style_BSO4I8": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 24,
+        "lineHeight": "1.2300000190734863em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_CKZWV1": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 128,
+          "y": 295
+        },
+        "dimensions": {
+          "width": 185,
+          "height": 30
+        }
+      },
+      "style_UIJ4RQ": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 16,
+        "lineHeight": "1.2300000190734863em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "fill_7BV7Q0": [
+        "rgba(30, 30, 30, 0.5)"
+      ],
+      "layout_4YNWBT": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 149,
+          "y": 325
+        },
+        "dimensions": {
+          "width": 143,
+          "height": 20
+        }
+      },
+      "layout_HFI9Y7": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 500
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 75
+        }
+      },
+      "layout_8YM0CM": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 75
+        }
+      },
+      "layout_GLGI92": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 15,
+          "y": 15
+        },
+        "dimensions": {
+          "width": 176,
+          "height": 50
+        }
+      },
+      "style_YX23BI": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 18,
+        "lineHeight": "1.22999996609158em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_A6OQVE": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 65,
+          "y": 14
+        },
+        "dimensions": {
+          "width": 111,
+          "height": 22
+        }
+      },
+      "stroke_OAK4OC": {
+        "colors": [
+          "rgba(30, 30, 30, 0.08)"
+        ],
+        "strokeWeight": "1px",
+        "strokeAlign": "INSIDE"
+      },
+      "layout_22C0MI": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 50,
+          "height": 50
+        }
+      },
+      "fill_W14AGK": [
+        {
+          "type": "IMAGE",
+          "imageRef": "b77449cf5e5dfde0b1e69a7097cef09c64cfc1db",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_4R3QFG": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 10,
+          "y": 10
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "fill_JOFN8K": [
+        {
+          "type": "IMAGE",
+          "imageRef": "626571bb93717dd6bd2d2e78fb21b86c8170608a",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_GZR9SO": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 355,
+          "y": 25
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "layout_MJCBHH": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 595
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 75
+        }
+      },
+      "layout_FFTLP3": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 15,
+          "y": 15
+        },
+        "dimensions": {
+          "width": 189,
+          "height": 50
+        }
+      },
+      "layout_88TIU7": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 65,
+          "y": 14
+        },
+        "dimensions": {
+          "width": 124,
+          "height": 22
+        }
+      },
+      "fill_JG80GA": [
+        {
+          "type": "IMAGE",
+          "imageRef": "98029dfbc9f659d3c9dc7fc94a6aef0880be768d",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_QIWWI8": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 690
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 75
+        }
+      },
+      "layout_P9VWQS": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 15,
+          "y": 15
+        },
+        "dimensions": {
+          "width": 187,
+          "height": 50
+        }
+      },
+      "layout_ERB1UA": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 65,
+          "y": 14
+        },
+        "dimensions": {
+          "width": 122,
+          "height": 22
+        }
+      },
+      "fill_3JHQ5T": [
+        {
+          "type": "IMAGE",
+          "imageRef": "f45e7b4fbb734662abae4263e1e32721dbc60795",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_7PWGWR": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 785
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 75
+        }
+      },
+      "layout_WSINVU": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 15,
+          "y": 15
+        },
+        "dimensions": {
+          "width": 238,
+          "height": 50
+        }
+      },
+      "layout_7ZC72V": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 65,
+          "y": 14
+        },
+        "dimensions": {
+          "width": 173,
+          "height": 22
+        }
+      },
+      "fill_95JH7L": [
+        {
+          "type": "IMAGE",
+          "imageRef": "58dd102429fba92e5bece0920a32bafe0cede374",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_85HWX7": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 880
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 75
+        }
+      },
+      "layout_ITIRHP": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 15,
+          "y": 15
+        },
+        "dimensions": {
+          "width": 128,
+          "height": 50
+        }
+      },
+      "layout_MOTHD0": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 65,
+          "y": 14
+        },
+        "dimensions": {
+          "width": 63,
+          "height": 22
+        }
+      },
+      "fill_EDYH4M": [
+        {
+          "type": "IMAGE",
+          "imageRef": "7f90b12f61011885697e56d7bd974973190c73bc",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_Y22ZC9": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 405
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 75
+        }
+      },
+      "layout_JHT4OH": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 15,
+          "y": 15
+        },
+        "dimensions": {
+          "width": 162,
+          "height": 50
+        }
+      },
+      "layout_LHONBW": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 65,
+          "y": 14
+        },
+        "dimensions": {
+          "width": 97,
+          "height": 22
+        }
+      },
+      "fill_5VCPZP": [
+        {
+          "type": "IMAGE",
+          "imageRef": "ad3f4765d58d43ec7823234c7173c953aa415f63",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_S0TZ4K": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 439.5,
+          "height": 54
+        }
+      },
+      "layout_21GRKY": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 140.5,
+          "height": 54
+        }
+      },
+      "style_PVHV72": {
+        "fontFamily": "ABeeZee",
+        "fontWeight": 400,
+        "fontSize": 17,
+        "lineHeight": "1.2941176470588236em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_AGNQOE": [
+        "#000000"
+      ],
+      "layout_OVLDXQ": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 51.92,
+          "y": 18.34
+        },
+        "dimensions": {
+          "width": 36,
+          "height": 22
+        }
+      },
+      "layout_7E3EOD": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 299,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 140.5,
+          "height": 54
+        }
+      },
+      "layout_DNEAM0": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 81,
+          "y": 23
+        },
+        "dimensions": {
+          "width": 27.33,
+          "height": 13
+        }
+      },
+      "stroke_W3IET1": {
+        "colors": [
+          "#000000"
+        ],
+        "strokeWeight": "1px",
+        "strokeAlign": "INSIDE"
+      },
+      "layout_SNOWI5": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 25,
+          "height": 13
+        }
+      },
+      "layout_8BWNR9": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 26,
+          "y": 4.78
+        },
+        "dimensions": {
+          "width": 1.33,
+          "height": 4.08
+        }
+      },
+      "layout_QABXWT": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 2,
+          "y": 2
+        },
+        "dimensions": {
+          "width": 21,
+          "height": 9
+        }
+      },
+      "layout_GBW14J": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 56.7,
+          "y": 23.64
+        },
+        "dimensions": {
+          "width": 17.14,
+          "height": 12.33
+        }
+      },
+      "layout_IDW7JL": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 30,
+          "y": 23.54
+        },
+        "dimensions": {
+          "width": 19.2,
+          "height": 12.23
+        }
+      }
+    }
+  }
+}

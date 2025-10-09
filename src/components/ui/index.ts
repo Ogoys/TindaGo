@@ -7,3 +7,5 @@ export { StoreCard } from "./StoreCard";
 export type { StoreCardProps } from "./StoreCard";
 export { PendingApprovalDetails } from "./PendingApprovalDetails";
 export { default as BottomNavigation } from "./BottomNavigation";
+export { CustomerProfileScreen } from "./CustomerProfileScreen";
+export type { CustomerProfileScreenProps, MenuItem } from "./CustomerProfileScreen";

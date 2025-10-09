@@ -95,7 +95,7 @@ export default function BottomNavigation({ activeTab = "home" }: BottomNavigatio
       {/* PROFILE TAB */}
       <TouchableOpacity
         style={styles.profileTab}
-        onPress={() => router.push("/(main)/shared/profile")}
+        onPress={() => router.push("/(main)/(customer)/profile")}
         activeOpacity={0.7}
       >
         <Image
