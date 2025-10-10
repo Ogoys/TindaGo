@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { ProductCard, StoreCard } from '../../../src/components/ui';
 import { Colors } from '../../../src/constants/Colors';
-import { s, vs } from '../../../src/constants/responsive';
+import { s, vs, ms } from '../../../src/constants/responsive';
 
 export default function ProductDetailsScreen() {
   const [quantity, setQuantity] = useState(0);
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
 
   // Header Title - Figma: x:152, y:83, width:137, height:22
   headerTitle: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontWeight: '500',
     color: Colors.darkGray,
     textAlign: 'center',
@@ -467,26 +467,26 @@ const styles = StyleSheet.create({
   },
 
   productName: {
-    fontSize: 24,
+    fontSize: ms(24),
     fontWeight: '600',
     color: Colors.black,
-    lineHeight: 22,
+    lineHeight: vs(22),
     marginBottom: vs(2),
   },
 
   productSubtitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '400',
     color: 'rgba(0, 0, 0, 0.5)',
-    lineHeight: 22,
+    lineHeight: vs(22),
     marginBottom: vs(2),
   },
 
   productWeight: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '400',
     color: 'rgba(0, 0, 0, 0.5)',
-    lineHeight: 22,
+    lineHeight: vs(22),
   },
 
   // Rating and Price - Figma: x:305, y:520, width:115, height:46
@@ -495,10 +495,10 @@ const styles = StyleSheet.create({
   },
 
   productPrice: {
-    fontSize: 24,
+    fontSize: ms(24),
     fontWeight: '600',
     color: Colors.black,
-    lineHeight: 22,
+    lineHeight: vs(22),
     marginBottom: vs(4),
   },
 
@@ -514,17 +514,17 @@ const styles = StyleSheet.create({
   },
 
   ratingText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '400',
     color: Colors.darkGray,
-    lineHeight: 22,
+    lineHeight: vs(22),
   },
 
   reviewCount: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontWeight: '400',
     color: 'rgba(0, 0, 0, 0.5)',
-    lineHeight: 22,
+    lineHeight: vs(22),
   },
 
   // Description Section - Figma: x:20, y:606, width:400, height:82
@@ -534,18 +534,18 @@ const styles = StyleSheet.create({
   },
 
   descriptionTitle: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontWeight: '500',
     color: Colors.black,
-    lineHeight: 22,
+    lineHeight: vs(22),
     marginBottom: vs(4),
   },
 
   descriptionText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '400',
     color: 'rgba(0, 0, 0, 0.5)',
-    lineHeight: 20,
+    lineHeight: vs(20),
   },
 
   // Section Headers - Figma: x:22, y:728, width:397, height:26
@@ -559,17 +559,17 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 24,
+    fontSize: ms(24),
     fontWeight: '500',
     color: Colors.black,
-    lineHeight: 22,
+    lineHeight: vs(22),
   },
 
   seeMoreText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '500',
     color: 'rgba(0, 0, 0, 0.5)',
-    lineHeight: 22,
+    lineHeight: vs(22),
   },
 
   // Related Products Container - Figma: x:0, y:764, width:440, height:191
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
   },
 
   quantityText: {
-    fontSize: 24,
+    fontSize: ms(24),
     fontWeight: '500',
     color: Colors.darkGray,
   },
@@ -675,9 +675,9 @@ const styles = StyleSheet.create({
   },
 
   addToCartText: {
-    fontSize: 16,
+    fontSize: ms(16),
     fontWeight: '500',
     color: '#02545F',
-    lineHeight: 22,
+    lineHeight: vs(22),
   },
 });

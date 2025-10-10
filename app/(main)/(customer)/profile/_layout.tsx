@@ -21,8 +21,8 @@ export default function ProfileLayout() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="account-settings" />
       {/* Future sub-screens */}
-      {/* <Stack.Screen name="account-settings" /> */}
       {/* <Stack.Screen name="e-wallet" /> */}
       {/* <Stack.Screen name="help" /> */}
       {/* <Stack.Screen name="terms-privacy" /> */}

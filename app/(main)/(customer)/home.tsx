@@ -11,20 +11,44 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { s, vs } from "../../../src/constants/responsive";
+import { s, vs, ms } from "../../../src/constants/responsive";
 import { BottomNavigation } from "../../../src/components/ui";
+import { useUser } from "../../../src/contexts/UserContext";
 
 /**
  * CUSTOMER HOME PAGE - PIXEL-PERFECT FIGMA REBUILD
  *
  * Figma File: 8I1Nr3vQZllDDknSevstvH
  * Node: 759-203 (Home Page)
- * Baseline: 440x1827
+ * Baseline: 440x956 (viewport), Total scrollable height: 1827px
  *
  * Complete rebuild from scratch matching exact Figma design
+ * Uses standard TindaGo baseline (440x956) for responsive scaling
  */
 
 export default function HomeScreen() {
+  // Get user data from context
+  const { user } = useUser();
+
+  // Extract user initials from email or name
+  const getUserInitials = (): string => {
+    if (user?.email) {
+      const emailName = user.email.split('@')[0];
+      return emailName.substring(0, 2).toUpperCase();
+    }
+    return 'CU'; // Default: Customer User
+  };
+
+  // Get display name from user data
+  const getDisplayName = (): string => {
+    if (user?.email) {
+      const emailName = user.email.split('@')[0];
+      // Capitalize first letter
+      return emailName.charAt(0).toUpperCase() + emailName.slice(1);
+    }
+    return 'Customer';
+  };
+
   // Category data with exact Figma specs
   // Figma: 759:213 - Category section with horizontal scroll
   const categoryData = [
@@ -255,12 +279,12 @@ export default function HomeScreen() {
         <View style={styles.profileSection}>
           {/* Logo - Figma: 759:594 */}
           <View style={styles.profileLogo}>
-            <Text style={styles.profileLogoText}>DO</Text>
+            <Text style={styles.profileLogoText}>{getUserInitials()}</Text>
           </View>
 
           <View style={styles.profileInfo}>
             {/* User Name - Figma: 759:599 */}
-            <Text style={styles.profileName}>Daniel Oppa</Text>
+            <Text style={styles.profileName} numberOfLines={1}>{getDisplayName()}</Text>
 
             {/* Location - Figma: 759:6373 */}
             <View style={styles.profileLocation}>
@@ -485,11 +509,12 @@ const styles = StyleSheet.create({
   },
 
   // Profile Section - Figma: 759:593, x:20, y:74, width:179, height:40
+  // Made flexible to prevent cutoff on smaller devices
   profileSection: {
     position: "absolute",
     left: s(20),
     top: vs(20), // Moved up from 74 to reduce empty space
-    width: s(179),
+    right: s(70), // Leave space for notification button
     height: vs(40),
     flexDirection: "row",
     alignItems: "center",
@@ -509,23 +534,23 @@ const styles = StyleSheet.create({
   profileLogoText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 16,
-    lineHeight: 16 * 1.23,
+    fontSize: ms(16),
+    lineHeight: ms(16) * 1.23,
     color: "#FFFFFF",
   },
 
   profileInfo: {
     marginLeft: s(10),
     flex: 1,
-    maxWidth: s(280), // Limit width to prevent overflow with notification button
+    // Remove maxWidth to allow flex to handle layout
   },
 
   // Profile Name - Figma: 759:599, x:70, y:74
   profileName: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 20,
-    lineHeight: 20 * 1.1,
+    fontSize: ms(18), // Reduced from 20 to 18 for better fit on small devices
+    lineHeight: ms(18) * 1.2,
     color: "#FFFFFF",
   },
 
@@ -548,10 +573,11 @@ const styles = StyleSheet.create({
   locationText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: 11, // Slightly smaller to fit on one line
-    lineHeight: 11 * 1.5,
+    fontSize: ms(10), // Reduced from 11 to 10 for better fit
+    lineHeight: ms(10) * 1.5,
     color: "#FFFFFF",
     flex: 1, // Take available space but don't overflow
+    flexShrink: 1, // Allow text to shrink if needed
   },
 
   // Notification Button - Figma: 759:205, x:375, y:74, width:40, height:40
@@ -587,11 +613,12 @@ const styles = StyleSheet.create({
   },
 
   // Search Container - Figma: 759:208, x:20, y:134, width:400, height:50
+  // Optimized for small devices (360px): reduced to 390px for better fit
   searchContainer: {
     position: "absolute",
     left: s(20),
     top: vs(80), // Moved up from 134 to reduce spacing
-    width: s(400),
+    width: s(390), // Reduced from 400 to 390 for small device compatibility
     height: vs(50),
     flexDirection: "row",
     alignItems: "center",
@@ -600,7 +627,7 @@ const styles = StyleSheet.create({
   // Search Background - Figma: 759:209, Rectangle 12 with shadow
   searchBackground: {
     position: "absolute",
-    width: s(400),
+    width: s(390), // Matches container width
     height: vs(50),
     backgroundColor: "#FFFFFF",
     borderRadius: s(20),
@@ -625,8 +652,8 @@ const styles = StyleSheet.create({
     marginLeft: s(20),
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 16,
-    lineHeight: 16 * 1.375,
+    fontSize: ms(16),
+    lineHeight: ms(16) * 1.375,
     color: "#7A7B7B",
     zIndex: 1,
   },
@@ -642,9 +669,11 @@ const styles = StyleSheet.create({
 
   // ============ CATEGORY SECTION ============
   // Figma: 759:212, x:1, y:198, width:439, height:90
+  // Increased height to prevent text overlap with "Best Selling" section
   categorySection: {
     marginTop: vs(10), // Reduced spacing for compact header
-    height: vs(90),
+    height: vs(100), // Increased from 90 to 100 for better spacing
+    marginBottom: vs(10), // Add bottom margin for separation
   },
 
   categoryScrollContent: {
@@ -686,11 +715,11 @@ const styles = StyleSheet.create({
 
   // Category Label - Figma: below circle, y:50
   categoryLabel: {
-    marginTop: vs(4),
+    marginTop: vs(5), // Increased from 4 to 5 for better spacing
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 14,
-    lineHeight: 14 * 1.23,
+    fontSize: ms(12), // Reduced from 14 to 12 for better fit on small devices
+    lineHeight: ms(12) * 1.3,
     color: "#1E1E1E",
     textAlign: "center",
     width: s(70),
@@ -717,8 +746,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "600",
-    fontSize: 20,
-    lineHeight: 20 * 1.1,
+    fontSize: ms(20),
+    lineHeight: ms(20) * 1.1,
     color: "#1E1E1E",
   },
 
@@ -726,8 +755,8 @@ const styles = StyleSheet.create({
   seeMoreText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 14,
-    lineHeight: 14 * 1.571,
+    fontSize: ms(14),
+    lineHeight: ms(14) * 1.571,
     color: "rgba(0, 0, 0, 0.5)",
   },
 
@@ -813,8 +842,8 @@ const styles = StyleSheet.create({
   productName: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "600", // Bold
-    fontSize: 14,
-    lineHeight: 14 * 1.4,
+    fontSize: ms(14),
+    lineHeight: ms(14) * 1.4,
     color: "#000000", // Pure black
     marginBottom: vs(2),
     textAlign: "center",
@@ -824,8 +853,8 @@ const styles = StyleSheet.create({
   productShop: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "600", // Bold
-    fontSize: 11,
-    lineHeight: 11 * 1.5,
+    fontSize: ms(11),
+    lineHeight: ms(11) * 1.5,
     color: "#000000", // Pure black
     marginBottom: vs(2),
     textAlign: "center",
@@ -835,8 +864,8 @@ const styles = StyleSheet.create({
   productWeight: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: 11,
-    lineHeight: 11 * 1.5,
+    fontSize: ms(11),
+    lineHeight: ms(11) * 1.5,
     color: "rgba(0, 0, 0, 0.5)",
     textAlign: "center",
   },
@@ -939,8 +968,8 @@ const styles = StyleSheet.create({
     top: vs(96),
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 20,
-    lineHeight: 20 * 1.1,
+    fontSize: ms(20),
+    lineHeight: ms(20) * 1.1,
     color: "#1E1E1E",
   },
 
@@ -965,8 +994,8 @@ const styles = StyleSheet.create({
     marginLeft: s(5),
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: 12,
-    lineHeight: 12 * 1.833,
+    fontSize: ms(12),
+    lineHeight: ms(12) * 1.833,
     color: "rgba(0, 0, 0, 0.5)",
   },
 
@@ -975,8 +1004,8 @@ const styles = StyleSheet.create({
     marginLeft: s(10),
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: 12,
-    lineHeight: 12 * 1.833,
+    fontSize: ms(12),
+    lineHeight: ms(12) * 1.833,
     color: "rgba(0, 0, 0, 0.5)",
   },
 
@@ -1060,8 +1089,8 @@ const styles = StyleSheet.create({
   popularPickName: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 14,
-    lineHeight: 14 * 1.4,
+    fontSize: ms(14),
+    lineHeight: ms(14) * 1.4,
     color: "#1E1E1E",
     marginBottom: vs(4),
   },
@@ -1070,8 +1099,8 @@ const styles = StyleSheet.create({
   popularPickDescription: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: 10,
-    lineHeight: 10 * 1.5,
+    fontSize: ms(10),
+    lineHeight: ms(10) * 1.5,
     color: "rgba(0, 0, 0, 0.5)",
     marginBottom: vs(4),
   },
@@ -1080,8 +1109,8 @@ const styles = StyleSheet.create({
   popularPickPrice: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 12,
-    lineHeight: 12 * 1.5,
+    fontSize: ms(12),
+    lineHeight: ms(12) * 1.5,
     color: "#1E1E1E",
   },
 
@@ -1091,8 +1120,8 @@ const styles = StyleSheet.create({
     marginTop: vs(20),
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: 12,
-    lineHeight: 12 * 1.833,
+    fontSize: ms(12),
+    lineHeight: ms(12) * 1.833,
     color: "rgba(0, 0, 0, 0.5)",
     textAlign: "center",
   },

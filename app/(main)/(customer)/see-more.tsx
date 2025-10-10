@@ -13,8 +13,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
-import { s, vs } from "../../../src/constants/responsive";
+import { s, vs, ms } from "../../../src/constants/responsive";
 import { ProductCard } from "../../../src/components/ui/ProductCard";
+
+/**
+ * SEE MORE SCREEN - PRODUCT GRID VIEW
+ *
+ * Baseline: 440x956 (standard TindaGo viewport)
+ * Uses responsive scaling for all devices
+ *
+ * Features:
+ * - Header with search and navigation
+ * - Product grid layout (2-3 columns based on device width)
+ * - Scrollable product list
+ */
 
 export default function SeeMoreScreen() {
   // Sample product data for the grid
@@ -153,11 +165,11 @@ const styles = StyleSheet.create({
     width: s(200), // Increased width to prevent horizontal cropping of "Daily"
     height: vs(28), // Increased height to prevent vertical cropping
     color: Colors.white,
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: vs(24),
     includeFontPadding: false,
     overflow: "visible", // Ensure text doesn't get clipped
   },
@@ -185,11 +197,12 @@ const styles = StyleSheet.create({
   },
 
   // Search Container - Adjusted position for better spacing
+  // Optimized for small devices: reduced to 390px for compatibility
   searchContainer: {
     position: "absolute",
     left: s(20),
     top: vs(95),
-    width: s(400),
+    width: s(390), // Reduced from 400 to 390 for small device compatibility
     height: vs(50),
     flexDirection: "row",
     alignItems: "center",
@@ -209,7 +222,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: ms(16),
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
     color: "#7A7B7B",
@@ -227,20 +240,19 @@ const styles = StyleSheet.create({
     marginBottom: vs(25),
   },
   sectionLabel: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.semiBold, // 600 from Figma
     color: Colors.darkGray,
-    lineHeight: 20 * 1.1, // Figma line height
+    lineHeight: ms(20) * 1.1, // Figma line height
   },
   
-  // Products Grid - Starting from Figma: y:267
+  // Products Grid - ALWAYS 3 COLUMNS on all devices (consistent layout)
   productsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     paddingHorizontal: s(20),
-    justifyContent: "space-between",
-    gap: vs(20), // Add vertical and horizontal spacing between items
+    justifyContent: "space-between", // Evenly distribute 3 columns
   },
   
   bottomPadding: {

@@ -18,7 +18,7 @@ import { ref, push, set, query, orderByChild, equalTo, get } from 'firebase/data
 import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
-import { s, vs } from '../../../../src/constants/responsive';
+import { s, vs, ms } from '../../../../src/constants/responsive';
 
 interface CategoryItem {
   id: string;
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
     top: vs(18.34),
     fontFamily: Fonts.secondary, // ABeeZee
     fontWeight: Fonts.weights.normal,
-    fontSize: s(17),
+    fontSize: ms(17),
     lineHeight: vs(22),
     color: Colors.black,
     zIndex: 10,
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     height: vs(22),
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '700', // Bold weight for Add Product title
-    fontSize: s(20), // Back to original Figma size
+    fontSize: ms(20), // Back to original Figma size
     lineHeight: vs(22), // Back to original line height
     color: Colors.darkGray,
     textAlign: 'center',
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   uploadLabel: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
-    fontSize: s(16),
+    fontSize: ms(16),
     lineHeight: vs(22), // 1.375em line height
     color: Colors.black,
     marginBottom: vs(5),
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   uploadText: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.normal,
-    fontSize: s(12),
+    fontSize: ms(12),
     lineHeight: vs(22), // 1.833em line height
     color: 'rgba(30, 30, 30, 0.5)',
     textAlign: 'center',
@@ -734,7 +734,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
-    fontSize: s(16),
+    fontSize: ms(16),
     lineHeight: vs(22),
     color: Colors.darkGray,
     marginBottom: vs(8), // Proper spacing between label and input for better alignment
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
   textInput: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
-    fontSize: s(14),
+    fontSize: ms(14),
     lineHeight: vs(22), // 1.571em line height
     color: '#1E1E1E', // Ensure text is visible when typing
     textAlignVertical: 'top',
@@ -798,7 +798,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
-    fontSize: s(14),
+    fontSize: ms(14),
     lineHeight: vs(22),
     color: 'rgba(30, 30, 30, 0.5)',
     flex: 1,
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
     color: '#000000', // Strong black color for maximum visibility
     fontWeight: '600', // Slightly bolder for better visibility
     backgroundColor: 'transparent', // Ensure background doesn't interfere
-    fontSize: s(16), // Slightly larger font for better visibility
+    fontSize: ms(16), // Slightly larger font for better visibility
     height: vs(50), // Match container height exactly
     width: '100%', // Take full width of container
     paddingHorizontal: s(15), // Add horizontal padding for better text positioning
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
   unitText: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
-    fontSize: s(14),
+    fontSize: ms(14),
     lineHeight: vs(22),
     color: 'rgba(30, 30, 30, 0.5)',
     flex: 1,
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
-    fontSize: s(20),
+    fontSize: ms(20),
     lineHeight: vs(22), // 1.1em line height
     color: Colors.white,
     textAlign: 'center',
@@ -964,7 +964,7 @@ const styles = StyleSheet.create({
   dropdownTitle: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.semiBold,
-    fontSize: s(20),
+    fontSize: ms(20),
     lineHeight: vs(24),
     color: Colors.darkGray,
     textAlign: 'center',
@@ -983,7 +983,7 @@ const styles = StyleSheet.create({
   categoryOptionText: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
-    fontSize: s(16),
+    fontSize: ms(16),
     lineHeight: vs(22),
     color: Colors.darkGray,
     textAlign: 'left',

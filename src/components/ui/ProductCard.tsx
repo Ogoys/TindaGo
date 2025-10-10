@@ -76,12 +76,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Grid Card - Based on Figma: width:120, height:222
+  // Grid Card - FIXED 3 COLUMNS on ALL devices (like store owner side)
+  // Each card is 30% of screen width for consistent 3-column layout everywhere
   gridCard: {
-    width: s(120),
-    height: vs(222),
+    width: "30%", // Fixed percentage for 3 columns on all devices
+    aspectRatio: 0.54, // Maintain height/width ratio (120/222)
     backgroundColor: Colors.white,
     borderRadius: s(20),
+    marginBottom: vs(20), // Add bottom margin for vertical spacing
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.25,
@@ -106,10 +108,10 @@ const styles = StyleSheet.create({
   
   // Grid Image Container - Figma: x:0, y:12, width:120, height:88
   gridImageContainer: {
-    width: s(120),
-    height: vs(88),
-    marginTop: vs(12),
-    paddingHorizontal: s(10),
+    width: "100%", // Fill card width
+    height: "40%", // Proportional to card height
+    marginTop: "5%",
+    paddingHorizontal: "8%",
   },
   
   // Horizontal Image Container
@@ -140,10 +142,10 @@ const styles = StyleSheet.create({
   
   // Grid Labels - Figma: x:27, y:111, width:65, height:66
   gridLabels: {
-    paddingHorizontal: s(15),
-    marginTop: vs(11),
+    paddingHorizontal: "8%",
+    marginTop: "5%",
     alignItems: "center",
-    height: vs(66),
+    flex: 1, // Take remaining space
   },
   
   // Horizontal Labels
@@ -193,10 +195,10 @@ const styles = StyleSheet.create({
   // Add Button - Figma: x:10, y:179, width:100, height:30
   addButton: {
     position: "absolute",
-    left: s(10),
-    bottom: vs(13),
-    width: s(100),
-    height: vs(30),
+    left: "8%",
+    right: "8%",
+    bottom: "6%",
+    height: "14%",
     backgroundColor: "#EBF3DA", // Figma button color
     borderRadius: s(5),
     justifyContent: "center",

@@ -8,7 +8,7 @@ import { Button } from "../../src/components/ui/Button";
 import { FormInput } from "../../src/components/ui/FormInput";
 import { SignInGlassCard } from "../../src/components/ui/SignInGlassCard";
 import { Colors } from "../../src/constants/Colors";
-import { s, vs } from "../../src/constants/responsive";
+import { s, vs, ms } from "../../src/constants/responsive";
 import { useUser, User, UserRole } from "../../src/contexts/UserContext";
 import { StoreRegistrationService } from "../../src/services/StoreRegistrationService";
 import { STORE_STATUS } from "../../src/constants/StoreStatus";
@@ -330,17 +330,17 @@ const styles = StyleSheet.create({
   title: {
     // Figma: fontSize:28, fontWeight:500, Clash Grotesk Variable
     fontFamily: "Clash Grotesk Variable",
-    fontSize: 28,
+    fontSize: ms(28),
     fontWeight: "500",
     color: Colors.white,
   },
   subtitle: {
     // Figma: fontSize:16, fontWeight:500, Clash Grotesk Variable
     fontFamily: "Clash Grotesk Variable",
-    fontSize: 16,
+    fontSize: ms(16),
     fontWeight: "500",
     color: "rgba(255, 255, 255, 0.5)",
-    lineHeight: 16 * 1.375, // Figma line height
+    lineHeight: ms(16) * 1.375, // Figma line height
   },
   // Form Section - Figma: inputs at x:60, y:396 and y:466
   formSection: {
@@ -364,10 +364,10 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     // Figma: fontSize:16, fontWeight:400, Clash Grotesk Variable
     fontFamily: "Clash Grotesk Variable",
-    fontSize: 16,
+    fontSize: ms(16),
     fontWeight: "400",
     color: "#E92B45",
-    lineHeight: 16 * 1.375, // Figma line height
+    lineHeight: ms(16) * 1.375, // Figma line height
   },
 
   // Button Section - Figma: x:60, y:578, width:380
@@ -386,11 +386,11 @@ const styles = StyleSheet.create({
   footerText: {
     // Figma: fontSize:14, fontWeight:500, Clash Grotesk Variable
     fontFamily: "Clash Grotesk Variable",
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: "500",
     color: Colors.white,
     textAlign: "center",
-    lineHeight: 14 * 1.57, // Figma line height
+    lineHeight: ms(14) * 1.57, // Figma line height
   },
   signInText: {
     color: "#E92B45", // Figma red color

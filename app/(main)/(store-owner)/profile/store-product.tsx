@@ -12,7 +12,7 @@ import {
 import { router } from 'expo-router';
 import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
-import { s, vs } from '../../../../src/constants/responsive';
+import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     top: vs(10),
     fontFamily: 'ABeeZee',
     fontWeight: '500',
-    fontSize: s(15),
+    fontSize: ms(15),
     lineHeight: vs(17),
     color: Colors.darkGray,
     zIndex: 10,
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
     top: vs(149),
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '600',
-    fontSize: s(24),
+    fontSize: ms(24),
     lineHeight: vs(29),
     color: Colors.darkGray,
   },
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   addProductText: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '500',
-    fontSize: s(18),
+    fontSize: ms(18),
     lineHeight: vs(22),
     color: Colors.darkGray,
     marginLeft: s(20),
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     top: vs(299),
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '600',
-    fontSize: s(24),
+    fontSize: ms(24),
     lineHeight: vs(29),
     color: Colors.darkGray,
   },
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '500',
-    fontSize: s(12),
+    fontSize: ms(12),
     lineHeight: vs(15),
     color: Colors.darkGray,
     textAlign: 'center',
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     left: s(20),
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '600',
-    fontSize: s(24),
+    fontSize: ms(24),
     lineHeight: vs(29),
     color: Colors.darkGray,
     marginBottom: vs(20),
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     right: s(0),
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '500',
-    fontSize: s(16),
+    fontSize: ms(16),
     color: Colors.textSecondary,
     textAlign: 'center',
   },
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   noProductsText: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '600',
-    fontSize: s(18),
+    fontSize: ms(18),
     color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: vs(8),
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   noProductsSubtext: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '400',
-    fontSize: s(14),
+    fontSize: ms(14),
     color: Colors.textSecondary,
     textAlign: 'center',
   },
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
   productName: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '600',
-    fontSize: s(16),
+    fontSize: ms(16),
     lineHeight: vs(20),
     color: Colors.darkGray,
     marginBottom: vs(4),
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   productCategory: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '400',
-    fontSize: s(12),
+    fontSize: ms(12),
     lineHeight: vs(14),
     color: Colors.textSecondary,
     marginBottom: vs(8),
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
   productPrice: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '700',
-    fontSize: s(18),
+    fontSize: ms(18),
     lineHeight: vs(22),
     color: Colors.primary,
     marginBottom: vs(4),
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
   productDetails: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '400',
-    fontSize: s(12),
+    fontSize: ms(12),
     lineHeight: vs(14),
     color: Colors.textSecondary,
   },
@@ -767,7 +767,7 @@ const styles = StyleSheet.create({
   },
 
   closeButtonText: {
-    fontSize: s(16),
+    fontSize: ms(16),
     fontWeight: '600',
     color: Colors.darkGray,
   },
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
   detailsProductName: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '700',
-    fontSize: s(24),
+    fontSize: ms(24),
     lineHeight: vs(28),
     color: Colors.darkGray,
     marginBottom: vs(8),
@@ -796,7 +796,7 @@ const styles = StyleSheet.create({
   detailsCategory: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '500',
-    fontSize: s(14),
+    fontSize: ms(14),
     lineHeight: vs(16),
     color: Colors.textSecondary,
     marginBottom: vs(12),
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   detailsPrice: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '700',
-    fontSize: s(28),
+    fontSize: ms(28),
     lineHeight: vs(32),
     color: Colors.primary,
     marginBottom: vs(20),
@@ -824,7 +824,7 @@ const styles = StyleSheet.create({
   detailsLabel: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '600',
-    fontSize: s(16),
+    fontSize: ms(16),
     lineHeight: vs(18),
     color: Colors.darkGray,
   },
@@ -832,7 +832,7 @@ const styles = StyleSheet.create({
   detailsValue: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '500',
-    fontSize: s(16),
+    fontSize: ms(16),
     lineHeight: vs(18),
     color: Colors.textSecondary,
   },
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
   detailsDescription: {
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '400',
-    fontSize: s(16),
+    fontSize: ms(16),
     lineHeight: vs(22),
     color: Colors.darkGray,
     marginTop: vs(8),

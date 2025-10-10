@@ -25,7 +25,7 @@ export function BasicProfileExample() {
       onBackPress={() => router.back()}
       onNotificationPress={() => {
         // Navigate to notifications screen
-        router.push('/(main)/(customer)/notifications');
+        router.push('/(main)/(customer)/notifications' as any);
       }}
     />
   );
@@ -44,7 +44,7 @@ export function CustomMenuProfileExample() {
       icon: require('../../assets/images/customer-profile-nav/account-icon.png'),
       onPress: () => {
         console.log('Navigating to My Account');
-        router.push('/(main)/shared/profile/account');
+        router.push('/(main)/(customer)/profile/account-settings' as any);
       },
     },
     {
@@ -62,7 +62,7 @@ export function CustomMenuProfileExample() {
       icon: require('../../assets/images/customer-profile-nav/wallet-icon.png'),
       onPress: () => {
         console.log('Navigating to E-Wallet');
-        router.push('/(main)/shared/profile/wallet');
+        router.push('/(main)/(customer)/profile/e-wallet' as any);
       },
     },
     {
@@ -71,7 +71,7 @@ export function CustomMenuProfileExample() {
       icon: require('../../assets/images/customer-profile-nav/support-icon.png'),
       onPress: () => {
         console.log('Navigating to Help & Support');
-        router.push('/(main)/shared/help');
+        router.push('/(main)/(customer)/profile/help' as any);
       },
     },
     {
@@ -80,7 +80,7 @@ export function CustomMenuProfileExample() {
       icon: require('../../assets/images/customer-profile-nav/privacy-icon.png'),
       onPress: () => {
         console.log('Navigating to Terms & Privacy');
-        router.push('/(main)/shared/terms');
+        router.push('/(main)/(customer)/profile/terms-privacy' as any);
       },
     },
     {
@@ -126,7 +126,7 @@ export function CustomMenuProfileExample() {
       userInitials="JD"
       avatarColor="#10B981" // Custom green color
       onBackPress={() => router.back()}
-      onNotificationPress={() => router.push('/(main)/(customer)/notifications')}
+      onNotificationPress={() => router.push('/(main)/(customer)/notifications' as any)}
       menuItems={customMenuItems}
     />
   );
@@ -196,31 +196,31 @@ export function FirebaseAuthProfileExample() {
       id: 'my-account',
       label: 'My Account',
       icon: require('../../assets/images/customer-profile-nav/account-icon.png'),
-      onPress: () => router.push('/(main)/shared/profile/account'),
+      onPress: () => router.push('/(main)/(customer)/profile/account-settings' as any),
     },
     {
       id: 'order-history',
       label: 'Order History',
       icon: require('../../assets/images/customer-profile-nav/order-history-icon.png'),
-      onPress: () => router.push('/(main)/(customer)/orders'),
+      onPress: () => router.push('/(main)/(customer)/orders' as any),
     },
     {
       id: 'e-wallet',
       label: 'E-Wallet Details',
       icon: require('../../assets/images/customer-profile-nav/wallet-icon.png'),
-      onPress: () => router.push('/(main)/shared/profile/wallet'),
+      onPress: () => router.push('/(main)/(customer)/profile/e-wallet' as any),
     },
     {
       id: 'help-support',
       label: 'Help & Support',
       icon: require('../../assets/images/customer-profile-nav/support-icon.png'),
-      onPress: () => router.push('/(main)/shared/help'),
+      onPress: () => router.push('/(main)/(customer)/profile/help' as any),
     },
     {
       id: 'terms-privacy',
       label: 'Term & Privacy Policy',
       icon: require('../../assets/images/customer-profile-nav/privacy-icon.png'),
-      onPress: () => router.push('/(main)/shared/terms'),
+      onPress: () => router.push('/(main)/(customer)/profile/terms-privacy' as any),
     },
     {
       id: 'logout',
@@ -237,7 +237,7 @@ export function FirebaseAuthProfileExample() {
       userInitials={getInitials(user.displayName)}
       avatarColor={getAvatarColor(user.displayName || 'User')}
       onBackPress={() => router.back()}
-      onNotificationPress={() => router.push('/(main)/(customer)/notifications')}
+      onNotificationPress={() => router.push('/(main)/(customer)/notifications' as any)}
       menuItems={menuItems}
     />
   );
