@@ -99,8 +99,8 @@ export default function OrderHistoryScreen() {
   };
 
   const handleOrderPress = (orderId: string) => {
-    // Navigate to order details screen
-    router.push("/(main)/(customer)/order-details");
+    // Navigate to order details screen (profile flow)
+    router.push("/(main)/(customer)/profile/order-details-history");
   };
 
   return (

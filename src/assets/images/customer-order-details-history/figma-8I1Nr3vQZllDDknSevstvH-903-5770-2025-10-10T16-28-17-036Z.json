@@ -1,0 +1,1835 @@
+{
+  "metadata": {
+    "name": "TindaGo Share",
+    "lastModified": "2025-10-10T09:13:21Z",
+    "thumbnailUrl": "https://s3-alpha.figma.com/thumbnails/41b77785-5205-4ef2-b931-349a2610d245?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQ4GOSFWCUI57WO7Q%2F20251009%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20251009T000000Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=afab50b7c6b214d31560f32f8636c5c8cbb1762676119e303734ace88c852902"
+  },
+  "nodes": [
+    {
+      "id": "903:5770",
+      "name": "Order Details",
+      "type": "FRAME",
+      "boundingBox": {
+        "x": 0,
+        "y": 0,
+        "width": 440,
+        "height": 956
+      },
+      "fills": "fill_CZI7OZ",
+      "layout": "layout_8I2HGE",
+      "children": [
+        {
+          "id": "903:5771",
+          "name": "Order Details",
+          "type": "TEXT",
+          "boundingBox": {
+            "x": 158,
+            "y": 83,
+            "width": 124,
+            "height": 22
+          },
+          "textStyle": "style_PJGIR0",
+          "fills": "fill_51FS4Y",
+          "layout": "layout_2SHK7S",
+          "text": "Order Details"
+        },
+        {
+          "id": "903:5772",
+          "name": "Back",
+          "type": "FRAME",
+          "fills": "fill_4RZIIB",
+          "effects": "effect_RMC2F3",
+          "layout": "layout_Z0XHUP",
+          "borderRadius": "20px",
+          "children": [
+            {
+              "id": "903:5773",
+              "name": "Chevron Left",
+              "type": "RECTANGLE",
+              "fills": "fill_02EJ6T",
+              "layout": "layout_33NFT1"
+            }
+          ]
+        },
+        {
+          "id": "903:5774",
+          "name": "Bill",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 166,
+            "width": 400,
+            "height": 300
+          },
+          "layout": "layout_ZV3BWV",
+          "children": [
+            {
+              "id": "903:5775",
+              "name": "Subtract",
+              "type": "BOOLEAN_OPERATION",
+              "boundingBox": {
+                "x": 20,
+                "y": 166,
+                "width": 400,
+                "height": 300
+              },
+              "fills": "fill_4RZIIB",
+              "effects": "effect_IIGN5I",
+              "layout": "layout_29I80E",
+              "children": [
+                {
+                  "id": "903:5776",
+                  "name": "Rectangle 29",
+                  "type": "IMAGE-SVG",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_33SUPD",
+                  "borderRadius": "0px 0px 0px 0px"
+                },
+                {
+                  "id": "903:5777",
+                  "name": "Ellipse 11",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5778",
+                  "name": "Ellipse 13",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5779",
+                  "name": "Ellipse 15",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5780",
+                  "name": "Ellipse 17",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5781",
+                  "name": "Ellipse 19",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5782",
+                  "name": "Ellipse 21",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5783",
+                  "name": "Ellipse 23",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5784",
+                  "name": "Ellipse 25",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5785",
+                  "name": "Ellipse 12",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5786",
+                  "name": "Ellipse 14",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5787",
+                  "name": "Ellipse 16",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5788",
+                  "name": "Ellipse 18",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5789",
+                  "name": "Ellipse 20",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5790",
+                  "name": "Ellipse 22",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5791",
+                  "name": "Ellipse 24",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                },
+                {
+                  "id": "903:5792",
+                  "name": "Ellipse 26",
+                  "type": "ELLIPSE",
+                  "fills": "fill_RX8TIO",
+                  "layout": "layout_CRVB0W"
+                }
+              ]
+            },
+            {
+              "id": "903:5793",
+              "name": "Sub Total",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 40,
+                "y": 226,
+                "width": 58,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_67FJN1",
+              "text": "Sub Total"
+            },
+            {
+              "id": "903:5794",
+              "name": "Service Fee",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 40,
+                "y": 263,
+                "width": 74,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_CNTTZT",
+              "text": "Service Fee"
+            },
+            {
+              "id": "903:5795",
+              "name": "Discount (20%)",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 40,
+                "y": 300,
+                "width": 97,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_E6CHD1",
+              "text": "Discount (20%)"
+            },
+            {
+              "id": "903:5796",
+              "name": "Discount depend on what you are senior of pwd.",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 40,
+                "y": 322,
+                "width": 178,
+                "height": 30
+              },
+              "textStyle": "style_JAWVVW",
+              "fills": "fill_SIPPVY",
+              "layout": "layout_9R1V72",
+              "text": "Discount depend on what you are\nsenior of pwd. "
+            },
+            {
+              "id": "903:5797",
+              "name": "₱ 50.25",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 344,
+                "y": 300,
+                "width": 50,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_64GDXM",
+              "text": "₱ 50.25"
+            },
+            {
+              "id": "903:5798",
+              "name": "Grand Total",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 40,
+                "y": 394,
+                "width": 73,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_RAEZY2",
+              "layout": "layout_A2NIN2",
+              "text": "Grand Total"
+            },
+            {
+              "id": "903:5799",
+              "name": "₱ 50.25",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 344,
+                "y": 394,
+                "width": 50,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_RAEZY2",
+              "layout": "layout_SA848H",
+              "text": "₱ 50.25"
+            },
+            {
+              "id": "903:5800",
+              "name": "₱ 50.25",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 344,
+                "y": 263,
+                "width": 50,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_KKY7R2",
+              "text": "₱ 50.25"
+            },
+            {
+              "id": "903:5801",
+              "name": "₱ 500.25",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 344,
+                "y": 226,
+                "width": 59,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_N2C3JJ",
+              "text": "₱ 500.25"
+            },
+            {
+              "id": "903:5802",
+              "name": "Item",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 40,
+                "y": 189,
+                "width": 29,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_M229UM",
+              "text": "Item"
+            },
+            {
+              "id": "903:5803",
+              "name": "12",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 344,
+                "y": 189,
+                "width": 14,
+                "height": 17
+              },
+              "textStyle": "style_4GMDZC",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_X4HDE8",
+              "text": "12"
+            },
+            {
+              "id": "903:5804",
+              "name": "Subtract",
+              "type": "BOOLEAN_OPERATION",
+              "boundingBox": {
+                "x": 40,
+                "y": 372,
+                "width": 360,
+                "height": 2
+              },
+              "fills": "fill_SIPPVY",
+              "layout": "layout_ORPVRD",
+              "children": [
+                {
+                  "id": "903:5805",
+                  "name": "Vector 8",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_Y4QTAL"
+                },
+                {
+                  "id": "903:5806",
+                  "name": "Vector 9",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5807",
+                  "name": "Vector 11",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5808",
+                  "name": "Vector 10",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5809",
+                  "name": "Vector 12",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5810",
+                  "name": "Vector 13",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5811",
+                  "name": "Vector 14",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5812",
+                  "name": "Vector 15",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5813",
+                  "name": "Vector 16",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5814",
+                  "name": "Vector 17",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5815",
+                  "name": "Vector 18",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5816",
+                  "name": "Vector 19",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5817",
+                  "name": "Vector 20",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5818",
+                  "name": "Vector 21",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5819",
+                  "name": "Vector 22",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5820",
+                  "name": "Vector 23",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5821",
+                  "name": "Vector 24",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5822",
+                  "name": "Vector 25",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5823",
+                  "name": "Vector 26",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5824",
+                  "name": "Vector 27",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5825",
+                  "name": "Vector 28",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5826",
+                  "name": "Vector 29",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                },
+                {
+                  "id": "903:5827",
+                  "name": "Vector 30",
+                  "type": "IMAGE-SVG",
+                  "strokes": "stroke_GP3AOW",
+                  "layout": "layout_14MIPH"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "903:5828",
+          "name": "Details",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 486,
+            "width": 400,
+            "height": 150
+          },
+          "layout": "layout_CT5SEO",
+          "borderRadius": "20px",
+          "children": [
+            {
+              "id": "903:5829",
+              "name": "Rectangle 49",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 486,
+                "width": 400,
+                "height": 150
+              },
+              "fills": "fill_4RZIIB",
+              "effects": "effect_IIGN5I",
+              "layout": "layout_GO52JB",
+              "borderRadius": "20px"
+            },
+            {
+              "id": "903:5830",
+              "name": "Group 8",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 40,
+                "y": 512,
+                "width": 360,
+                "height": 17
+              },
+              "layout": "layout_AM0I5B",
+              "borderRadius": "0px 0px 0px 0px",
+              "children": [
+                {
+                  "id": "903:5831",
+                  "name": "Order ID",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 40,
+                    "y": 512,
+                    "width": 54,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_51FS4Y",
+                  "layout": "layout_CATACB",
+                  "text": "Order ID"
+                },
+                {
+                  "id": "903:5832",
+                  "name": ":",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 114,
+                    "y": 512,
+                    "width": 3,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_SIPPVY",
+                  "layout": "layout_LD7D12",
+                  "text": ":"
+                },
+                {
+                  "id": "903:5833",
+                  "name": "213322RW23FSAWW",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 261,
+                    "y": 512,
+                    "width": 139,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_SIPPVY",
+                  "layout": "layout_LDH3S8",
+                  "text": "213322RW23FSAWW"
+                }
+              ]
+            },
+            {
+              "id": "903:5834",
+              "name": "Group 10",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 40,
+                "y": 566,
+                "width": 360,
+                "height": 17
+              },
+              "layout": "layout_SAIIQL",
+              "borderRadius": "0px 0px 0px 0px",
+              "children": [
+                {
+                  "id": "903:5835",
+                  "name": "Shop",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 40,
+                    "y": 566,
+                    "width": 33,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_51FS4Y",
+                  "layout": "layout_LXLTV1",
+                  "text": "Shop"
+                },
+                {
+                  "id": "903:5836",
+                  "name": ":",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 114,
+                    "y": 566,
+                    "width": 3,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_SIPPVY",
+                  "layout": "layout_LD7D12",
+                  "text": ":"
+                },
+                {
+                  "id": "903:5837",
+                  "name": "Golis sari-sari store",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 279,
+                    "y": 566,
+                    "width": 121,
+                    "height": 17
+                  },
+                  "textStyle": "style_0F97GH",
+                  "fills": "fill_SIPPVY",
+                  "layout": "layout_K6KY09",
+                  "text": "Golis sari-sari store"
+                }
+              ]
+            },
+            {
+              "id": "903:5838",
+              "name": "Group 9",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 40,
+                "y": 539,
+                "width": 360,
+                "height": 17
+              },
+              "layout": "layout_L7F4YD",
+              "borderRadius": "0px 0px 0px 0px",
+              "children": [
+                {
+                  "id": "903:5839",
+                  "name": "Date",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 40,
+                    "y": 539,
+                    "width": 30,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_51FS4Y",
+                  "layout": "layout_EQUS20",
+                  "text": "Date"
+                },
+                {
+                  "id": "903:5840",
+                  "name": ":",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 114,
+                    "y": 539,
+                    "width": 3,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_SIPPVY",
+                  "layout": "layout_LD7D12",
+                  "text": ":"
+                },
+                {
+                  "id": "903:5841",
+                  "name": "08 August, 2025",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 292,
+                    "y": 539,
+                    "width": 108,
+                    "height": 17
+                  },
+                  "textStyle": "style_0F97GH",
+                  "fills": "fill_SIPPVY",
+                  "layout": "layout_9J9DLG",
+                  "text": "08 August, 2025"
+                }
+              ]
+            },
+            {
+              "id": "903:5842",
+              "name": "Group 11",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 40,
+                "y": 593,
+                "width": 360,
+                "height": 17
+              },
+              "layout": "layout_14DDIZ",
+              "borderRadius": "0px 0px 0px 0px",
+              "children": [
+                {
+                  "id": "903:5843",
+                  "name": "Buyer",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 40,
+                    "y": 593,
+                    "width": 38,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_51FS4Y",
+                  "layout": "layout_BQDDOC",
+                  "text": "Buyer"
+                },
+                {
+                  "id": "903:5844",
+                  "name": ":",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 114,
+                    "y": 593,
+                    "width": 3,
+                    "height": 17
+                  },
+                  "textStyle": "style_4GMDZC",
+                  "fills": "fill_SIPPVY",
+                  "layout": "layout_LD7D12",
+                  "text": ":"
+                },
+                {
+                  "id": "903:5845",
+                  "name": "Daniel Oppa",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 326,
+                    "y": 593,
+                    "width": 74,
+                    "height": 17
+                  },
+                  "textStyle": "style_0F97GH",
+                  "fills": "fill_SIPPVY",
+                  "layout": "layout_QVQDD7",
+                  "text": "Daniel Oppa"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "903:5846",
+          "name": "Label",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 656,
+            "width": 153,
+            "height": 22
+          },
+          "layout": "layout_POWXEC",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "903:5847",
+              "name": "Payment Method",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 20,
+                "y": 656,
+                "width": 153,
+                "height": 22
+              },
+              "textStyle": "style_L5RV5Y",
+              "fills": "fill_51FS4Y",
+              "layout": "layout_5LP6OV",
+              "text": "Payment Method"
+            }
+          ]
+        },
+        {
+          "id": "903:5848",
+          "name": "Payment",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 698,
+            "width": 400,
+            "height": 60
+          },
+          "layout": "layout_ENZYOM",
+          "borderRadius": "20px",
+          "children": [
+            {
+              "id": "903:5849",
+              "name": "Group 5",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 20,
+                "y": 698,
+                "width": 400,
+                "height": 60
+              },
+              "layout": "layout_USGAUP",
+              "borderRadius": "20px",
+              "children": [
+                {
+                  "id": "903:5850",
+                  "name": "Frame 5",
+                  "type": "FRAME",
+                  "fills": "fill_4RZIIB",
+                  "effects": "effect_IIGN5I",
+                  "layout": "layout_EZKOKH",
+                  "borderRadius": "20px",
+                  "children": [
+                    {
+                      "id": "903:5851",
+                      "name": "Frame 4",
+                      "type": "FRAME",
+                      "layout": "layout_WQTQM7",
+                      "children": [
+                        {
+                          "id": "903:5852",
+                          "name": "Frame 3",
+                          "type": "FRAME",
+                          "layout": "layout_XTM3XV",
+                          "children": [
+                            {
+                              "id": "903:5853",
+                              "name": "image 11",
+                              "type": "RECTANGLE",
+                              "fills": "fill_8V8LIA",
+                              "layout": "layout_JLVLPU"
+                            },
+                            {
+                              "id": "903:5854",
+                              "name": "Pay Pal",
+                              "type": "TEXT",
+                              "textStyle": "style_FBH1YP",
+                              "fills": "fill_51FS4Y",
+                              "layout": "layout_UHNOTK",
+                              "text": "Pay Pal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "903:5855",
+          "name": "Proceed to payment",
+          "type": "FRAME",
+          "fills": "fill_JG8MQE",
+          "effects": "effect_RMC2F3",
+          "layout": "layout_40P43V",
+          "borderRadius": "20px",
+          "children": [
+            {
+              "id": "903:5856",
+              "name": "Reorder",
+              "type": "TEXT",
+              "textStyle": "style_ZDZF62",
+              "fills": "fill_4RZIIB",
+              "layout": "layout_UHNOTK",
+              "text": "Reorder"
+            }
+          ]
+        },
+        {
+          "id": "903:5857",
+          "name": "Status Bar",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 0,
+            "y": 0,
+            "width": 439.5,
+            "height": 54
+          },
+          "layout": "layout_A31H16",
+          "children": [
+            {
+              "id": "903:5858",
+              "name": "Time",
+              "type": "FRAME",
+              "boundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 140.5,
+                "height": 54
+              },
+              "layout": "layout_IJTRFE",
+              "children": [
+                {
+                  "id": "903:5859",
+                  "name": "Time",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 51.923828125,
+                    "y": 18.33984375,
+                    "width": 36,
+                    "height": 22
+                  },
+                  "textStyle": "style_7LQ52K",
+                  "fills": "fill_FY933R",
+                  "layout": "layout_WN6IAB",
+                  "text": "9:41"
+                }
+              ]
+            },
+            {
+              "id": "903:5860",
+              "name": "Levels",
+              "type": "FRAME",
+              "boundingBox": {
+                "x": 299,
+                "y": 0,
+                "width": 140.5,
+                "height": 54
+              },
+              "layout": "layout_PILT5W",
+              "children": [
+                {
+                  "id": "903:5861",
+                  "name": "Battery",
+                  "type": "GROUP",
+                  "boundingBox": {
+                    "x": 380,
+                    "y": 23,
+                    "width": 27.32803726196289,
+                    "height": 13
+                  },
+                  "fills": "fill_4RZIIB",
+                  "layout": "layout_L6HVIM",
+                  "borderRadius": "0px 0px 0px 0px",
+                  "children": [
+                    {
+                      "id": "903:5862",
+                      "name": "Border",
+                      "type": "RECTANGLE",
+                      "boundingBox": {
+                        "x": 380,
+                        "y": 23,
+                        "width": 25,
+                        "height": 13
+                      },
+                      "strokes": "stroke_SPGIPK",
+                      "layout": "layout_8IJVD7",
+                      "opacity": 0.3499999940395355,
+                      "borderRadius": "4.300000190734863px"
+                    },
+                    {
+                      "id": "903:5863",
+                      "name": "Cap",
+                      "type": "IMAGE-SVG",
+                      "boundingBox": {
+                        "x": 406,
+                        "y": 27.78125,
+                        "width": 1.328037977218628,
+                        "height": 4.075471878051758
+                      },
+                      "fills": "fill_FY933R",
+                      "layout": "layout_UFFSKO",
+                      "opacity": 0.4000000059604645
+                    },
+                    {
+                      "id": "903:5864",
+                      "name": "Capacity",
+                      "type": "RECTANGLE",
+                      "boundingBox": {
+                        "x": 382,
+                        "y": 25,
+                        "width": 21,
+                        "height": 9
+                      },
+                      "fills": "fill_FY933R",
+                      "layout": "layout_I7FLM8",
+                      "borderRadius": "2.5px"
+                    }
+                  ]
+                },
+                {
+                  "id": "903:5865",
+                  "name": "Wifi",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 355.69921875,
+                    "y": 23.6376953125,
+                    "width": 17.141666412353516,
+                    "height": 12.328306198120117
+                  },
+                  "fills": "fill_FY933R",
+                  "layout": "layout_70O1LQ"
+                },
+                {
+                  "id": "903:5866",
+                  "name": "Cellular Connection",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 329,
+                    "y": 23.5361328125,
+                    "width": 19.200000762939453,
+                    "height": 12.226415634155273
+                  },
+                  "fills": "fill_FY933R",
+                  "layout": "layout_89F8R3"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "globalVars": {
+    "styles": {
+      "fill_CZI7OZ": [
+        "#F4F6F6"
+      ],
+      "layout_8I2HGE": {
+        "mode": "none",
+        "clipsContent": true,
+        "dimensions": {
+          "width": 440,
+          "height": 956
+        }
+      },
+      "style_PJGIR0": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 600,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_51FS4Y": [
+        "#1E1E1E"
+      ],
+      "layout_2SHK7S": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 158,
+          "y": 83
+        },
+        "dimensions": {
+          "width": 124,
+          "height": 22
+        }
+      },
+      "fill_4RZIIB": [
+        "#FFFFFF"
+      ],
+      "effect_RMC2F3": {
+        "boxShadow": "0px 0px 4px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_Z0XHUP": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "10px",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 79
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "fill_02EJ6T": [
+        {
+          "type": "IMAGE",
+          "imageRef": "948e36170b4e3f8527469d0bf252daa59b1d6861",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_33NFT1": {
+        "mode": "none",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "dimensions": {
+          "width": 15,
+          "height": 15
+        }
+      },
+      "layout_ZV3BWV": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 166
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 300
+        }
+      },
+      "effect_IIGN5I": {
+        "boxShadow": "0px 0px 5px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_29I80E": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 300
+        }
+      },
+      "fill_RX8TIO": [
+        "#D9D9D9"
+      ],
+      "layout_33SUPD": {
+        "mode": "none",
+        "dimensions": {
+          "width": 400,
+          "height": 300
+        }
+      },
+      "layout_CRVB0W": {
+        "mode": "none",
+        "dimensions": {
+          "width": 20,
+          "height": 24
+        }
+      },
+      "style_4GMDZC": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 14,
+        "lineHeight": "1.2300000871930803em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_67FJN1": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 60
+        },
+        "dimensions": {
+          "width": 58,
+          "height": 17
+        }
+      },
+      "layout_CNTTZT": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 97
+        },
+        "dimensions": {
+          "width": 74,
+          "height": 17
+        }
+      },
+      "layout_E6CHD1": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 134
+        },
+        "dimensions": {
+          "width": 97,
+          "height": 17
+        }
+      },
+      "style_JAWVVW": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 12,
+        "lineHeight": "1.2300000190734863em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "fill_SIPPVY": [
+        "rgba(30, 30, 30, 0.5)"
+      ],
+      "layout_9R1V72": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 156
+        },
+        "dimensions": {
+          "width": 178,
+          "height": 30
+        }
+      },
+      "layout_64GDXM": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 324,
+          "y": 134
+        },
+        "dimensions": {
+          "width": 50,
+          "height": 17
+        }
+      },
+      "fill_RAEZY2": [
+        "#FF8D2F"
+      ],
+      "layout_A2NIN2": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 228
+        },
+        "dimensions": {
+          "width": 73,
+          "height": 17
+        }
+      },
+      "layout_SA848H": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 324,
+          "y": 228
+        },
+        "dimensions": {
+          "width": 50,
+          "height": 17
+        }
+      },
+      "layout_KKY7R2": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 324,
+          "y": 97
+        },
+        "dimensions": {
+          "width": 50,
+          "height": 17
+        }
+      },
+      "layout_N2C3JJ": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 324,
+          "y": 60
+        },
+        "dimensions": {
+          "width": 59,
+          "height": 17
+        }
+      },
+      "layout_M229UM": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 23
+        },
+        "dimensions": {
+          "width": 29,
+          "height": 17
+        }
+      },
+      "layout_X4HDE8": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 324,
+          "y": 23
+        },
+        "dimensions": {
+          "width": 14,
+          "height": 17
+        }
+      },
+      "layout_ORPVRD": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 206
+        },
+        "dimensions": {
+          "width": 360,
+          "height": 2
+        }
+      },
+      "stroke_GP3AOW": {
+        "colors": [
+          "#1E1E1E"
+        ],
+        "strokeWeight": "2px",
+        "strokeAlign": "CENTER"
+      },
+      "layout_Y4QTAL": {
+        "mode": "none",
+        "dimensions": {
+          "width": 360,
+          "height": 0
+        }
+      },
+      "layout_14MIPH": {
+        "mode": "none",
+        "dimensions": {
+          "width": 10.71,
+          "height": 0
+        }
+      },
+      "layout_CT5SEO": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 486
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 150
+        }
+      },
+      "layout_GO52JB": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 150
+        }
+      },
+      "layout_AM0I5B": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 26
+        },
+        "dimensions": {
+          "width": 360,
+          "height": 17
+        }
+      },
+      "layout_CATACB": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 54,
+          "height": 17
+        }
+      },
+      "layout_LD7D12": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 74,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 3,
+          "height": 17
+        }
+      },
+      "layout_LDH3S8": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 221,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 139,
+          "height": 17
+        }
+      },
+      "layout_SAIIQL": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 80
+        },
+        "dimensions": {
+          "width": 360,
+          "height": 17
+        }
+      },
+      "layout_LXLTV1": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 33,
+          "height": 17
+        }
+      },
+      "style_0F97GH": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 14,
+        "lineHeight": "1.2300000871930803em",
+        "textAlignHorizontal": "RIGHT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_K6KY09": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 239,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 121,
+          "height": 17
+        }
+      },
+      "layout_L7F4YD": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 53
+        },
+        "dimensions": {
+          "width": 360,
+          "height": 17
+        }
+      },
+      "layout_EQUS20": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 17
+        }
+      },
+      "layout_9J9DLG": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 252,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 108,
+          "height": 17
+        }
+      },
+      "layout_14DDIZ": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 107
+        },
+        "dimensions": {
+          "width": 360,
+          "height": 17
+        }
+      },
+      "layout_BQDDOC": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 38,
+          "height": 17
+        }
+      },
+      "layout_QVQDD7": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 286,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 74,
+          "height": 17
+        }
+      },
+      "layout_POWXEC": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 656
+        },
+        "dimensions": {
+          "width": 153,
+          "height": 22
+        }
+      },
+      "style_L5RV5Y": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_5LP6OV": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 153,
+          "height": 22
+        }
+      },
+      "layout_ENZYOM": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 698
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 60
+        }
+      },
+      "layout_USGAUP": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 60
+        }
+      },
+      "layout_EZKOKH": {
+        "mode": "column",
+        "gap": "10px",
+        "padding": "15px 20px",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 60
+        }
+      },
+      "layout_WQTQM7": {
+        "mode": "row",
+        "justifyContent": "space-between",
+        "alignItems": "center",
+        "gap": "219px",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "hug"
+        },
+        "dimensions": {
+          "width": 360
+        }
+      },
+      "layout_XTM3XV": {
+        "mode": "row",
+        "alignItems": "center",
+        "gap": "20px",
+        "sizing": {
+          "horizontal": "hug",
+          "vertical": "hug"
+        }
+      },
+      "fill_8V8LIA": [
+        {
+          "type": "IMAGE",
+          "imageRef": "0cfe221865538f0644c0fbfdfba28dd78aa6db2d",
+          "scaleMode": "FILL"
+        }
+      ],
+      "layout_JLVLPU": {
+        "mode": "none",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "style_FBH1YP": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 600,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_UHNOTK": {
+        "mode": "none",
+        "sizing": {
+          "horizontal": "hug",
+          "vertical": "hug"
+        }
+      },
+      "fill_JG8MQE": [
+        "#3BB77E"
+      ],
+      "layout_40P43V": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "10px",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 839
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 50
+        }
+      },
+      "style_ZDZF62": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "layout_A31H16": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 439.5,
+          "height": 54
+        }
+      },
+      "layout_IJTRFE": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 140.5,
+          "height": 54
+        }
+      },
+      "style_7LQ52K": {
+        "fontFamily": "ABeeZee",
+        "fontWeight": 400,
+        "fontSize": 17,
+        "lineHeight": "1.2941176470588236em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_FY933R": [
+        "#000000"
+      ],
+      "layout_WN6IAB": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 51.92,
+          "y": 18.34
+        },
+        "dimensions": {
+          "width": 36,
+          "height": 22
+        }
+      },
+      "layout_PILT5W": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 299,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 140.5,
+          "height": 54
+        }
+      },
+      "layout_L6HVIM": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 81,
+          "y": 23
+        },
+        "dimensions": {
+          "width": 27.33,
+          "height": 13
+        }
+      },
+      "stroke_SPGIPK": {
+        "colors": [
+          "#000000"
+        ],
+        "strokeWeight": "1px",
+        "strokeAlign": "INSIDE"
+      },
+      "layout_8IJVD7": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 25,
+          "height": 13
+        }
+      },
+      "layout_UFFSKO": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 26,
+          "y": 4.78
+        },
+        "dimensions": {
+          "width": 1.33,
+          "height": 4.08
+        }
+      },
+      "layout_I7FLM8": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 2,
+          "y": 2
+        },
+        "dimensions": {
+          "width": 21,
+          "height": 9
+        }
+      },
+      "layout_70O1LQ": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 56.7,
+          "y": 23.64
+        },
+        "dimensions": {
+          "width": 17.14,
+          "height": 12.33
+        }
+      },
+      "layout_89F8R3": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 30,
+          "y": 23.54
+        },
+        "dimensions": {
+          "width": 19.2,
+          "height": 12.23
+        }
+      }
+    }
+  }
+}
