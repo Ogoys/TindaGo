@@ -22,8 +22,16 @@ import { auth } from '../../../../FirebaseConfig';
 export default function CustomerProfile() {
   const { user, logout } = useUser();
 
-  // Extract user initials from email or name
+  // Extract user initials from name or email
   const getUserInitials = (): string => {
+    if (user?.name) {
+      // Get initials from actual name (first letter of first two words)
+      const nameParts = user.name.trim().split(' ');
+      if (nameParts.length >= 2) {
+        return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+      }
+      return user.name.substring(0, 2).toUpperCase();
+    }
     if (user?.email) {
       const emailName = user.email.split('@')[0];
       return emailName.substring(0, 2).toUpperCase();
@@ -71,7 +79,7 @@ export default function CustomerProfile() {
       label: 'Order History',
       icon: require('../../../../src/assets/images/customer-profile-nav/order-history-icon.png'),
       onPress: () => {
-        router.push('/(main)/(customer)/orders');
+        router.push('/(main)/(customer)/profile/order-history');
       },
     },
     {
@@ -114,7 +122,7 @@ export default function CustomerProfile() {
 
   return (
     <CustomerProfileScreen
-      userName={user?.email?.split('@')[0] || 'Customer'}
+      userName={user?.name || user?.email?.split('@')[0] || 'Customer'}
       userEmail={user?.email || 'customer@tindago.com'}
       userInitials={getUserInitials()}
       avatarColor="#3B82F6"

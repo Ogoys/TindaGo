@@ -3,12 +3,18 @@
  *
  * Figma File: 8I1Nr3vQZllDDknSevstvH
  * Node: 759-4131 (Order)
+ * Component: 256-62 (Component 2 - Before/After variants)
  * Baseline: 440x1219
+ *
+ * Design Specs:
+ * - Before (collapsed): 400x150px
+ * - After (expanded): 400x250px (+100px height)
  *
  * Features:
  * - Displays list of customer orders with expandable/collapsible cards
  * - Shows order ID, date, items count, total price
- * - Pickup order status indicator
+ * - Pickup order status indicator with expanded progress view
+ * - Click card to navigate to full order details
  * - Responsive design with pixel-perfect alignment
  */
 
@@ -45,6 +51,15 @@ interface OrderItem {
   total: string;
   pickupDate: string;
   status: 'pending' | 'ready' | 'completed' | 'cancelled';
+  products: Product[];
+}
+
+interface Product {
+  id: string;
+  name: string;
+  quantity: number;
+  price: string;
+  image?: any;
 }
 
 // Mock data - Replace with actual data from Firebase
@@ -53,55 +68,86 @@ const mockOrders: OrderItem[] = [
     id: '1',
     orderId: '#OD1234',
     placedDate: 'Sept 04, 2025',
-    itemsCount: 25,
+    itemsCount: 3,
     total: '100.54',
     pickupDate: 'Sept 04, 2025',
-    status: 'pending'
+    status: 'pending',
+    products: [
+      { id: 'p1', name: 'Garlic', quantity: 2, price: '25.00' },
+      { id: 'p2', name: 'Onion', quantity: 3, price: '35.50' },
+      { id: 'p3', name: 'Tomato', quantity: 1, price: '40.04' },
+    ]
   },
   {
     id: '2',
     orderId: '#OD1235',
     placedDate: 'Sept 04, 2025',
-    itemsCount: 15,
+    itemsCount: 4,
     total: '250.00',
     pickupDate: 'Sept 05, 2025',
-    status: 'ready'
+    status: 'ready',
+    products: [
+      { id: 'p1', name: 'Rice (5kg)', quantity: 1, price: '150.00' },
+      { id: 'p2', name: 'Cooking Oil', quantity: 2, price: '50.00' },
+      { id: 'p3', name: 'Salt', quantity: 1, price: '25.00' },
+      { id: 'p4', name: 'Sugar', quantity: 1, price: '25.00' },
+    ]
   },
   {
     id: '3',
     orderId: '#OD1236',
     placedDate: 'Sept 03, 2025',
-    itemsCount: 30,
+    itemsCount: 5,
     total: '450.75',
     pickupDate: 'Sept 04, 2025',
-    status: 'completed'
+    status: 'completed',
+    products: [
+      { id: 'p1', name: 'Eggs (1 dozen)', quantity: 2, price: '120.00' },
+      { id: 'p2', name: 'Bread', quantity: 3, price: '90.00' },
+      { id: 'p3', name: 'Milk', quantity: 2, price: '100.00' },
+      { id: 'p4', name: 'Butter', quantity: 1, price: '80.75' },
+      { id: 'p5', name: 'Cheese', quantity: 1, price: '60.00' },
+    ]
   },
   {
     id: '4',
     orderId: '#OD1237',
     placedDate: 'Sept 02, 2025',
-    itemsCount: 12,
+    itemsCount: 2,
     total: '180.30',
     pickupDate: 'Sept 03, 2025',
-    status: 'pending'
+    status: 'pending',
+    products: [
+      { id: 'p1', name: 'Chicken (1kg)', quantity: 1, price: '120.00' },
+      { id: 'p2', name: 'Soy Sauce', quantity: 2, price: '60.30' },
+    ]
   },
   {
     id: '5',
     orderId: '#OD1238',
     placedDate: 'Sept 01, 2025',
-    itemsCount: 8,
+    itemsCount: 3,
     total: '95.00',
     pickupDate: 'Sept 02, 2025',
-    status: 'completed'
+    status: 'completed',
+    products: [
+      { id: 'p1', name: 'Instant Noodles', quantity: 5, price: '50.00' },
+      { id: 'p2', name: 'Canned Goods', quantity: 2, price: '45.00' },
+    ]
   },
   {
     id: '6',
     orderId: '#OD1239',
     placedDate: 'Aug 31, 2025',
-    itemsCount: 20,
+    itemsCount: 6,
     total: '320.50',
     pickupDate: 'Sept 01, 2025',
-    status: 'completed'
+    status: 'completed',
+    products: [
+      { id: 'p1', name: 'Fish (1kg)', quantity: 1, price: '180.00' },
+      { id: 'p2', name: 'Vegetables', quantity: 3, price: '90.50' },
+      { id: 'p3', name: 'Fruits', quantity: 2, price: '50.00' },
+    ]
   }
 ];
 
@@ -185,19 +231,30 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
   const baseY = 145;
   const spacing = 170;
 
+  const handleCardPress = () => {
+    // Navigate to order details screen
+    router.push("/(main)/(customer)/order-details");
+  };
+
+  const handleDropdownPress = (e: any) => {
+    // Stop propagation to prevent card press
+    e.stopPropagation();
+    onToggle();
+  };
+
   return (
     <TouchableOpacity
       style={[
         styles.orderCard,
         { marginTop: index === 0 ? vs(baseY - 114) : vs(20) } // Adjust for first card
       ]}
-      onPress={onToggle}
+      onPress={handleCardPress}
       activeOpacity={0.8}
     >
-      {/* Main Card Container - Figma: 400x150 */}
+      {/* Main Card Container - Figma: 400x150 (collapsed) / 400x250 (expanded) */}
       <View style={styles.cardContent}>
 
-        {/* Store Icon - Figma: x:40, y:510 (relative to card) */}
+        {/* Store Icon - Figma: x:40, y:25 (relative to card) */}
         <View style={styles.storeIconContainer}>
           <View style={styles.outerCircle}>
             <View style={styles.innerCircle}>
@@ -209,7 +266,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
           </View>
         </View>
 
-        {/* Order Details - Figma: x:110, y:509 */}
+        {/* Order Details - Figma: x:110, y:24 */}
         <View style={styles.orderDetails}>
           <Text style={styles.orderId}>Order ID: {order.orderId}</Text>
           <Text style={styles.placedDate}>Placed on {order.placedDate}</Text>
@@ -219,11 +276,15 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
           </View>
         </View>
 
-        {/* Dropdown Arrow - Figma: x:380, y:525 */}
-        <View style={styles.dropdownContainer}>
+        {/* Dropdown Arrow - Figma: x:380, y:40 */}
+        <TouchableOpacity
+          style={styles.dropdownContainer}
+          onPress={handleDropdownPress}
+          activeOpacity={0.7}
+        >
           <View style={styles.dropdownBox}>
             <Animated.Image
-              source={require("../../../src/assets/images/customer-orders/dropdown-arrow.svg")}
+              source={require("../../../src/assets/images/customer-orders/dropdown-arrow.png")}
               style={[
                 styles.dropdownArrow,
                 {
@@ -234,46 +295,55 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
               ]}
             />
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
-      {/* Lower Section - Figma: y:585 (relative to card) */}
+      {/* Expanded Content - Order Progress/Status */}
+      {isExpanded && (
+        <View style={styles.expandedContent}>
+          {/* Order Progress Timeline - Figma: After variant shows status progress */}
+          <View style={styles.progressContainer}>
+            {/* Progress Item 1: Order Confirmed */}
+            <View style={styles.progressItem}>
+              <View style={styles.progressIconContainer}>
+                <View style={styles.progressDot} />
+              </View>
+              <Text style={styles.progressText}>Order Confirmed</Text>
+              <Text style={styles.progressTime}>12:30 PM</Text>
+            </View>
+
+            {/* Progress Item 2: Preparing Order */}
+            <View style={styles.progressItem}>
+              <View style={styles.progressIconContainer}>
+                <View style={styles.progressDot} />
+              </View>
+              <Text style={styles.progressText}>Preparing Order</Text>
+              <Text style={styles.progressTime}>12:35 PM</Text>
+            </View>
+
+            {/* Progress Item 3: Ready for Pickup */}
+            <View style={styles.progressItem}>
+              <View style={styles.progressIconContainer}>
+                <View style={[styles.progressDot, styles.progressDotInactive]} />
+              </View>
+              <Text style={[styles.progressText, styles.progressTextInactive]}>Ready for Pickup</Text>
+              <Text style={[styles.progressTime, styles.progressTextInactive]}>Pending</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Lower Section - Figma: y:100 (relative to card) */}
       <View style={styles.lowerSection}>
         <View style={styles.statusIndicator} />
         <Text style={styles.pickupText}>Pickup Order</Text>
         <Text style={styles.pickupDate}>{order.pickupDate}</Text>
       </View>
-
-      {/* Expanded Content */}
-      {isExpanded && (
-        <View style={styles.expandedContent}>
-          <View style={styles.divider} />
-          <Text style={styles.expandedTitle}>Order Details</Text>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Status:</Text>
-            <Text style={[styles.detailValue, { color: getStatusColor(order.status) }]}>
-              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Items:</Text>
-            <Text style={styles.detailValue}>{order.itemsCount} items</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Total Amount:</Text>
-            <Text style={[styles.detailValue, styles.totalAmount]}>₱{order.total}</Text>
-          </View>
-
-          {/* View Details Button */}
-          <TouchableOpacity style={styles.viewDetailsButton}>
-            <Text style={styles.viewDetailsText}>View Full Details</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </TouchableOpacity>
   );
 };
 
+// Helper function to get status color (for future use)
 const getStatusColor = (status: string): string => {
   switch (status) {
     case 'pending':
@@ -283,7 +353,7 @@ const getStatusColor = (status: string): string => {
     case 'completed':
       return '#4CAF50';
     case 'cancelled':
-      return Colors.red;
+      return '#E92B45';
     default:
       return Colors.darkGray;
   }
@@ -459,21 +529,22 @@ const styles = StyleSheet.create({
     color: Colors.darkGray,
     lineHeight: ms(12),
   },
-  // Dropdown Container - Figma: x:380, y:525
+  // Dropdown Container - Bigger touchable area for easier tapping
   dropdownContainer: {
     marginLeft: s(10),
+    padding: s(8), // Add padding to increase tap area
   },
   dropdownBox: {
-    width: s(20),
-    height: s(20),
-    borderRadius: s(5),
+    width: s(32), // Increased from 20 to 32 for easier tapping
+    height: s(32), // Increased from 20 to 32 for easier tapping
+    borderRadius: s(8), // Increased from 5 to 8
     backgroundColor: '#D9D9D9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   dropdownArrow: {
-    width: s(8),
-    height: s(4),
+    width: s(14), // Increased from 8 to 14 (bigger arrow icon)
+    height: s(8), // Increased from 4 to 8 (bigger arrow icon)
     resizeMode: 'contain',
   },
   // Lower Section - Figma: y:585
@@ -508,60 +579,60 @@ const styles = StyleSheet.create({
     color: 'rgba(30, 30, 30, 0.5)',
     lineHeight: ms(22),
   },
-  // Expanded Content
+  // Expanded Content - Figma: After variant adds 100px height (250px total)
   expandedContent: {
     backgroundColor: Colors.white,
     paddingHorizontal: s(20),
-    paddingBottom: vs(20),
-    borderBottomLeftRadius: s(20),
-    borderBottomRightRadius: s(20),
+    paddingTop: vs(10),
+    paddingBottom: vs(15),
   },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.lightGray,
-    marginVertical: vs(15),
+  // Progress Container - Order Status Timeline
+  progressContainer: {
+    paddingVertical: vs(10),
   },
-  expandedTitle: {
-    fontSize: ms(14),
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    color: Colors.darkGray,
+  // Progress Item - Each status step
+  progressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: vs(12),
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  progressIconContainer: {
+    width: s(20),
+    height: s(20),
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: vs(8),
+    marginRight: s(15),
   },
-  detailLabel: {
+  // Progress Dot - Active status indicator
+  progressDot: {
+    width: s(10),
+    height: s(10),
+    borderRadius: s(5),
+    backgroundColor: Colors.primary,
+  },
+  // Progress Dot Inactive - Pending status indicator
+  progressDotInactive: {
+    backgroundColor: '#D9D9D9',
+  },
+  // Progress Text - Status label
+  progressText: {
+    flex: 1,
+    fontSize: ms(14),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: Colors.primary,
+    lineHeight: ms(22),
+  },
+  // Progress Text Inactive - Pending status label
+  progressTextInactive: {
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+  // Progress Time - Status timestamp
+  progressTime: {
     fontSize: ms(12),
     fontFamily: Fonts.primary,
     fontWeight: '500',
-    color: Colors.textSecondary,
-  },
-  detailValue: {
-    fontSize: ms(12),
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    color: Colors.darkGray,
-  },
-  totalAmount: {
     color: Colors.primary,
-    fontSize: ms(14),
-  },
-  viewDetailsButton: {
-    marginTop: vs(15),
-    height: vs(40),
-    backgroundColor: Colors.primary,
-    borderRadius: s(10),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  viewDetailsText: {
-    fontSize: ms(14),
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    color: Colors.white,
+    lineHeight: ms(22),
   },
 });

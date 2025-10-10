@@ -143,6 +143,7 @@ export default function SignInScreen() {
         // Create user object for context
         const loggedInUser: User = {
           id: user.uid,
+          name: userData.name || user.displayName || undefined,
           email: userData.email || user.email || '',
           role: userData.userType === 'store_owner' ? 'store-owner' : 'customer',
           phoneNumber: userData.phoneNumber,

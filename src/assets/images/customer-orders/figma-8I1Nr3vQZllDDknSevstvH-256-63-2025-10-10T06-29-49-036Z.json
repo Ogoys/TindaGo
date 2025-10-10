@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "name": "TindaGo Share",
+    "lastModified": "2025-10-10T06:22:03Z",
+    "thumbnailUrl": "https://s3-alpha.figma.com/thumbnails/1a11bc17-bbcb-47a6-bb1e-f79e6bc9150e?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQ4GOSFWCUI57WO7Q%2F20251009%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20251009T000000Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=2ef326863fa05a17cc0d67214fe6ff4ba655aa9660dae2b36ba0c7f0f26af2ab",
+    "components": {
+      "256:63": {
+        "id": "256:63",
+        "key": "1633aef753d25a51b4605172386aec1ee72a6a80",
+        "name": "Property 1=After",
+        "componentSetId": "256:62"
+      }
+    },
+    "componentSets": {
+      "256:62": {
+        "id": "256:62",
+        "key": "3db6527610734c1bb1e126f7dc0e488d026827ce",
+        "name": "Component 2",
+        "description": ""
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "256:63",
+      "name": "Property 1=After",
+      "type": "COMPONENT",
+      "boundingBox": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 250
+      },
+      "layout": "layout_952EKS"
+    }
+  ],
+  "globalVars": {
+    "styles": {
+      "layout_952EKS": {
+        "mode": "none",
+        "dimensions": {
+          "width": 400,
+          "height": 250
+        }
+      }
+    }
+  }
+}

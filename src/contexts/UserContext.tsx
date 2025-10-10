@@ -5,6 +5,7 @@ export type UserRole = 'customer' | 'store-owner';
 
 export interface User {
   id: string;
+  name?: string;
   email: string;
   role: UserRole;
   phoneNumber?: string;

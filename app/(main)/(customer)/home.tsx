@@ -30,8 +30,16 @@ export default function HomeScreen() {
   // Get user data from context
   const { user } = useUser();
 
-  // Extract user initials from email or name
+  // Extract user initials from name or email
   const getUserInitials = (): string => {
+    if (user?.name) {
+      // Get initials from actual name (first letter of first two words)
+      const nameParts = user.name.trim().split(' ');
+      if (nameParts.length >= 2) {
+        return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+      }
+      return user.name.substring(0, 2).toUpperCase();
+    }
     if (user?.email) {
       const emailName = user.email.split('@')[0];
       return emailName.substring(0, 2).toUpperCase();
@@ -41,6 +49,9 @@ export default function HomeScreen() {
 
   // Get display name from user data
   const getDisplayName = (): string => {
+    if (user?.name) {
+      return user.name;
+    }
     if (user?.email) {
       const emailName = user.email.split('@')[0];
       // Capitalize first letter
