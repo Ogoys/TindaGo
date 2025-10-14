@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Image } from "react-native";
 import { router } from "expo-router";
-import { auth, database } from "../../../../FirebaseConfig";
+import { auth, database } from "@/lib/firebase";
 import { ref, get } from "firebase/database";
-import { CustomStatusBar } from "../../../../src/components/ui/StatusBar";
 import { Colors } from "../../../../src/constants/Colors";
 import { s, vs } from "../../../../src/constants/responsive";
-import { StoreRegistrationService } from "../../../../src/services/StoreRegistrationService";
+import { StoreRegistrationService } from "@/services/store";
 
 interface SettingItemProps {
   title: string;
@@ -147,8 +146,6 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <CustomStatusBar />
-
       {/* Fixed Back Button and Settings Title */}
       <View style={styles.fixedHeader}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
@@ -164,8 +161,8 @@ export default function ProfileScreen() {
 
         {/* Profile Section - Figma: x: 20, y: 149, width: 400, height: 80 */}
         <View style={styles.profileSection}>
-          {/* Profile Avatar / Store Logo - Dynamic from Firebase */}
-          {userData.logo ? (
+          {/* Profile Avatar / Store Logo - Dynamic from Firebase - Default to store logo icon */}
+          {userData.logo && !loading ? (
             <Image
               source={{ uri: userData.logo }}
               style={styles.profileAvatar}
@@ -173,9 +170,9 @@ export default function ProfileScreen() {
             />
           ) : (
             <Image
-              source={require("../../../../src/assets/images/store-owner-profile/profile-avatar.png")}
+              source={require("../../../../src/assets/images/stores/store-profile-placeholder.png")}
               style={styles.profileAvatar}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           )}
 
@@ -241,7 +238,7 @@ export default function ProfileScreen() {
           />
           <SettingItem
             title="Logout"
-            icon={require("../../../../src/assets/images/store-owner-profile/notification-icon.png")}
+            icon={require("../../../../src/assets/images/customer-profile-nav/logout-icon.png")}
             onPress={handleLogout}
             isLast={true}
           />

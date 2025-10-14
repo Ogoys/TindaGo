@@ -6,8 +6,8 @@
  */
 
 import { ref, set, get } from 'firebase/database';
-import { auth, database } from '../../FirebaseConfig';
-import { STORE_STATUS, STATUS_LABELS } from '../constants/StoreStatus';
+import { auth, database } from '@/lib/firebase';
+import { STORE_STATUS, STATUS_LABELS } from '@/lib/constants';
 import Constants from 'expo-constants';
 
 // Conditionally import notifications to avoid Expo Go issues

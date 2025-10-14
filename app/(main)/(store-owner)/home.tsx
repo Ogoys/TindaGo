@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View, Switch } from "react-native";
-import { auth, database } from "../../../FirebaseConfig";
+import { auth, database } from "@/lib/firebase";
 import { ref, get } from "firebase/database";
-import { CustomStatusBar } from "../../../src/components/ui/StatusBar";
 import { Typography } from "../../../src/components/ui/Typography";
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
-import { StoreRegistrationService } from "../../../src/services/StoreRegistrationService";
+import { StoreRegistrationService } from "@/services/store";
 
 export default function StoreHomeScreen() {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
@@ -103,14 +102,12 @@ export default function StoreHomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Custom Status Bar */}
-      <CustomStatusBar />
-
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         bounces={false}
+        contentInsetAdjustmentBehavior="automatic"
       >
         {/* Header Background Image - Figma: Rectangle 50 at 0,0 440x210 */}
         <View style={styles.headerBackground}>
@@ -124,8 +121,8 @@ export default function StoreHomeScreen() {
           {/* Profile Section - Figma: Profile Group at 20,74 165x42 */}
           <View style={styles.profileSection}>
             <View style={styles.profilePicture}>
-              {/* Dynamic Logo from Firebase */}
-              {storeData.logo ? (
+              {/* Dynamic Logo from Firebase - Default to store logo icon */}
+              {storeData.logo && !loading ? (
                 <Image
                   source={{ uri: storeData.logo }}
                   style={styles.profileImage}
@@ -133,9 +130,9 @@ export default function StoreHomeScreen() {
                 />
               ) : (
                 <Image
-                  source={require('../../../src/assets/images/store-owner-dashboard/profile-picture.png')}
+                  source={require('../../../src/assets/images/stores/store-profile-placeholder.png')}
                   style={styles.profileImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               )}
             </View>
@@ -416,7 +413,7 @@ export default function StoreHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6F6', // Figma: fill_4NI1RY
+    backgroundColor: Colors.backgroundGray, // Match profile section background (#F4F6F6)
   },
 
   // Fix ScrollView layout to allow proper scrolling
@@ -426,15 +423,17 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: vs(20), // Reduced padding since no navigation bar
+    paddingBottom: vs(20),
   },
 
   // Header Background - Figma: Rectangle 50 at 0,0 440x210
   headerBackground: {
     position: 'relative',
     width: '100%',
-    height: vs(210),
+    height: vs(200), // Adjusted to vs(200) for better spacing
     marginBottom: vs(20),
+    marginTop: 0, // No margin - background extends to top
+    paddingTop: vs(60), // Increased padding for better visibility on Redmi Note 12
   },
 
   headerBackgroundImage: {
@@ -442,13 +441,13 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     width: '100%',
-    height: vs(210),
+    height: vs(200), // Match adjusted height
   },
 
   // Profile Section - Figma: Profile Group at 20,74 165x42
   profileSection: {
     position: 'absolute',
-    top: vs(74),
+    top: vs(50), // Increased from vs(20) to vs(50) for better visibility on Redmi Note 12
     left: s(20),
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -506,8 +505,8 @@ const styles = StyleSheet.create({
   // Notification Button - Figma: Notif Group at 375,74 40x40
   notificationButton: {
     position: 'absolute',
-    top: vs(74),
-    left: s(375),
+    top: vs(50), // Increased from vs(20) to vs(50) - Aligned with profile section
+    right: s(20), // Changed from left to right for better responsive positioning
     width: s(40),
     height: s(40),
     borderRadius: s(20),
@@ -529,7 +528,7 @@ const styles = StyleSheet.create({
   // Location Section - Figma: Current Location at 176,126 88x22 and Jacinto Street at 123,148 193x22
   locationSection: {
     position: 'absolute',
-    top: vs(126), // Back to original position
+    top: vs(112), // Adjusted to vs(112) for better spacing below profile (vs(50) + vs(42) + vs(20))
     alignItems: 'center',
     width: '100%',
     height: vs(44), // Total height for both texts

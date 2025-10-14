@@ -225,4 +225,8 @@ class PhoneVerificationService {
   }
 }
 
+// Named export for consistency with service layer pattern
+export { PhoneVerificationService };
+
+// Keep default export for backward compatibility
 export default PhoneVerificationService;

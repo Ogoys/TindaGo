@@ -7,8 +7,8 @@
  */
 
 import { ref, set, update, get, onValue, serverTimestamp } from 'firebase/database';
-import { auth, database } from '../../FirebaseConfig';
-import { STORE_STATUS } from '../constants/StoreStatus';
+import { auth, database } from '@/lib/firebase';
+import { STORE_STATUS } from '@/lib/constants';
 
 // Types for store registration data
 export interface StoreRegistrationData {

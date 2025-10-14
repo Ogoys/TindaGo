@@ -4,9 +4,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState, useCallback } from "react";
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { auth } from '../../../FirebaseConfig';
-import { s, vs } from "../../../src/constants/responsive";
-import { StoreRegistrationService } from '../../../src/services/StoreRegistrationService';
+import { auth } from '@/lib/firebase';
+import { s, vs } from "@/constants/responsive";
+import { StoreRegistrationService } from '@/services';
 
 interface StoreFormData {
   storeName: string;

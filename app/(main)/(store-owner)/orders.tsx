@@ -1,6 +1,5 @@
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { CustomStatusBar } from "../../../src/components/ui/StatusBar";
 import { Typography } from "../../../src/components/ui/Typography";
 import { Colors } from "../../../src/constants/Colors";
 import { s, vs } from "../../../src/constants/responsive";
@@ -8,8 +7,6 @@ import { s, vs } from "../../../src/constants/responsive";
 export default function OrdersScreen() {
   return (
     <View style={styles.container}>
-      <CustomStatusBar />
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>

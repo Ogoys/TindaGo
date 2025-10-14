@@ -293,3 +293,127 @@ Use the specialized agent from `doc/TindaGo-Design-to-Code-Agent.md` for pixel-p
 - Document new errors/solutions in `doc/Agent-Evolution-Log.md`
 - Version the design agent with each improvement
 - Continuous learning workflow for enhanced accuracy
+
+## Admin Dashboard Integration
+
+### Separate Admin Project
+The project includes a companion web admin dashboard for store owner verification:
+
+**Location**: `../tindago-admin/` (sibling directory to TindaGo)
+
+**Tech Stack**:
+- Next.js 15.5.3 with React 19.1.0
+- Firebase 12.2.1 (shared database with mobile app)
+- Tailwind CSS for styling
+- TypeScript
+
+### Admin Dashboard Commands
+```bash
+cd ../tindago-admin
+npm install              # Install dependencies
+npm run dev              # Start development server (http://localhost:3000)
+npm run build            # Production build
+npm run start            # Start production server
+```
+
+### Admin-Mobile Integration Flow
+1. Store owner completes registration in mobile app
+2. Registration data saved to Firebase `store_registrations/{uid}` with `status: "pending"`
+3. Admin dashboard displays pending registration in real-time
+4. Admin reviews business documents and information
+5. Admin approves/rejects registration
+6. Mobile app receives real-time status update via Firebase listener
+7. Push notification sent to store owner
+8. On approval: Store data moved to `stores/{storeId}` collection
+
+### Testing Admin Integration
+Refer to these comprehensive testing guides:
+- `ADMIN_VERIFICATION_CHECKLIST.md` - Quick verification steps
+- `WEB_ADMIN_TESTING_GUIDE.md` - Complete testing procedures
+
+**Key Integration Points**:
+- Both apps must use identical Firebase configuration
+- Status values must be consistent: `"pending"`, `"approved"`, `"rejected"`
+- Mobile app uses `useStoreRegistration` hook for real-time sync
+- Admin uses Firebase Realtime Database listeners
+- Expected sync time: < 3 seconds for status updates
+
+### Admin Dashboard Structure
+```
+tindago-admin/
+├── src/
+│   ├── app/              # Next.js App Router pages
+│   ├── components/       # React components (admin UI)
+│   └── lib/             # Firebase config and utilities
+├── scripts/             # Migration and utility scripts
+│   ├── migrate-usertype-to-customer.js
+│   └── standardize-status.js
+└── public/              # Static assets
+```
+
+## Database Migration Scripts
+
+### Admin Dashboard Scripts
+Available in `tindago-admin/` directory:
+
+**User Type Migration**:
+```bash
+npm run migrate:usertype              # Run migration
+npm run migrate:usertype:dry-run      # Preview changes without applying
+npm run migrate:usertype:backup       # Backup data only
+npm run migrate:usertype:rollback     # Rollback migration
+```
+
+**Status Standardization**:
+```bash
+npm run standardize:status            # Standardize all status values
+npm run standardize:status:check      # Check status inconsistencies (dry run)
+```
+
+**Purpose**: These scripts ensure data consistency between mobile app and admin dashboard, particularly for `userType` fields and registration status values.
+
+## Multi-Project Workspace Structure
+
+This is part of a larger workspace with two main applications:
+
+```
+Projects/React Native Projects/
+├── TindaGo/                    # React Native mobile app (this project)
+│   ├── app/                    # Expo Router screens
+│   ├── src/                    # Components, services, assets
+│   └── CLAUDE.md               # This file
+│
+└── tindago-admin/              # Next.js admin dashboard (sibling project)
+    ├── src/app/                # Admin pages
+    ├── src/components/         # Admin components
+    └── CLAUDE.md               # Admin-specific documentation
+```
+
+**Important**: When working on admin-related features, you may need to switch between projects. Both share the same Firebase backend but have independent frontends.
+
+## Critical Development Notes
+
+### Cross-Platform Status Consistency
+**ALWAYS use these exact status values across all platforms**:
+- Registration status: `"pending"`, `"approved"`, `"rejected"` (never use `"pending_approval"` or other variants)
+- Store status: `"active"`, `"inactive"`, `"suspended"`
+- Order status: TBD (to be defined in Phase 2)
+
+### Real-Time Sync Requirements
+- Mobile app must implement Firebase listeners for status changes
+- Admin dashboard must update database atomically
+- Status updates should propagate within 3 seconds
+- Use `useStoreRegistration` hook in mobile app for registration status
+- Test with both apps running simultaneously
+
+### Document Storage Strategy
+- Documents stored as base64 strings in Realtime Database (not Firebase Storage)
+- Structure: `store_registrations/{uid}/documents/{documentType}`
+- Document types: `barangayBusinessClearance`, `businessPermit`, `dtiRegistration`, `validId`
+- Admin dashboard must be able to decode and display base64 documents
+
+### User Roles and Authentication
+- User roles: `'customer'` and `'store-owner'` (stored as `userType` in some places)
+- Admin authentication is separate from customer/store-owner auth
+- Role selection happens after email/phone verification
+- Store owners require additional business verification before accessing store features

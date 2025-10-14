@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Alert } from "react-native";
 import { PhoneVerificationCodeScreen } from "../../src/components/phone-verification";
-import PhoneVerificationService from "../../src/services/PhoneVerificationService";
+import { PhoneVerificationService } from "@/services/auth";
 
 export default function PhoneVerificationCodeRoute() {
   const router = useRouter();

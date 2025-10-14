@@ -15,7 +15,11 @@
       "Bash(if [ -f .env ])",
       "Bash(then cat .env)",
       "Bash(else echo \".env file not found\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(tee:*)",
+      "Bash(for file in signin.tsx phone-verification-code.tsx verify-phone.tsx)",
+      "Bash(do)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

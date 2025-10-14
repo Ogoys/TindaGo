@@ -4,12 +4,12 @@ import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Alert 
 import { Image } from "expo-image";
 import * as DocumentPicker from "expo-document-picker";
 import { readAsStringAsync } from "expo-file-system/legacy";
-import { auth } from "../../../FirebaseConfig";
-import { Button } from "../../../src/components/ui/Button";
-// import { FormInput } from "../../../src/components/ui/FormInput";
-import { Colors } from "../../../src/constants/Colors";
-import { s, vs } from "../../../src/constants/responsive";
-import { StoreRegistrationService } from '../../../src/services/StoreRegistrationService';
+import { auth } from "@/lib/firebase";
+import { Button } from "@/components/ui/Button";
+// import { FormInput } from "@/components/ui/FormInput";
+import { Colors } from "@/constants/Colors";
+import { s, vs } from "@/constants/responsive";
+import { StoreRegistrationService } from '@/services';
 
 interface DocumentUploadData {
   barangayBusinessClearance: any;

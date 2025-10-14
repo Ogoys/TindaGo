@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { Redirect } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../FirebaseConfig";
-import { StoreRegistrationService } from "../src/services/StoreRegistrationService";
-import { STORE_STATUS } from "../src/constants/StoreStatus";
+import { auth } from "@/lib/firebase";
+import { StoreRegistrationService } from "@/services/store";
+import { STORE_STATUS } from "@/lib/constants";
 import { Colors } from "../src/constants/Colors";
 
 export default function Index() {

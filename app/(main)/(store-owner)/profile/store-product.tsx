@@ -47,55 +47,67 @@ const StoreProductScreen = () => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
-  // Product categories data with exact names from Figma
+  // Product categories - Matching customer side with proper 10 categories
   const categories: CategoryItem[] = [
     {
       id: '1',
       name: 'Fruits &\nVegetables',
-      image: require('../../../../src/assets/images/store-product/fruits-vegetables.png'),
-      width: 70, // Figma: width: 70, height: 34
+      image: require('../../../../src/assets/images/customer-categories/fruits-vegetables.png'),
+      width: 70,
     },
     {
       id: '2',
       name: 'Dairy &\nBakery',
-      image: require('../../../../src/assets/images/store-product/dairy-bakery.png'),
-      width: 46, // Figma: width: 46, height: 34
+      image: require('../../../../src/assets/images/customer-categories/dairy-bakery.png'),
+      width: 46,
     },
     {
       id: '3',
-      name: 'Snacks',
-      image: require('../../../../src/assets/images/store-product/snacks.png'),
-      width: 46, // Figma: width: 46, height: 17
+      name: 'Snacks &\nSweets',
+      image: require('../../../../src/assets/images/customer-categories/snacks.png'),
+      width: 58,
     },
     {
       id: '4',
-      name: 'Beverages', // Note: Figma shows "Baverages" but using correct spelling
-      image: require('../../../../src/assets/images/store-product/beverages.png'),
-      width: 67, // Figma: width: 67, height: 17
+      name: 'Beverages',
+      image: require('../../../../src/assets/images/customer-categories/beverages.png'),
+      width: 67,
     },
     {
       id: '5',
-      name: 'Personal \nCare',
-      image: require('../../../../src/assets/images/store-product/personal-care.png'),
-      width: 58, // Figma: width: 58, height: 34
+      name: 'Personal &\nBaby Care',
+      image: require('../../../../src/assets/images/customer-categories/personal-baby-care.png'),
+      width: 58,
     },
     {
       id: '6',
       name: 'Home &\nKitchen',
-      image: require('../../../../src/assets/images/store-product/home-kitchen.png'),
-      width: 46, // Figma: width: 46, height: 34
+      image: require('../../../../src/assets/images/customer-categories/home-kitchen.png'),
+      width: 46,
     },
     {
       id: '7',
-      name: 'Home Care',
-      image: require('../../../../src/assets/images/store-product/home-care.png'),
-      width: 70, // Figma: width: 70, height: 17
+      name: 'Staple\nFoods',
+      image: require('../../../../src/assets/images/customer-categories/staple-foods.png'),
+      width: 46,
     },
     {
       id: '8',
-      name: 'Baby Care',
-      image: require('../../../../src/assets/images/store-product/baby-care.png'),
-      width: 67, // Figma: width: 67, height: 17
+      name: 'Condiments &\nCooking',
+      image: require('../../../../src/assets/images/customer-categories/condiments-cooking.png'),
+      width: 67,
+    },
+    {
+      id: '9',
+      name: 'Frozen\nGoods',
+      image: require('../../../../src/assets/images/customer-categories/frozen-goods.png'),
+      width: 46,
+    },
+    {
+      id: '10',
+      name: 'Miscellaneous &\nOthers',
+      image: require('../../../../src/assets/images/customer-categories/miscellaneous.png'),
+      width: 85,
     },
   ];
 
@@ -192,23 +204,21 @@ const StoreProductScreen = () => {
 
   // Map category names to match product categories
   const categoryMapping: { [key: string]: string } = {
-    'Fruits &\nVegetables': 'Fruit & Vegetable',
+    'Fruits &\nVegetables': 'Fruits & Vegetables',
     'Dairy &\nBakery': 'Dairy & Bakery',
-    'Snacks': 'Snacks',
+    'Snacks &\nSweets': 'Snacks & Sweets',
     'Beverages': 'Beverages',
-    'Personal \nCare': 'Personal Care',
+    'Personal &\nBaby Care': 'Personal & Baby Care',
     'Home &\nKitchen': 'Home & Kitchen',
-    'Home Care': 'Home Care',
-    'Baby Care': 'Baby Care',
+    'Staple\nFoods': 'Staple Foods',
+    'Condiments &\nCooking': 'Condiments & Cooking',
+    'Frozen\nGoods': 'Frozen Goods',
+    'Miscellaneous &\nOthers': 'Miscellaneous & Others',
   };
 
   return (
     <View style={styles.container}>
-      {/* Status Bar - Figma: 9:41 AM status */}
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
-
-      {/* Time Display - Figma: x: 71, y: 10, font: ABeeZee 500, size: 15 */}
-      <Text style={styles.timeText}>9:41</Text>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Back Button - Figma: x: 20, y: 79, width: 30, height: 30 */}
@@ -424,19 +434,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundGray, // Figma: #F4F6F6
   },
 
-  // Status Bar Time - Figma: x: 71, y: 10, font: ABeeZee 500, size: 15
-  timeText: {
-    position: 'absolute',
-    left: s(71),
-    top: vs(10),
-    fontFamily: 'ABeeZee',
-    fontWeight: '500',
-    fontSize: ms(15),
-    lineHeight: vs(17),
-    color: Colors.darkGray,
-    zIndex: 10,
-  },
-
   scrollContent: {
     flexGrow: 1,
     paddingBottom: vs(50), // Ensure content doesn't get cut off
@@ -601,9 +598,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '500',
     fontSize: ms(12),
-    lineHeight: vs(15),
+    lineHeight: vs(14), // Reduced line height for tighter text
     color: Colors.darkGray,
     textAlign: 'center',
+    marginTop: vs(4), // Small margin for spacing from card
   },
 
   // Products Section Styles

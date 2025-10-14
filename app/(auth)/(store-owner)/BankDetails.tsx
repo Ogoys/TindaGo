@@ -2,9 +2,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useState, useCallback } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, Image, TextInput, TouchableOpacity } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { auth } from '../../../FirebaseConfig';
-import { s, vs } from "../../../src/constants/responsive";
-import { StoreRegistrationService } from '../../../src/services/StoreRegistrationService';
+import { auth } from '@/lib/firebase';
+import { s, vs } from "@/constants/responsive";
+import { StoreRegistrationService } from '@/services';
 
 interface BankDetailsFormData {
   paymentMethod: 'gcash' | 'paymaya' | 'bank_transfer';

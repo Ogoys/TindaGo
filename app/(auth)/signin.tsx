@@ -3,15 +3,15 @@ import { useState, useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
-import { auth, database } from '../../FirebaseConfig';
+import { auth, database } from '@/lib/firebase';
 import { Button } from "../../src/components/ui/Button";
 import { FormInput } from "../../src/components/ui/FormInput";
 import { SignInGlassCard } from "../../src/components/ui/SignInGlassCard";
 import { Colors } from "../../src/constants/Colors";
 import { s, vs, ms } from "../../src/constants/responsive";
 import { useUser, User, UserRole } from "../../src/contexts/UserContext";
-import { StoreRegistrationService } from "../../src/services/StoreRegistrationService";
-import { STORE_STATUS } from "../../src/constants/StoreStatus";
+import { StoreRegistrationService } from "@/services/store";
+import { STORE_STATUS } from "@/lib/constants";
 
 export default function SignInScreen() {
   const [emailOrPhone, setEmailOrPhone] = useState("");

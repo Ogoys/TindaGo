@@ -1,0 +1,67 @@
+/**
+ * Order Model
+ *
+ * Defines the order data structure for pickup-only orders
+ */
+
+export interface Order {
+  id: string;
+  orderNumber: string;        // "ORD-2024-001"
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  storeId: string;
+  storeName: string;
+  items: OrderItem[];
+  subtotal: number;
+  tax: number;
+  serviceFee: number;
+  total: number;
+  status: OrderStatus;
+  pickupTime?: Date;
+  notes?: string;
+  paymentMethod: 'cash' | 'gcash' | 'paymaya';
+  paymentStatus: 'pending' | 'paid' | 'refunded';
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
+  cancelledAt?: Date;
+  cancellationReason?: string;
+}
+
+export interface OrderItem {
+  productId: string;
+  productName: string;
+  productImage: string;
+  quantity: number;
+  price: number;
+  weight?: string;
+  unit?: string;
+  subtotal: number;
+  notes?: string;
+}
+
+export type OrderStatus =
+  | 'pending'           // Order placed, waiting for store confirmation
+  | 'confirmed'         // Store confirmed the order
+  | 'preparing'         // Store is preparing the order
+  | 'ready'            // Order ready for pickup
+  | 'picked_up'        // Customer picked up the order
+  | 'completed'        // Order completed successfully
+  | 'cancelled';       // Order cancelled
+
+export interface OrderHistory {
+  orderId: string;
+  status: OrderStatus;
+  message: string;
+  timestamp: Date;
+  updatedBy?: string;
+}
+
+export interface OrderSummary {
+  totalOrders: number;
+  pendingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  totalRevenue: number;
+}

@@ -64,12 +64,12 @@ export default function StoreOwnerLayout() {
         }}
       />
       <Tabs.Screen
-        name="category"
+        name="wallet"
         options={{
-          title: "Category",
+          title: "Wallet",
           tabBarIcon: ({ focused }) => (
             <Image
-              source={require('../../../src/assets/images/store-owner-dashboard/category-icon.png')}
+              source={require('../../../src/assets/images/store-owner-dashboard/wallet-icon.png')}
               style={{
                 width: s(30),
                 height: s(30),

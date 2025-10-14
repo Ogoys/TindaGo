@@ -1,33 +1,30 @@
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { CustomStatusBar } from "../../../src/components/ui/StatusBar";
 import { Typography } from "../../../src/components/ui/Typography";
 import { Colors } from "../../../src/constants/Colors";
 import { s, vs } from "../../../src/constants/responsive";
 
-export default function CategoryScreen() {
+export default function WalletScreen() {
   return (
     <View style={styles.container}>
-      <CustomStatusBar />
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <Typography variant="h1" style={styles.title}>
-            Category
+            Wallet
           </Typography>
           <Typography variant="body" style={styles.subtitle}>
-            Manage product categories
+            Manage your earnings and transactions
           </Typography>
         </View>
 
         {/* Coming Soon */}
         <View style={styles.comingSoon}>
           <Typography variant="h2" style={styles.comingSoonText}>
-            Category Management
+            Wallet Management
           </Typography>
           <Typography variant="body" style={styles.comingSoonDescription}>
-            This feature is coming soon. You&apos;ll be able to organize and manage your product categories here.
+            This feature is coming soon. You&apos;ll be able to view your earnings, transaction history, and manage payouts here.
           </Typography>
         </View>
       </ScrollView>

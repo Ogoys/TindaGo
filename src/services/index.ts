@@ -1,12 +1,10 @@
 /**
  * Services Export
  *
- * Centralized exports for all TindaGo services
+ * Centralized exports for all TindaGo services organized by domain
  */
 
-export { StoreRegistrationService } from './StoreRegistrationService';
-export type { StoreRegistrationData, DocumentInfo } from './StoreRegistrationService';
-
-export { NotificationService } from './NotificationService';
-
-export { default as PhoneVerificationService } from './PhoneVerificationService';
+// Export all services from their domains
+export * from './auth';
+export * from './store';
+export * from './notifications';

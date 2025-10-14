@@ -74,15 +74,18 @@ const AddProductScreen = () => {
     setProductSize(text);
   }, []);
 
-  // Product categories as specified by user
+  // Product categories - Matching customer side (10 categories)
   const categories: CategoryItem[] = [
-    { id: '1', name: 'Fruit & Vegetable' },
+    { id: '1', name: 'Fruits & Vegetables' },
     { id: '2', name: 'Dairy & Bakery' },
-    { id: '3', name: 'Snacks' },
+    { id: '3', name: 'Snacks & Sweets' },
     { id: '4', name: 'Beverages' },
-    { id: '5', name: 'Home & Kitchen' },
-    { id: '6', name: 'Home Care' },
-    { id: '7', name: 'Baby Care' },
+    { id: '5', name: 'Personal & Baby Care' },
+    { id: '6', name: 'Home & Kitchen' },
+    { id: '7', name: 'Staple Foods' },
+    { id: '8', name: 'Condiments & Cooking' },
+    { id: '9', name: 'Frozen Goods' },
+    { id: '10', name: 'Miscellaneous & Others' },
   ];
 
   // Common units for sari-sari store products
@@ -362,11 +365,7 @@ const AddProductScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Status Bar - Figma: 9:41 AM status */}
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
-
-      {/* Time Display - Figma: x: 51.92, y: 18.34, font: ABeeZee 400, size: 17 */}
-      <Text style={styles.timeText}>9:41</Text>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -605,19 +604,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.backgroundGray, // Figma: #F4F6F6
-  },
-
-  // Status Bar Time - Figma: x: 51.92, y: 18.34, font: ABeeZee 400, size: 17
-  timeText: {
-    position: 'absolute',
-    left: s(51.92),
-    top: vs(18.34),
-    fontFamily: Fonts.secondary, // ABeeZee
-    fontWeight: Fonts.weights.normal,
-    fontSize: ms(17),
-    lineHeight: vs(22),
-    color: Colors.black,
-    zIndex: 10,
   },
 
   scrollContent: {
@@ -946,7 +932,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: s(20),
     width: s(380), // Wider to match screen width better
-    height: vs(550), // Expanded height to show all 7 categories clearly
+    height: vs(650), // Expanded height to show all 10 categories clearly
     padding: s(20), // Standard padding
     paddingBottom: s(25), // More bottom padding for better spacing
     shadowColor: Colors.shadow,

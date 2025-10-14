@@ -19,11 +19,19 @@ import { useUser } from "../../../src/contexts/UserContext";
  * CUSTOMER HOME PAGE - PIXEL-PERFECT FIGMA REBUILD
  *
  * Figma File: 8I1Nr3vQZllDDknSevstvH
- * Node: 759-203 (Home Page)
+ * Node: 903-203 (Home Page)
  * Baseline: 440x956 (viewport), Total scrollable height: 1827px
  *
  * Complete rebuild from scratch matching exact Figma design
  * Uses standard TindaGo baseline (440x956) for responsive scaling
+ *
+ * Key Sections:
+ * - Header: (0, 0, 440x230) - Background image, profile, notification, search
+ * - Category: (0, 198, 440x90) - Horizontal scroll with category icons
+ * - Best Selling: (23, 296) - Product carousel
+ * - Featured Stores: (23, 584) - Store cards list
+ * - Most Popular Picks: (23, 1308) - Popular picks carousel
+ * - Fresh Finds: (24, 1442) - Product carousel
  */
 
 export default function HomeScreen() {
@@ -60,8 +68,9 @@ export default function HomeScreen() {
     return 'Customer';
   };
 
-  // Category data with exact Figma specs
-  // Figma: 759:213 - Category section with horizontal scroll
+  // Category data - ALIGNED WITH CATEGORY NAVIGATION BAR
+  // Matches categories from app/(main)/(customer)/category.tsx
+  // Each category has a white circular background (50x50) with centered icon
   const categoryData = [
     {
       id: "all",
@@ -72,52 +81,57 @@ export default function HomeScreen() {
     {
       id: "fruits-vegetables",
       label: "Fruits &\nVegetables",
-      icon: require("../../../src/assets/images/customer-home/categories/fruits-vegetables-icon.png")
+      icon: require("../../../src/assets/images/customer-categories/fruits-vegetables.png")
     },
     {
       id: "dairy-bakery",
       label: "Dairy &\nBakery",
-      icon: require("../../../src/assets/images/customer-home/categories/dairy-bakery-icon.png")
+      icon: require("../../../src/assets/images/customer-categories/dairy-bakery.png")
     },
     {
-      id: "snacks",
-      label: "Snacks",
-      icon: require("../../../src/assets/images/customer-home/categories/snacks-icon.png")
+      id: "snacks-sweets",
+      label: "Snacks &\nSweets",
+      icon: require("../../../src/assets/images/customer-categories/snacks.png")
     },
     {
       id: "beverages",
-      label: "Baverages",
-      icon: require("../../../src/assets/images/customer-home/categories/beverages-icon.png")
+      label: "Beverages",
+      icon: require("../../../src/assets/images/customer-categories/beverages.png")
     },
     {
-      id: "personal-care",
-      label: "Personal\nCare",
-      icon: require("../../../src/assets/images/customer-home/categories/personal-care-icon.png")
+      id: "personal-baby-care",
+      label: "Personal &\nBaby Care",
+      icon: require("../../../src/assets/images/customer-categories/personal-baby-care.png")
     },
     {
       id: "home-kitchen",
       label: "Home &\nKitchen",
-      icon: require("../../../src/assets/images/customer-home/categories/home-kitchen-icon.png")
+      icon: require("../../../src/assets/images/customer-categories/home-kitchen.png")
     },
     {
-      id: "home-care",
-      label: "Home \nCare",
-      icon: require("../../../src/assets/images/customer-home/categories/home-care-icon.png")
+      id: "staple-foods",
+      label: "Staple\nFoods",
+      icon: require("../../../src/assets/images/customer-categories/staple-foods.png")
     },
     {
-      id: "baby-care",
-      label: "Baby\nCare",
-      icon: require("../../../src/assets/images/customer-home/categories/baby-care-icon.png")
+      id: "condiments-cooking",
+      label: "Condiments &\nCooking",
+      icon: require("../../../src/assets/images/customer-categories/condiments-cooking.png")
     },
     {
-      id: "coffee",
-      label: "Coffee",
-      icon: require("../../../src/assets/images/customer-home/categories/coffee-icon.png")
+      id: "frozen-goods",
+      label: "Frozen\nGoods",
+      icon: require("../../../src/assets/images/customer-categories/frozen-goods.png")
+    },
+    {
+      id: "miscellaneous",
+      label: "Miscellaneous\n& Others",
+      icon: require("../../../src/assets/images/customer-categories/miscellaneous.png")
     },
   ];
 
   // Best Selling Products data
-  // Figma: 759:266 - Product card structure
+  // Figma: 903:221 Products - Product card structure (903:222 Product0)
   const bestSellingProducts = [
     { id: "1", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
     { id: "2", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
@@ -126,7 +140,7 @@ export default function HomeScreen() {
   ];
 
   // Featured Stores data
-  // Figma: 759:487 - Store card structure
+  // Figma: 903:442 Store - Store card structure (903:443 Store)
   const featuredStores = [
     { id: "1", name: "Golis Sari-sari", rating: "5.0", distance: "1.3 km" },
     { id: "2", name: "Golis Sari-sari", rating: "5.0", distance: "1.3 km" },
@@ -135,7 +149,7 @@ export default function HomeScreen() {
   ];
 
   // Popular Picks data
-  // Figma: 759:520 - Popular picks card structure
+  // Figma: 903:475 Frame 1 - Popular picks card structure (903:476 Popular picks)
   const popularPicks = [
     { id: "1", name: "Brocoli", description: "Fresh from farm", price: "₱100", image: require("../../../src/assets/images/customer-home/popular-picks/broccoli.png") },
     { id: "2", name: "Brocoli", description: "Fresh from farm", price: "₱100", image: require("../../../src/assets/images/customer-home/popular-picks/broccoli.png") },
@@ -153,14 +167,14 @@ export default function HomeScreen() {
 
   /**
    * PRODUCT CARD COMPONENT
-   * Figma: 759:266 - Product0
+   * Figma: 903:222 Product0 (23, 341, 120x222)
    * Dimensions: 120x222px
    * Contains: Background, Picture, Label, Add Button
    */
-  const ProductCard = ({ name, shop, weight, image }: { name: string; shop: string; weight: string; image: any }) => (
+  const ProductCard = ({ id, name, shop, weight, image }: { id: string; name: string; shop: string; weight: string; image: any }) => (
     <TouchableOpacity
       style={styles.productCard}
-      onPress={() => router.push("/product-details" as any)}
+      onPress={() => router.push(`/(main)/shared/product-details?id=${id}` as any)}
       activeOpacity={0.8}
     >
       {/* Background - Figma: 759:267 Rectangle 16 */}
@@ -199,7 +213,7 @@ export default function HomeScreen() {
 
   /**
    * STORE CARD COMPONENT
-   * Figma: 759:487 - Store
+   * Figma: 903:443 Store (20, 628, 400x150)
    * Dimensions: 400x150px
    * Contains: Background, Store Image, Logo, Name, Rating, Distance
    */
@@ -244,12 +258,16 @@ export default function HomeScreen() {
 
   /**
    * POPULAR PICK CARD COMPONENT
-   * Figma: 759:520 - Popular picks
-   * Dimensions: 180x80px
+   * Figma: 903:476 Popular picks (20, 1342, 180x80)
+   * Dimensions: 180x80px (increased to 180x100 for better text spacing)
    * Contains: Background, Picture, Labels (Name, Description, Price)
    */
-  const PopularPickCard = ({ name, description, price, image }: { name: string; description: string; price: string; image: any }) => (
-    <TouchableOpacity style={styles.popularPickCard} activeOpacity={0.8}>
+  const PopularPickCard = ({ id, name, description, price, image }: { id: string; name: string; description: string; price: string; image: any }) => (
+    <TouchableOpacity
+      style={styles.popularPickCard}
+      activeOpacity={0.8}
+      onPress={() => router.push(`/(main)/shared/product-details?id=${id}` as any)}
+    >
       {/* Background - Figma: 759:521 Rectangle 22 */}
       <View style={styles.popularPickBackground} />
 
@@ -347,7 +365,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContentContainer}
       >
-        {/* CATEGORY SECTION - Figma: 759:212, x:1, y:198, width:439, height:90 */}
+        {/* CATEGORY SECTION - Figma: 903:556 Category (0, 198, 440x90) */}
         <View style={styles.categorySection}>
           <ScrollView
             horizontal
@@ -356,7 +374,7 @@ export default function HomeScreen() {
           >
             {categoryData.map((category, index) => (
               <TouchableOpacity key={category.id} style={styles.categoryItem}>
-                {/* Category Icon Circle - Figma: Ellipse (50x50) */}
+                {/* Category Icon Circle - Figma: 50x50 white background ellipse with shadow */}
                 <View style={[
                   styles.categoryIconCircle,
                   category.active && styles.categoryIconCircleActive
@@ -375,17 +393,17 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* BEST SELLING SECTION - Figma: 759:256, x:23, y:296 */}
+        {/* BEST SELLING SECTION - Figma: 903:212 Label (23, 296) */}
         <View style={styles.sectionHeader}>
-          {/* Section Title - Figma: 759:257 */}
+          {/* Section Title - Figma: 903:213 Best Selling */}
           <Text style={styles.sectionTitle}>Best Selling</Text>
-          {/* See More - Figma: 759:258 */}
+          {/* See More - Figma: 903:214 See more */}
           <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more")}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
 
-        {/* BEST SELLING PRODUCTS - Figma: 759:265, x:1, y:330, width:440, height:244 */}
+        {/* BEST SELLING PRODUCTS - Figma: 903:221 Products (1, 330, 440x244) */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -395,6 +413,7 @@ export default function HomeScreen() {
           {bestSellingProducts.map((product) => (
             <ProductCard
               key={product.id}
+              id={product.id}
               name={product.name}
               shop={product.shop}
               weight={product.weight}
@@ -403,17 +422,17 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* FEATURED STORES SECTION - Figma: 759:259, x:23, y:584 */}
+        {/* FEATURED STORES SECTION - Figma: 903:215 Label (23, 584) */}
         <View style={styles.sectionHeader}>
-          {/* Section Title - Figma: 759:260 */}
+          {/* Section Title - Figma: 903:216 Feature store near you */}
           <Text style={styles.sectionTitle}>Feature store near you</Text>
-          {/* See More - Figma: 759:261 */}
+          {/* See More - Figma: 903:217 See more */}
           <TouchableOpacity>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
 
-        {/* FEATURED STORES - Figma: 759:486, x:20, y:628, width:400, height:660 */}
+        {/* FEATURED STORES - Figma: 903:442 Store (20, 628, 400x660) */}
         <View style={styles.storesSection}>
           {featuredStores.map((store) => (
             <StoreCard
@@ -425,18 +444,17 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* MOST POPULAR PICKS SECTION - Figma: 759:262, x:23, y:1308 */}
-        {/* MOVED BELOW FEATURED STORES TO REDUCE EMPTY BLACK SPACE */}
+        {/* MOST POPULAR PICKS SECTION - Figma: 903:218 Label (23, 1308) */}
         <View style={styles.sectionHeader}>
-          {/* Section Title - Figma: 759:263 */}
+          {/* Section Title - Figma: 903:219 Most popular picks */}
           <Text style={styles.sectionTitle}>Most popular picks</Text>
-          {/* See More - Figma: 759:264 */}
+          {/* See More - Figma: 903:220 See more */}
           <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more")}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
 
-        {/* POPULAR PICKS - Figma: 759:519, x:0, y:1332, width:440, height:100 */}
+        {/* POPULAR PICKS - Figma: 903:475 Frame 1 (0, 1332, 440x100) */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -446,6 +464,7 @@ export default function HomeScreen() {
           {popularPicks.map((pick) => (
             <PopularPickCard
               key={pick.id}
+              id={pick.id}
               name={pick.name}
               description={pick.description}
               price={pick.price}
@@ -454,17 +473,17 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* FRESH FINDS SECTION - Figma: 759:483, x:24, y:1442 */}
+        {/* FRESH FINDS SECTION - Figma: 903:439 Label (24, 1442) */}
         <View style={styles.sectionHeader}>
-          {/* Section Title - Figma: 759:484 */}
+          {/* Section Title - Figma: 903:440 Fresh finds of the day */}
           <Text style={styles.sectionTitle}>Fresh finds of the day</Text>
-          {/* See More - Figma: 759:485 */}
+          {/* See More - Figma: 903:441 See more */}
           <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more")}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
 
-        {/* FRESH FINDS PRODUCTS - Figma: 759:374, x:0, y:1486, width:440, height:244 */}
+        {/* FRESH FINDS PRODUCTS - Figma: 903:330 Products (0, 1486, 440x244) */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -474,6 +493,7 @@ export default function HomeScreen() {
           {freshFindsProducts.map((product) => (
             <ProductCard
               key={product.id}
+              id={product.id}
               name={product.name}
               shop={product.shop}
               weight={product.weight}
@@ -482,14 +502,14 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* END MESSAGE - Figma: 759:592, x:174, y:1750 */}
+        {/* END MESSAGE - Figma: 903:548 That's all for now! (174, 1750) */}
         <Text style={styles.endMessage}>That&apos;s all for now!</Text>
 
         {/* Bottom Padding for Tab Navigation */}
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {/* BOTTOM NAVIGATION BAR - Figma: 759:610 */}
+      {/* BOTTOM NAVIGATION BAR - Figma: 903:612 Nav bar */}
       <BottomNavigation activeTab="home" />
     </SafeAreaView>
   );
@@ -503,14 +523,14 @@ const styles = StyleSheet.create({
   },
 
   // ============ HEADER SECTION ============
-  // Figma: x:0, y:0, width:440, height:230
+  // Figma: 903:203 - Header section (0, 0, 440x230)
   headerSection: {
     width: s(440),
     height: vs(150), // Reduced from 230 to match compact layout
     position: "relative",
   },
 
-  // Header Background - Figma: 759:204, width:440, height:230
+  // Header Background - Figma: 903:204 Rectangle 11 (0, 0, 440x230)
   headerBackground: {
     position: "absolute",
     top: 0,
@@ -519,7 +539,7 @@ const styles = StyleSheet.create({
     height: vs(150), // Reduced from 230 to match new compact layout
   },
 
-  // Profile Section - Figma: 759:593, x:20, y:74, width:179, height:40
+  // Profile Section - Figma: 903:549 Profile (20, 74, 179x40)
   // Made flexible to prevent cutoff on smaller devices
   profileSection: {
     position: "absolute",
@@ -531,17 +551,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Profile Logo - Figma: 759:594, width:40, height:40
+  // Profile Logo - Figma: 903:550 Logo (20, 74, 40x40)
   profileLogo: {
     width: s(40),
     height: s(40),
     borderRadius: s(20),
-    backgroundColor: "#3B82F6", // Figma: fill_ZGKKRY
+    backgroundColor: "#3B82F6",
     justifyContent: "center",
     alignItems: "center",
   },
 
-  // Profile Logo Text - Figma: 759:596
+  // Profile Logo Text
   profileLogoText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
@@ -553,10 +573,9 @@ const styles = StyleSheet.create({
   profileInfo: {
     marginLeft: s(10),
     flex: 1,
-    // Remove maxWidth to allow flex to handle layout
   },
 
-  // Profile Name - Figma: 759:599, x:70, y:74
+  // Profile Name - Figma: 903:555 Daniel Oppa (70, 74)
   profileName: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
@@ -565,33 +584,33 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
-  // Profile Location - Figma: 759:6373, x:70, y:92, width:129, height:22
+  // Profile Location - Figma: 903:553 + 903:554 (70, 92)
   profileLocation: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: vs(2),
-    flexWrap: "nowrap", // Prevent wrapping to keep on one line
+    flexWrap: "nowrap",
   },
 
-  // Location Icon - Figma: 759:598, width:15, height:15
+  // Location Icon - Figma: 903:554 Location (70, 96, 15x15)
   locationIcon: {
     width: s(15),
     height: s(15),
     marginRight: s(5),
   },
 
-  // Location Text - Figma: 759:597
+  // Location Text - Figma: 903:553 Jacinto st. Davao City (90, 92)
   locationText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: ms(10), // Reduced from 11 to 10 for better fit
+    fontSize: ms(10),
     lineHeight: ms(10) * 1.5,
     color: "#FFFFFF",
-    flex: 1, // Take available space but don't overflow
-    flexShrink: 1, // Allow text to shrink if needed
+    flex: 1,
+    flexShrink: 1,
   },
 
-  // Notification Button - Figma: 759:205, x:375, y:74, width:40, height:40
+  // Notification Button - Figma: 903:205 Notif (375, 74, 40x40)
   notificationButton: {
     position: "absolute",
     left: s(375),
@@ -600,7 +619,7 @@ const styles = StyleSheet.create({
     height: s(40),
   },
 
-  // Notification Circle - Figma: 759:206, Ellipse with shadow
+  // Notification Circle - Figma: 903:206 Notif Ellipse (375, 74, 40x40)
   notificationCircle: {
     position: "absolute",
     width: s(40),
@@ -614,7 +633,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
-  // Notification Icon - Figma: 759:207, x:7, y:7, width:25, height:25
+  // Notification Icon - Figma: 903:207 Notification (382, 81, 25x25)
   notificationIcon: {
     position: "absolute",
     left: s(7),
@@ -623,8 +642,8 @@ const styles = StyleSheet.create({
     height: s(25),
   },
 
-  // Search Container - Figma: 759:208, x:20, y:134, width:400, height:50
-  // Optimized for small devices (360px): reduced to 390px for better fit
+  // Search Container - Figma: 903:208 Search (20, 134, 400x50)
+  // Optimized for small devices: reduced to 390px for better fit
   searchContainer: {
     position: "absolute",
     left: s(20),
@@ -635,7 +654,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Search Background - Figma: 759:209, Rectangle 12 with shadow
+  // Search Background - Figma: 903:209 Rectangle 12 (20, 134, 400x50)
   searchBackground: {
     position: "absolute",
     width: s(390), // Matches container width
@@ -649,7 +668,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
-  // Search Icon - Figma: 759:210, x:20, y:15, width:20, height:20
+  // Search Icon - Figma: 903:210 Search (40, 149, 20x20)
   searchIcon: {
     marginLeft: s(20),
     width: s(20),
@@ -657,7 +676,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  // Search Input - Figma: 759:211, x:60, y:15
+  // Search Input - Figma: 903:211 Search for "Items" (80, 149)
   searchInput: {
     flex: 1,
     marginLeft: s(20),
@@ -679,8 +698,8 @@ const styles = StyleSheet.create({
   },
 
   // ============ CATEGORY SECTION ============
-  // Figma: 759:212, x:1, y:198, width:439, height:90
-  // Increased height to prevent text overlap with "Best Selling" section
+  // Figma: 903:556 Category (0, 198, 440x90)
+  // Contains horizontal scroll group 903:557 (19, 204, 866x84)
   categorySection: {
     marginTop: vs(10), // Reduced spacing for compact header
     height: vs(100), // Increased from 90 to 100 for better spacing
@@ -695,8 +714,8 @@ const styles = StyleSheet.create({
   // Category Item - each category is 50px circle + label
   categoryItem: {
     alignItems: "center",
-    marginRight: s(10),
-    width: s(70), // Accommodates multi-line text
+    marginRight: s(15), // Increased spacing between items
+    width: s(80), // Increased width to accommodate multi-line text better
   },
 
   // Category Icon Circle - Figma: Ellipse 50x50 with shadow
@@ -726,14 +745,16 @@ const styles = StyleSheet.create({
 
   // Category Label - Figma: below circle, y:50
   categoryLabel: {
-    marginTop: vs(5), // Increased from 4 to 5 for better spacing
+    marginTop: vs(6), // Increased spacing from circle
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: ms(12), // Reduced from 14 to 12 for better fit on small devices
-    lineHeight: ms(12) * 1.3,
+    fontSize: ms(10), // Smaller font for longer text
+    lineHeight: ms(10) * 1.5, // Better line height for multi-line text
     color: "#1E1E1E",
     textAlign: "center",
-    width: s(70),
+    width: s(80), // Match container width
+    minHeight: vs(30), // Minimum height to accommodate 2 lines
+    flexWrap: "wrap", // Allow text to wrap
   },
 
   categoryLabelActive: {
@@ -741,7 +762,10 @@ const styles = StyleSheet.create({
   },
 
   // ============ SECTION HEADERS ============
-  // Figma: x:23, various y positions, width:395, height:24
+  // Figma: 903:212 Label (23, 296) - Best Selling
+  // Figma: 903:215 Label (23, 584) - Featured Stores
+  // Figma: 903:218 Label (23, 1308) - Most Popular Picks
+  // Figma: 903:439 Label (24, 1442) - Fresh Finds
   sectionHeader: {
     marginTop: vs(20),
     marginLeft: s(23),
@@ -753,7 +777,7 @@ const styles = StyleSheet.create({
     height: vs(24),
   },
 
-  // Section Title - Figma: fontWeight:600, fontSize:20
+  // Section Title - Figma: 903:213, 903:216, 903:219, 903:440 (fontWeight:600, fontSize:20)
   sectionTitle: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "600",
@@ -762,7 +786,7 @@ const styles = StyleSheet.create({
     color: "#1E1E1E",
   },
 
-  // See More Text - Figma: fontWeight:500, fontSize:14
+  // See More Text - Figma: 903:214, 903:217, 903:220, 903:441 (fontWeight:500, fontSize:14)
   seeMoreText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
@@ -772,7 +796,8 @@ const styles = StyleSheet.create({
   },
 
   // ============ PRODUCTS SECTION ============
-  // Figma: 759:265, x:1, y:330, width:440, height:244
+  // Figma: 903:221 Products (1, 330, 440x244) - Best Selling
+  // Figma: 903:330 Products (0, 1486, 440x244) - Fresh Finds
   productsSection: {
     height: vs(244),
     marginBottom: vs(10),
@@ -783,7 +808,7 @@ const styles = StyleSheet.create({
     paddingRight: s(23),
   },
 
-  // Product Card - Figma: 759:266, width:120, height:222
+  // Product Card - Figma: 903:222 Product0 (23, 341, 120x222)
   productCard: {
     width: s(120),
     height: vs(222),
@@ -791,7 +816,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
 
-  // Product Card Background - Figma: 759:267, Rectangle 16 with shadow
+  // Product Card Background - Figma: Rectangle 16 with shadow
   productCardBackground: {
     position: "absolute",
     width: s(120),
@@ -913,14 +938,15 @@ const styles = StyleSheet.create({
   },
 
   // ============ STORES SECTION ============
-  // Figma: 759:486, x:20, y:628, width:400, height:660
+  // Figma: 903:442 Store (20, 628, 400x660)
+  // Contains 4 store cards: 903:443, 903:451, 903:459, 903:467
   storesSection: {
     marginLeft: s(20),
     marginRight: s(20),
     marginBottom: vs(20),
   },
 
-  // Store Card - Figma: 759:487, width:400, height:150
+  // Store Card - Figma: 903:443 Store (20, 628, 400x150)
   storeCard: {
     width: s(400),
     height: vs(150),
@@ -1021,7 +1047,8 @@ const styles = StyleSheet.create({
   },
 
   // ============ POPULAR PICKS SECTION ============
-  // Figma: 759:519, x:0, y:1332, width:440, height:100
+  // Figma: 903:475 Frame 1 (0, 1332, 440x100)
+  // Contains popular pick cards: 903:476, 903:485, 903:494, etc.
   popularPicksSection: {
     height: vs(120), // Increased from 100 to accommodate taller cards
     marginBottom: vs(20),
@@ -1032,7 +1059,7 @@ const styles = StyleSheet.create({
     paddingRight: s(20),
   },
 
-  // Popular Pick Card - Figma: 759:520, width:180, height:80
+  // Popular Pick Card - Figma: 903:476 Popular picks (20, 1342, 180x80)
   popularPickCard: {
     width: s(180),
     height: vs(100), // Increased from 80 to prevent text overlap
@@ -1126,7 +1153,7 @@ const styles = StyleSheet.create({
   },
 
   // ============ END MESSAGE ============
-  // Figma: 759:592, x:174, y:1750
+  // Figma: 903:548 That's all for now! (174, 1750)
   endMessage: {
     marginTop: vs(20),
     fontFamily: "Clash Grotesk Variable",

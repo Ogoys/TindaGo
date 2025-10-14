@@ -6,10 +6,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { auth } from '../../FirebaseConfig';
-import { StoreRegistrationService, StoreRegistrationData } from '../services/StoreRegistrationService';
-import { NotificationService } from '../services/NotificationService';
-import { STORE_STATUS, isRegistrationComplete, needsAdminReview } from '../constants/StoreStatus';
+import { auth } from '@/lib/firebase';
+import { StoreRegistrationService, StoreRegistrationData, NotificationService } from '@/services';
+import { STORE_STATUS, isRegistrationComplete, needsAdminReview } from '@/lib/constants';
 
 export interface UseStoreRegistrationReturn {
   // Status data
