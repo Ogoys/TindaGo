@@ -14,11 +14,9 @@ export default function AuthLayout() {
       <Stack.Screen name="verify-email-code" />
       <Stack.Screen name="verify-phone" />
       <Stack.Screen name="phone-verification-code" />
-      <Stack.Screen name="store-owner-signup" />
-      <Stack.Screen name="upload-documents" />
-      <Stack.Screen name="bank-details" />
-      <Stack.Screen name="business-details" />
-      <Stack.Screen name="register-complete" />
+      <Stack.Screen name="verify-email-store-owner" />
+      <Stack.Screen name="complete-phone-registration" />
+      <Stack.Screen name="(store-owner)" />
       <Stack.Screen name="signin" />
     </Stack>
   );

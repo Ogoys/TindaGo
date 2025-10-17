@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Image } from "react-native";
+import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Image, Alert } from "react-native";
 import { router } from "expo-router";
 import { auth, database } from "@/lib/firebase";
 import { ref, get } from "firebase/database";
+import { signOut } from "firebase/auth";
 import { Colors } from "../../../../src/constants/Colors";
 import { s, vs } from "../../../../src/constants/responsive";
 import { StoreRegistrationService } from "@/services/store";
+import { useUser } from "../../../../src/contexts/UserContext";
 
 interface SettingItemProps {
   title: string;
@@ -44,6 +46,9 @@ function SettingItem({ title, icon, onPress, isLast = false }: SettingItemProps)
 }
 
 export default function ProfileScreen() {
+  // Get logout from UserContext
+  const { logout: contextLogout } = useUser();
+
   // User data state
   const [userData, setUserData] = useState({
     ownerName: 'Store Owner',
@@ -140,8 +145,41 @@ export default function ProfileScreen() {
     console.log("Help pressed");
   };
 
-  const handleLogout = () => {
-    console.log("Logout pressed");
+  const handleLogout = async () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("🚪 Logging out...");
+
+              // Sign out from Firebase
+              await signOut(auth);
+              console.log("✅ Firebase signOut successful");
+
+              // Clear user context
+              await contextLogout();
+              console.log("✅ Context logout successful");
+
+              // Navigate to onboarding
+              router.replace("/(auth)/onboarding");
+              console.log("✅ Navigated to onboarding");
+            } catch (error) {
+              console.error("💥 Error during logout:", error);
+              Alert.alert("Error", "Failed to logout. Please try again.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (

@@ -276,7 +276,26 @@ const AddProductScreen = () => {
       }
 
       // ========================================
-      // 9. DUPLICATE PRODUCT CHECK
+      // 9. FETCH STORE INFO
+      // ========================================
+      console.log('📍 Fetching store information...');
+      const storeRef = ref(database, `stores/${currentUser.uid}`);
+      const storeSnapshot = await get(storeRef);
+
+      let storeName = 'My Store';
+      let storeOwnerName = 'Store Owner';
+
+      if (storeSnapshot.exists()) {
+        const storeData = storeSnapshot.val();
+        storeName = storeData.storeName || storeData.businessInfo?.storeName || 'My Store';
+        storeOwnerName = storeData.ownerName || storeData.personalInfo?.fullName || 'Store Owner';
+        console.log('✅ Store info fetched:', storeName, '-', storeOwnerName);
+      } else {
+        console.log('⚠️ Store not found, using defaults');
+      }
+
+      // ========================================
+      // 10. DUPLICATE PRODUCT CHECK
       // ========================================
       console.log('🔍 Checking for duplicate products...');
       const productsRef = ref(database, 'products');
@@ -310,7 +329,7 @@ const AddProductScreen = () => {
       console.log('✅ No duplicate found - proceeding with save');
 
       // ========================================
-      // 10. FORMAT DATA
+      // 11. FORMAT DATA
       // ========================================
       const formattedProductName = formatProductName(productName);
       const formattedPrice = formatPrice(priceNum);
@@ -322,7 +341,7 @@ const AddProductScreen = () => {
       console.log('  - Quantity:', formattedQuantity);
 
       // ========================================
-      // 11. PREPARE PRODUCT DATA
+      // 12. PREPARE PRODUCT DATA
       // ========================================
       const productData = {
         productName: formattedProductName,
@@ -334,13 +353,18 @@ const AddProductScreen = () => {
         unit: selectedUnit,
         productImage: selectedImage, // Base64 string
         storeOwnerId: currentUser.uid,
+        storeId: currentUser.uid,
+        storeName: storeName,
+        storeOwnerName: storeOwnerName,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        status: 'active'
+        status: 'available'
       };
 
+      console.log('🏪 Store Info:', storeName, 'by', storeOwnerName);
+
       // ========================================
-      // 12. SAVE TO FIREBASE
+      // 13. SAVE TO FIREBASE
       // ========================================
       console.log('💾 Saving to Firebase...');
       const newProductRef = push(productsRef);
@@ -349,7 +373,7 @@ const AddProductScreen = () => {
       console.log('✅ Product saved successfully:', productData.productName);
 
       // ========================================
-      // 13. SUCCESS FEEDBACK
+      // 14. SUCCESS FEEDBACK
       // ========================================
       Alert.alert('Success', 'Product added successfully!', [
         { text: 'OK', onPress: () => router.back() }

@@ -206,13 +206,7 @@ const StoreProductScreen = () => {
           status: data[key].status || 'available', // Default to available if not set
         }));
         setProducts(productsList);
-
-        if (selectedCategoryFilter) {
-          const filtered = productsList.filter(product => product.category === selectedCategoryFilter);
-          setFilteredProducts(filtered);
-        } else {
-          setFilteredProducts(productsList);
-        }
+        // Filtering is now handled by the useEffect that watches products and selectedCategoryFilter
       } else {
         setProducts([]);
         setFilteredProducts([]);
@@ -231,7 +225,12 @@ const StoreProductScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedCategoryFilter) {
+    if (selectedCategoryFilter) {
+      // Re-apply the filter when products update
+      const filtered = products.filter(product => product.category === selectedCategoryFilter);
+      setFilteredProducts(filtered);
+    } else {
+      // Show all products when no filter selected
       setFilteredProducts(products);
     }
   }, [products, selectedCategoryFilter]);
@@ -240,7 +239,8 @@ const StoreProductScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      {/* Fixed Header */}
+      <View style={styles.headerContainer}>
         {/* Back Button - Figma: x: 20, y: 79, width: 30, height: 30 */}
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <Image
@@ -251,7 +251,9 @@ const StoreProductScreen = () => {
 
         {/* Title - Figma: x: 154, y: 83, font: Clash Grotesk 600, size: 20 */}
         <Text style={styles.title}>Store Product</Text>
+      </View>
 
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Add Product Card - Figma: x: 20, y: 149, width: 400, height: 80 */}
         <TouchableOpacity style={styles.addProductCard} onPress={handleAddProduct} activeOpacity={0.7}>
           <View style={styles.addProductLeft}>
@@ -484,9 +486,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F6F6', // Figma: #F4F6F6
   },
 
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: vs(100),
+  // Fixed Header Container
+  headerContainer: {
+    backgroundColor: '#F4F6F6',
+    paddingTop: vs(79),
+    paddingBottom: vs(20),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Back Button - Figma: x: 20, y: 79, width: 30, height: 30
@@ -515,23 +521,22 @@ const styles = StyleSheet.create({
 
   // Title - Figma: x: 154, y: 83, font: Clash Grotesk 600, size: 20
   title: {
-    position: 'absolute',
-    left: s(154),
-    top: vs(83),
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(20),
     lineHeight: vs(22),
     color: Colors.darkGray,
-    zIndex: 5,
+  },
+
+  scrollContent: {
+    paddingHorizontal: s(20),
+    paddingTop: vs(30),
+    paddingBottom: vs(100),
   },
 
   // Add Product Card - Figma: x: 20, y: 149, width: 400, height: 80
   addProductCard: {
-    position: 'absolute',
-    left: s(20),
-    top: vs(149),
-    width: s(400),
+    width: '100%',
     height: vs(80),
     backgroundColor: Colors.white,
     borderRadius: s(16),
@@ -582,22 +587,20 @@ const styles = StyleSheet.create({
 
   // Categories Label - Figma: x: 23, y: 249, font: Clash Grotesk 600, size: 20
   categoriesLabel: {
-    position: 'absolute',
-    left: s(23),
-    top: vs(249),
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(20),
     lineHeight: vs(22),
     color: Colors.darkGray,
+    marginTop: vs(30),
+    marginBottom: vs(12),
   },
 
   // Categories ScrollView - Figma: x: 0, y: 281, height: 139
   categoriesScrollView: {
-    position: 'absolute',
-    top: vs(281),
-    left: 0,
     height: vs(150),
+    marginLeft: s(-20), // Offset the parent padding
+    marginRight: s(-20),
   },
 
   categoriesContent: {
@@ -654,11 +657,8 @@ const styles = StyleSheet.create({
 
   // Products Section - Figma: x: 20, y: 440
   productsSection: {
-    position: 'absolute',
-    top: vs(450),
-    left: s(20),
-    right: s(20),
-    paddingBottom: vs(50),
+    marginTop: vs(20),
+    width: '100%',
   },
 
   loadingText: {
@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
 
   // Product Card - Figma: width: 400, height: 150
   productCard: {
-    width: s(400),
+    width: '100%',
     backgroundColor: Colors.white,
     borderRadius: s(16),
     marginBottom: vs(20),

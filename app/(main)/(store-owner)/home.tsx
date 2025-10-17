@@ -16,8 +16,8 @@ export default function StoreHomeScreen() {
   const [storeData, setStoreData] = useState({
     storeName: 'Store Owner',
     ownerName: 'Owner',
-    storeAddress: 'Jacinto Street',
-    city: 'Davao City',
+    storeAddress: 'Address',
+    city: 'City',
     logo: null as string | null,
   });
   const [loading, setLoading] = useState(true);
@@ -42,8 +42,8 @@ export default function StoreHomeScreen() {
             setStoreData({
               storeName: businessInfo.storeName || 'Store Owner',
               ownerName: personalInfo.name || 'Owner',
-              storeAddress: businessInfo.address || 'Jacinto Street',
-              city: businessInfo.city || 'Davao City',
+              storeAddress: businessInfo.address || 'Address',
+              city: businessInfo.city || 'City',
               logo: businessInfo.logo || null,
             });
 
@@ -159,10 +159,7 @@ export default function StoreHomeScreen() {
           <View style={styles.locationSection}>
             <Typography style={styles.currentLocationLabel}>Current Location</Typography>
             <Typography style={styles.locationText}>
-              {loading
-                ? 'Jacinto Street, Davao City'
-                : `${storeData.storeAddress}, ${storeData.city}`
-              }
+              {`${storeData.storeAddress}, ${storeData.city}`}
             </Typography>
           </View>
         </View>

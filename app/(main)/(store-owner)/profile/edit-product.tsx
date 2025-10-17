@@ -318,7 +318,26 @@ const EditProductScreen = () => {
       }
 
       // ========================================
-      // 9. FORMAT DATA
+      // 9. FETCH STORE INFO
+      // ========================================
+      console.log('📍 Fetching store information...');
+      const storeRef = ref(database, `stores/${currentUser.uid}`);
+      const storeSnapshot = await get(storeRef);
+
+      let storeName = 'My Store';
+      let storeOwnerName = 'Store Owner';
+
+      if (storeSnapshot.exists()) {
+        const storeData = storeSnapshot.val();
+        storeName = storeData.storeName || storeData.businessInfo?.storeName || 'My Store';
+        storeOwnerName = storeData.ownerName || storeData.personalInfo?.fullName || 'Store Owner';
+        console.log('✅ Store info fetched:', storeName, '-', storeOwnerName);
+      } else {
+        console.log('⚠️ Store not found, using defaults');
+      }
+
+      // ========================================
+      // 10. FORMAT DATA
       // ========================================
       const formattedProductName = formatProductName(productName);
       const formattedPrice = formatPrice(priceNum);
@@ -330,7 +349,7 @@ const EditProductScreen = () => {
       console.log('  - Quantity:', formattedQuantity);
 
       // ========================================
-      // 10. PREPARE UPDATE DATA
+      // 11. PREPARE UPDATE DATA
       // ========================================
       const updateData = {
         productName: formattedProductName,
@@ -341,11 +360,16 @@ const EditProductScreen = () => {
         productSize: productSize.trim(),
         unit: selectedUnit,
         productImage: selectedImage,
+        storeId: currentUser.uid,
+        storeName: storeName,
+        storeOwnerName: storeOwnerName,
         updatedAt: new Date().toISOString(),
       };
 
+      console.log('🏪 Store Info:', storeName, 'by', storeOwnerName);
+
       // ========================================
-      // 11. UPDATE IN FIREBASE
+      // 12. UPDATE IN FIREBASE
       // ========================================
       console.log('💾 Updating product in Firebase...');
       const productRef = ref(database, `products/${productId}`);
@@ -354,7 +378,7 @@ const EditProductScreen = () => {
       console.log('✅ Product updated successfully:', updateData.productName);
 
       // ========================================
-      // 12. SUCCESS FEEDBACK
+      // 13. SUCCESS FEEDBACK
       // ========================================
       Alert.alert('Success', 'Product updated successfully!', [
         { text: 'OK', onPress: () => router.back() }
