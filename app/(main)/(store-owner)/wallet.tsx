@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
 
   header: {
     paddingHorizontal: s(20),
-    paddingTop: vs(20),
+    paddingTop: vs(60), // Increased padding for better visibility under status bar
     paddingBottom: vs(30),
   },
 

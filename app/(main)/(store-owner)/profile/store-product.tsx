@@ -1,3 +1,18 @@
+/**
+ * STORE PRODUCT SCREEN - Store owner product management with toggle status
+ *
+ * Figma File: 8I1Nr3vQZllDDknSevstvH
+ * Node: 903:4611 (Store Product)
+ * Baseline: 440x956
+ *
+ * Features:
+ * - Product listing with category filtering
+ * - Available/Out of Stock toggle per product
+ * - Real-time Firebase integration
+ * - Product details modal
+ * - Add product navigation
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,9 +23,11 @@ import {
   Image,
   StatusBar,
   Modal,
+  Switch,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, onValue, query, orderByChild, equalTo, update } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
@@ -20,7 +37,7 @@ interface CategoryItem {
   id: string;
   name: string;
   image: any;
-  width: number; // Category name width for text alignment
+  width: number;
 }
 
 interface Product {
@@ -32,82 +49,82 @@ interface Product {
   quantity: number;
   productSize: string;
   unit: string;
-  productImage: string; // Base64 string
+  productImage: string;
   storeOwnerId: string;
   createdAt: string;
-  status: string;
+  status: 'available' | 'out_of_stock';
 }
 
 const StoreProductScreen = () => {
-  // State for products
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductDetails, setShowProductDetails] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
-  // Product categories - Matching customer side with proper 10 categories
+  // Categories - Figma: x: 0, y: 281, horizontal scroll
   const categories: CategoryItem[] = [
     {
       id: '1',
-      name: 'Fruits &\nVegetables',
-      image: require('../../../../src/assets/images/customer-categories/fruits-vegetables.png'),
-      width: 70,
+      name: 'Fruits & Vegetables',
+      image: require('../../../../src/assets/images/store-product/fruits-vegetables.png'),
+      width: 80,
     },
     {
       id: '2',
-      name: 'Dairy &\nBakery',
-      image: require('../../../../src/assets/images/customer-categories/dairy-bakery.png'),
-      width: 46,
+      name: 'Dairy & Bakery',
+      image: require('../../../../src/assets/images/store-product/dairy-bakery.png'),
+      width: 80,
     },
     {
       id: '3',
-      name: 'Snacks &\nSweets',
-      image: require('../../../../src/assets/images/customer-categories/snacks.png'),
-      width: 58,
+      name: 'Snacks & Sweets',
+      image: require('../../../../src/assets/images/store-product/snacks.png'),
+      width: 80,
     },
     {
       id: '4',
       name: 'Beverages',
-      image: require('../../../../src/assets/images/customer-categories/beverages.png'),
-      width: 67,
+      image: require('../../../../src/assets/images/store-product/beverages.png'),
+      width: 80,
     },
     {
       id: '5',
-      name: 'Personal &\nBaby Care',
-      image: require('../../../../src/assets/images/customer-categories/personal-baby-care.png'),
-      width: 58,
+      name: 'Personal & Baby Care',
+      image: require('../../../../src/assets/images/store-product/personal-care.png'),
+      width: 80,
     },
     {
       id: '6',
-      name: 'Home &\nKitchen',
-      image: require('../../../../src/assets/images/customer-categories/home-kitchen.png'),
-      width: 46,
+      name: 'Home & Kitchen',
+      image: require('../../../../src/assets/images/store-product/home-kitchen.png'),
+      width: 80,
     },
     {
       id: '7',
-      name: 'Staple\nFoods',
-      image: require('../../../../src/assets/images/customer-categories/staple-foods.png'),
-      width: 46,
+      name: 'Staple Foods',
+      image: require('../../../../src/assets/images/store-product/staple-foods.png'),
+      width: 80,
     },
     {
       id: '8',
-      name: 'Condiments &\nCooking',
-      image: require('../../../../src/assets/images/customer-categories/condiments-cooking.png'),
-      width: 67,
+      name: 'Condiments & Cooking',
+      image: require('../../../../src/assets/images/store-product/condiments-cooking.png'),
+      width: 100,
     },
     {
       id: '9',
-      name: 'Frozen\nGoods',
-      image: require('../../../../src/assets/images/customer-categories/frozen-goods.png'),
-      width: 46,
+      name: 'Frozen Goods',
+      image: require('../../../../src/assets/images/store-product/frozen-goods.png'),
+      width: 80,
     },
     {
       id: '10',
-      name: 'Miscellaneous &\nOthers',
-      image: require('../../../../src/assets/images/customer-categories/miscellaneous.png'),
-      width: 85,
+      name: 'Miscellaneous & Others',
+      image: require('../../../../src/assets/images/store-product/miscellaneous.png'),
+      width: 110,
     },
   ];
 
@@ -119,19 +136,20 @@ const StoreProductScreen = () => {
     router.push('/(main)/(store-owner)/profile/add-product');
   };
 
+  const handleEditProduct = (product: Product) => {
+    router.push({
+      pathname: '/(main)/(store-owner)/profile/edit-product',
+      params: { productId: product.id }
+    });
+  };
+
   const handleCategoryPress = (categoryId: string, categoryName: string) => {
-    console.log(`Category pressed: ${categoryName}`);
-
-    const mappedCategory = categoryMapping[categoryName] || categoryName;
-
-    if (selectedCategoryFilter === mappedCategory) {
-      // If same category clicked, clear filter (show all)
+    if (selectedCategoryFilter === categoryName) {
       setSelectedCategoryFilter(null);
       setFilteredProducts(products);
     } else {
-      // Filter products by selected category
-      setSelectedCategoryFilter(mappedCategory);
-      const filtered = products.filter(product => product.category === mappedCategory);
+      setSelectedCategoryFilter(categoryName);
+      const filtered = products.filter(product => product.category === categoryName);
       setFilteredProducts(filtered);
     }
   };
@@ -146,6 +164,24 @@ const StoreProductScreen = () => {
     setSelectedProduct(null);
   };
 
+  // Toggle product availability status
+  const handleToggleStatus = async (productId: string, currentStatus: string) => {
+    try {
+      setUpdatingStatus(productId);
+      const newStatus = currentStatus === 'available' ? 'out_of_stock' : 'available';
+
+      const productRef = ref(database, `products/${productId}`);
+      await update(productRef, { status: newStatus });
+
+      console.log(`Product ${productId} status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      Alert.alert('Error', 'Failed to update product status. Please try again.');
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
   // Fetch products from Firebase
   const fetchProducts = () => {
     const currentUser = auth.currentUser;
@@ -154,7 +190,6 @@ const StoreProductScreen = () => {
       return;
     }
 
-    // Query products for current store owner
     const productsRef = ref(database, 'products');
     const userProductsQuery = query(
       productsRef,
@@ -167,10 +202,11 @@ const StoreProductScreen = () => {
       if (data) {
         const productsList: Product[] = Object.keys(data).map(key => ({
           id: key,
-          ...data[key]
+          ...data[key],
+          status: data[key].status || 'available', // Default to available if not set
         }));
         setProducts(productsList);
-        // Update filtered products based on current filter
+
         if (selectedCategoryFilter) {
           const filtered = productsList.filter(product => product.category === selectedCategoryFilter);
           setFilteredProducts(filtered);
@@ -187,7 +223,6 @@ const StoreProductScreen = () => {
     return unsubscribe;
   };
 
-  // Fetch products on component mount
   useEffect(() => {
     const unsubscribe = fetchProducts();
     return () => {
@@ -195,30 +230,15 @@ const StoreProductScreen = () => {
     };
   }, []);
 
-  // Initialize filtered products when products change
   useEffect(() => {
     if (!selectedCategoryFilter) {
       setFilteredProducts(products);
     }
   }, [products, selectedCategoryFilter]);
 
-  // Map category names to match product categories
-  const categoryMapping: { [key: string]: string } = {
-    'Fruits &\nVegetables': 'Fruits & Vegetables',
-    'Dairy &\nBakery': 'Dairy & Bakery',
-    'Snacks &\nSweets': 'Snacks & Sweets',
-    'Beverages': 'Beverages',
-    'Personal &\nBaby Care': 'Personal & Baby Care',
-    'Home &\nKitchen': 'Home & Kitchen',
-    'Staple\nFoods': 'Staple Foods',
-    'Condiments &\nCooking': 'Condiments & Cooking',
-    'Frozen\nGoods': 'Frozen Goods',
-    'Miscellaneous &\nOthers': 'Miscellaneous & Others',
-  };
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
+      <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Back Button - Figma: x: 20, y: 79, width: 30, height: 30 */}
@@ -229,117 +249,147 @@ const StoreProductScreen = () => {
           />
         </TouchableOpacity>
 
-        {/* Title - Figma: x: 20, y: 149, font: Clash Grotesk 600, size: 24 */}
+        {/* Title - Figma: x: 154, y: 83, font: Clash Grotesk 600, size: 20 */}
         <Text style={styles.title}>Store Product</Text>
 
-        {/* Add Product Card - Figma: x: 20, y: 199, width: 400, height: 80 */}
+        {/* Add Product Card - Figma: x: 20, y: 149, width: 400, height: 80 */}
         <TouchableOpacity style={styles.addProductCard} onPress={handleAddProduct} activeOpacity={0.7}>
           <View style={styles.addProductLeft}>
-            {/* Add Icon - Figma: x: 35, y: 219, width: 40, height: 40 */}
-            <View style={styles.addIconContainer}>
+            {/* Logo Container - Figma: x: 35, y: 164, width: 50, height: 50 */}
+            <View style={styles.logoContainer}>
               <Image
                 source={require('../../../../src/assets/images/store-product/add-new-icon.png')}
                 style={styles.addIcon}
               />
             </View>
-            {/* Add Product Text - Figma: x: 95, y: 227, font: Clash Grotesk 500, size: 18 */}
+            {/* Add Product Text - Figma: x: 100, y: 178, font: Clash Grotesk 500, size: 18 */}
             <Text style={styles.addProductText}>Add Product</Text>
           </View>
-          {/* Forward Arrow - Figma: x: 375, y: 224, width: 30, height: 30 */}
+          {/* Forward Arrow - Figma: x: 375, y: 174, width: 30, height: 30 */}
           <Image
             source={require('../../../../src/assets/images/store-product/forward-arrow.png')}
             style={styles.forwardArrow}
           />
         </TouchableOpacity>
 
-        {/* Categories Section Title - Figma: x: 20, y: 299, font: Clash Grotesk 600, size: 24 */}
-        <Text style={styles.categoriesTitle}>Categories</Text>
+        {/* Categories Label - Figma: x: 23, y: 249, font: Clash Grotesk 600, size: 20 */}
+        <Text style={styles.categoriesLabel}>Product Categories</Text>
 
-        {/* Categories Horizontal ScrollView - Figma: x: 20, y: 349, height: 141 */}
+        {/* Categories ScrollView - Figma: x: 0, y: 281, height: 139 */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesContainer}
           style={styles.categoriesScrollView}
+          contentContainerStyle={styles.categoriesContent}
         >
           {categories.map((category, index) => (
-            <View
-              key={category.id}
-              style={[
-                styles.categoryItem,
-                { marginRight: index === categories.length - 1 ? s(20) : s(20) } // Figma: 20px spacing
-              ]}
-            >
-              {/* Category Card with Icon */}
+            <View key={category.id} style={styles.categoryItem}>
+              {/* Category Card - Figma: width: 80, height: 80 */}
               <TouchableOpacity
                 style={[
                   styles.categoryCard,
-                  selectedCategoryFilter === (categoryMapping[category.name] || category.name) && styles.selectedCategoryCard
+                  selectedCategoryFilter === category.name && styles.selectedCategoryCard
                 ]}
                 onPress={() => handleCategoryPress(category.id, category.name)}
                 activeOpacity={0.7}
               >
-                {/* Category Icon - Figma: width: 50, height: 50, centered in 80x80 card */}
+                {/* Category Icon - Figma: width: 50, height: 50 */}
                 <Image source={category.image} style={styles.categoryIcon} />
               </TouchableOpacity>
 
-              {/* Category Name - Figma: various widths, font: Clash Grotesk 500, size: 12 */}
-              <Text style={[styles.categoryText, { width: s(category.width) }]}>
+              {/* Category Text - Figma: font: Clash Grotesk 500, size: 14 */}
+              <Text style={styles.categoryText} numberOfLines={2}>
                 {category.name}
               </Text>
             </View>
           ))}
         </ScrollView>
 
-        {/* Your Products Section */}
-        <Text style={styles.productsTitle}>Your Products</Text>
+        {/* Products Section - Figma: x: 20, y: 440, width: 400 */}
+        <View style={styles.productsSection}>
+          {loading ? (
+            <Text style={styles.loadingText}>Loading products...</Text>
+          ) : filteredProducts.length === 0 ? (
+            <View style={styles.noProductsContainer}>
+              <Text style={styles.noProductsText}>
+                {selectedCategoryFilter ? `No products in "${selectedCategoryFilter}"` : 'No products added yet'}
+              </Text>
+              <Text style={styles.noProductsSubtext}>
+                {selectedCategoryFilter ? 'Try selecting a different category' : 'Tap "Add Product" to get started'}
+              </Text>
+            </View>
+          ) : (
+            filteredProducts.map((product) => (
+              <View key={product.id} style={styles.productCard}>
+                {/* Product Card Inner Container */}
+                <View style={styles.productCardContent}>
+                  {/* Product Card - Figma: width: 400, height: 150 */}
+                  <TouchableOpacity
+                    style={styles.productCardInner}
+                    onPress={() => handleProductPress(product)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Product Image - Figma: width: 120, height: 120 */}
+                    <Image
+                      source={{ uri: product.productImage }}
+                      style={styles.productImage}
+                    />
 
-        {loading ? (
-          <Text style={styles.loadingText}>Loading products...</Text>
-        ) : filteredProducts.length === 0 ? (
-          <View style={styles.noProductsContainer}>
-            <Text style={styles.noProductsText}>
-              {selectedCategoryFilter ? `No products found in "${selectedCategoryFilter}"` : 'No products added yet'}
-            </Text>
-            <Text style={styles.noProductsSubtext}>
-              {selectedCategoryFilter ? 'Try selecting a different category' : 'Tap "Add Product" to get started'}
-            </Text>
-          </View>
-        ) : (
-          <ScrollView
-            horizontal={false}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.productsContainer}
-            style={styles.productsScrollView}
-          >
-            {filteredProducts.map((product) => (
-              <TouchableOpacity
-                key={product.id}
-                style={styles.productCard}
-                onPress={() => handleProductPress(product)}
-                activeOpacity={0.7}
-              >
-                {/* Product Image */}
-                <Image
-                  source={{ uri: product.productImage }}
-                  style={styles.productImage}
-                />
+                    {/* Product Info Container */}
+                    <View style={styles.productInfo}>
+                      {/* Product Name - Figma: font: Clash Grotesk 500, size: 18 */}
+                      <Text style={styles.productName} numberOfLines={1}>
+                        {product.productName}
+                      </Text>
 
-                {/* Product Info */}
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName} numberOfLines={2}>
-                    {product.productName}
-                  </Text>
-                  <Text style={styles.productCategory}>{product.category}</Text>
-                  <Text style={styles.productPrice}>₱{product.price.toFixed(2)}</Text>
-                  <Text style={styles.productDetails}>
-                    {product.productSize} {product.unit} • Qty: {product.quantity}
-                  </Text>
+                      {/* Price - Figma: font: Clash Grotesk 500, size: 16, color: #02545F */}
+                      <Text style={styles.productPrice}>₱{product.price.toFixed(0)}</Text>
+
+                      {/* Description - Figma: font: Clash Grotesk 500, size: 14 */}
+                      <Text style={styles.productDescription} numberOfLines={2}>
+                        {product.description || `${product.productSize} ${product.unit}`}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Edit Button - Top right corner of card */}
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => handleEditProduct(product)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.editButtonText}>✎</Text>
+                  </TouchableOpacity>
+
+                  {/* Divider Line - Figma: stroke: #02545F, width: 2 */}
+                  <View style={styles.dividerLine} />
+
+                  {/* Bottom Row: Status Label and Toggle (inside card) */}
+                  <View style={styles.bottomRow}>
+                    {/* Status Label */}
+                    <Text style={[
+                      styles.statusLabel,
+                      product.status === 'out_of_stock' && styles.statusLabelOutOfStock
+                    ]}>
+                      {product.status === 'available' ? 'Available' : 'Out of Stock'}
+                    </Text>
+
+                    {/* Toggle Switch */}
+                    <Switch
+                      value={product.status === 'available'}
+                      onValueChange={() => handleToggleStatus(product.id, product.status)}
+                      trackColor={{ false: 'rgba(59, 183, 126, 0.3)', true: Colors.primary }}
+                      thumbColor={Colors.white}
+                      ios_backgroundColor="rgba(59, 183, 126, 0.3)"
+                      disabled={updatingStatus === product.id}
+                      style={styles.switch}
+                    />
+                  </View>
                 </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
+              </View>
+            ))
+          )}
+        </View>
       </ScrollView>
 
       {/* Product Details Modal */}
@@ -352,7 +402,6 @@ const StoreProductScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.productDetailsModal}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Close Button */}
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={handleCloseProductDetails}
@@ -363,30 +412,34 @@ const StoreProductScreen = () => {
 
               {selectedProduct && (
                 <>
-                  {/* Product Image */}
                   <Image
                     source={{ uri: selectedProduct.productImage }}
                     style={styles.detailsProductImage}
                   />
 
-                  {/* Product Information */}
                   <View style={styles.detailsContent}>
-                    {/* Product Name */}
                     <Text style={styles.detailsProductName}>
                       {selectedProduct.productName}
                     </Text>
 
-                    {/* Category */}
                     <Text style={styles.detailsCategory}>
                       {selectedProduct.category}
                     </Text>
 
-                    {/* Price */}
                     <Text style={styles.detailsPrice}>
                       ₱{selectedProduct.price.toFixed(2)}
                     </Text>
 
-                    {/* Size and Unit */}
+                    <View style={styles.detailsRow}>
+                      <Text style={styles.detailsLabel}>Status:</Text>
+                      <Text style={[
+                        styles.detailsValue,
+                        { color: selectedProduct.status === 'available' ? Colors.primary : Colors.textSecondary }
+                      ]}>
+                        {selectedProduct.status === 'available' ? 'Available' : 'Out of Stock'}
+                      </Text>
+                    </View>
+
                     <View style={styles.detailsRow}>
                       <Text style={styles.detailsLabel}>Size:</Text>
                       <Text style={styles.detailsValue}>
@@ -394,7 +447,6 @@ const StoreProductScreen = () => {
                       </Text>
                     </View>
 
-                    {/* Quantity */}
                     <View style={styles.detailsRow}>
                       <Text style={styles.detailsLabel}>Quantity:</Text>
                       <Text style={styles.detailsValue}>
@@ -402,7 +454,6 @@ const StoreProductScreen = () => {
                       </Text>
                     </View>
 
-                    {/* Description */}
                     <View style={styles.descriptionSection}>
                       <Text style={styles.detailsLabel}>Description:</Text>
                       <Text style={styles.detailsDescription}>
@@ -410,7 +461,6 @@ const StoreProductScreen = () => {
                       </Text>
                     </View>
 
-                    {/* Created Date */}
                     <View style={styles.detailsRow}>
                       <Text style={styles.detailsLabel}>Added:</Text>
                       <Text style={styles.detailsValue}>
@@ -431,12 +481,12 @@ const StoreProductScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.backgroundGray, // Figma: #F4F6F6
+    backgroundColor: '#F4F6F6', // Figma: #F4F6F6
   },
 
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: vs(50), // Ensure content doesn't get cut off
+    paddingBottom: vs(100),
   },
 
   // Back Button - Figma: x: 20, y: 79, width: 30, height: 30
@@ -450,7 +500,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 4,
@@ -463,23 +513,24 @@ const styles = StyleSheet.create({
     height: vs(15),
   },
 
-  // Title - Figma: x: 20, y: 149, font: Clash Grotesk 600, size: 24
+  // Title - Figma: x: 154, y: 83, font: Clash Grotesk 600, size: 20
   title: {
     position: 'absolute',
-    left: s(20),
-    top: vs(149),
-    fontFamily: 'Clash Grotesk Variable',
+    left: s(154),
+    top: vs(83),
+    fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(24),
-    lineHeight: vs(29),
+    fontSize: ms(20),
+    lineHeight: vs(22),
     color: Colors.darkGray,
+    zIndex: 5,
   },
 
-  // Add Product Card - Figma: x: 20, y: 199, width: 400, height: 80
+  // Add Product Card - Figma: x: 20, y: 149, width: 400, height: 80
   addProductCard: {
     position: 'absolute',
     left: s(20),
-    top: vs(199),
+    top: vs(149),
     width: s(400),
     height: vs(80),
     backgroundColor: Colors.white,
@@ -488,7 +539,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: s(15),
-    shadowColor: Colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 5,
@@ -498,69 +549,66 @@ const styles = StyleSheet.create({
   addProductLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
 
-  // Add Icon Container - Figma: x: 35, y: 219 (relative: x: 15, y: 20), width: 40, height: 40
-  addIconContainer: {
-    width: s(40),
-    height: vs(40),
-    borderRadius: s(20),
-    backgroundColor: Colors.primary,
+  // Logo Container - Figma: x: 35, y: 164 (relative: x: 15, y: 15), width: 50, height: 50
+  logoContainer: {
+    width: s(50),
+    height: vs(50),
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   addIcon: {
-    width: s(20),
-    height: vs(20),
+    width: s(30),
+    height: vs(30),
   },
 
-  // Add Product Text - Figma: x: 95, y: 227 (relative: x: 75, y: 28), font: Clash Grotesk 500, size: 18
+  // Add Product Text - Figma: x: 100, y: 178 (relative: x: 80, y: 29), font: Clash Grotesk 500, size: 18
   addProductText: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '500',
     fontSize: ms(18),
     lineHeight: vs(22),
     color: Colors.darkGray,
-    marginLeft: s(20),
+    marginLeft: s(15),
   },
 
-  // Forward Arrow - Figma: x: 375, y: 224 (relative: x: 355, y: 25), width: 30, height: 30
+  // Forward Arrow - Figma: x: 375, y: 174 (relative), width: 30, height: 30
   forwardArrow: {
     width: s(30),
     height: vs(30),
   },
 
-  // Categories Title - Figma: x: 20, y: 299, font: Clash Grotesk 600, size: 24
-  categoriesTitle: {
+  // Categories Label - Figma: x: 23, y: 249, font: Clash Grotesk 600, size: 20
+  categoriesLabel: {
     position: 'absolute',
-    left: s(20),
-    top: vs(299),
-    fontFamily: 'Clash Grotesk Variable',
+    left: s(23),
+    top: vs(249),
+    fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(24),
-    lineHeight: vs(29),
+    fontSize: ms(20),
+    lineHeight: vs(22),
     color: Colors.darkGray,
   },
 
-  // Categories ScrollView - Figma: x: 20, y: 349, height: 141 (increased for text space)
+  // Categories ScrollView - Figma: x: 0, y: 281, height: 139
   categoriesScrollView: {
     position: 'absolute',
-    top: vs(349),
-    left: s(0),
-    height: vs(180), // Increased height to accommodate text below cards
+    top: vs(281),
+    left: 0,
+    height: vs(150),
   },
 
-  categoriesContainer: {
+  categoriesContent: {
     paddingLeft: s(20),
-    alignItems: 'flex-start',
+    paddingRight: s(20),
+    gap: s(20),
   },
 
-  // Category Item Container - holds card + text
   categoryItem: {
     alignItems: 'center',
-    width: s(80),
+    marginBottom: vs(10),
   },
 
   // Category Card - Figma: width: 80, height: 80
@@ -571,76 +619,65 @@ const styles = StyleSheet.create({
     borderRadius: s(16),
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 5,
     elevation: 5,
-    marginBottom: vs(8), // Small space between card and text
+    marginBottom: vs(8),
   },
 
-  // Selected Category Card - Visual feedback for active filter
   selectedCategoryCard: {
-    backgroundColor: Colors.primary, // Green background when selected
+    backgroundColor: Colors.lightGreen,
     borderWidth: 2,
     borderColor: Colors.primary,
   },
 
-  // Category Icon - Figma: width: 50, height: 50 (centered in 80x80 card)
+  // Category Icon - Figma: width: 50, height: 50
   categoryIcon: {
     width: s(50),
     height: vs(50),
-    marginBottom: vs(5),
   },
 
-  // Category Text - Figma: various widths, font: Clash Grotesk 500, size: 12
+  // Category Text - Figma: font: Clash Grotesk 500, size: 14
   categoryText: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '500',
-    fontSize: ms(12),
-    lineHeight: vs(14), // Reduced line height for tighter text
+    fontSize: ms(11),
+    lineHeight: vs(14),
     color: Colors.darkGray,
     textAlign: 'center',
-    marginTop: vs(4), // Small margin for spacing from card
+    width: s(85),
+    paddingHorizontal: s(2),
+    minHeight: vs(28),
   },
 
-  // Products Section Styles
-  productsTitle: {
+  // Products Section - Figma: x: 20, y: 440
+  productsSection: {
     position: 'absolute',
-    top: vs(500), // Moved up further from 520 to 500 (20px higher)
+    top: vs(450),
     left: s(20),
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '600',
-    fontSize: ms(24),
-    lineHeight: vs(29),
-    color: Colors.darkGray,
-    marginBottom: vs(20),
+    right: s(20),
+    paddingBottom: vs(50),
   },
 
   loadingText: {
-    position: 'absolute',
-    top: vs(550), // Adjusted to match new title position (500 + 50)
-    left: s(0),
-    right: s(0),
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '500',
     fontSize: ms(16),
     color: Colors.textSecondary,
     textAlign: 'center',
+    marginTop: vs(40),
   },
 
   noProductsContainer: {
-    position: 'absolute',
-    top: vs(530), // Adjusted to match new positioning
-    left: s(0),
-    right: s(0),
     alignItems: 'center',
     paddingVertical: vs(40),
     paddingHorizontal: s(40),
   },
 
   noProductsText: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(18),
     color: Colors.textSecondary,
@@ -649,45 +686,42 @@ const styles = StyleSheet.create({
   },
 
   noProductsSubtext: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '400',
     fontSize: ms(14),
     color: Colors.textSecondary,
     textAlign: 'center',
   },
 
-  productsScrollView: {
-    position: 'absolute',
-    top: vs(550), // Adjusted to match new title position (500 + 50)
-    left: s(0),
-    right: s(0),
-    bottom: vs(0),
-    paddingHorizontal: s(20),
-  },
-
-  productsContainer: {
-    paddingBottom: vs(100), // Space for bottom content
-  },
-
+  // Product Card - Figma: width: 400, height: 150
   productCard: {
-    flexDirection: 'row',
+    width: s(400),
     backgroundColor: Colors.white,
     borderRadius: s(16),
-    padding: s(15),
-    marginBottom: vs(15),
-    shadowColor: Colors.shadow,
+    marginBottom: vs(20),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 5,
     elevation: 5,
+    overflow: 'hidden',
   },
 
+  productCardContent: {
+    width: '100%',
+  },
+
+  productCardInner: {
+    flexDirection: 'row',
+    padding: s(15),
+    gap: s(22),
+  },
+
+  // Product Image - Figma: width: 120, height: 120
   productImage: {
-    width: s(80),
-    height: vs(80),
-    borderRadius: s(12),
-    marginRight: s(15),
-    resizeMode: 'cover',
+    width: s(120),
+    height: vs(120),
+    borderRadius: s(16),
   },
 
   productInfo: {
@@ -695,42 +729,96 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
+  // Product Name - Figma: font: Clash Grotesk 500, size: 18
   productName: {
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '600',
-    fontSize: ms(16),
-    lineHeight: vs(20),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(18),
+    lineHeight: vs(22),
     color: Colors.darkGray,
     marginBottom: vs(4),
   },
 
-  productCategory: {
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '400',
-    fontSize: ms(12),
-    lineHeight: vs(14),
-    color: Colors.textSecondary,
-    marginBottom: vs(8),
-  },
-
+  // Price - Figma: font: Clash Grotesk 500, size: 16, color: #02545F
   productPrice: {
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '700',
-    fontSize: ms(18),
-    lineHeight: vs(22),
-    color: Colors.primary,
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(17),
+    lineHeight: vs(20),
+    color: '#02545F',
     marginBottom: vs(4),
   },
 
-  productDetails: {
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '400',
-    fontSize: ms(12),
-    lineHeight: vs(14),
+  // Description - Figma: font: Clash Grotesk 500, size: 14
+  productDescription: {
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(14),
+    lineHeight: vs(17),
+    color: 'rgba(30, 30, 30, 0.5)',
+    marginTop: vs(4),
+  },
+
+  // Divider Line - Figma: stroke: #02545F, width: 2
+  dividerLine: {
+    height: 2,
+    backgroundColor: '#02545F',
+    marginHorizontal: s(15),
+    marginTop: vs(8),
+  },
+
+  // Bottom Row - Contains status label and toggle (inside card, below divider)
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: s(15),
+    paddingVertical: vs(12),
+  },
+
+  // Status Label - Left side text
+  statusLabel: {
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(15),
+    lineHeight: vs(20),
+    color: Colors.primary,
+  },
+
+  statusLabelOutOfStock: {
     color: Colors.textSecondary,
   },
 
-  // Product Details Modal Styles
+  switch: {
+    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
+  },
+
+  // Edit Button - Top right corner of card
+  editButton: {
+    position: 'absolute',
+    top: s(10),
+    right: s(10),
+    width: s(34),
+    height: s(34),
+    borderRadius: s(17),
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 5,
+  },
+
+  editButtonText: {
+    fontSize: ms(18),
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -783,7 +871,7 @@ const styles = StyleSheet.create({
   },
 
   detailsProductName: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(24),
     lineHeight: vs(28),
@@ -792,7 +880,7 @@ const styles = StyleSheet.create({
   },
 
   detailsCategory: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '500',
     fontSize: ms(14),
     lineHeight: vs(16),
@@ -801,7 +889,7 @@ const styles = StyleSheet.create({
   },
 
   detailsPrice: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(28),
     lineHeight: vs(32),
@@ -820,7 +908,7 @@ const styles = StyleSheet.create({
   },
 
   detailsLabel: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(16),
     lineHeight: vs(18),
@@ -828,7 +916,7 @@ const styles = StyleSheet.create({
   },
 
   detailsValue: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '500',
     fontSize: ms(16),
     lineHeight: vs(18),
@@ -841,7 +929,7 @@ const styles = StyleSheet.create({
   },
 
   detailsDescription: {
-    fontFamily: 'Clash Grotesk Variable',
+    fontFamily: Fonts.primary,
     fontWeight: '400',
     fontSize: ms(16),
     lineHeight: vs(22),

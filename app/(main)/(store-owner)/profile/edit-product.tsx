@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import React, { useState, useCallback } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Alert,
   Image,
@@ -11,10 +11,11 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-import { ref, push, set, query, orderByChild, equalTo, get } from 'firebase/database';
+import { ref, get, update } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
@@ -25,7 +26,10 @@ interface CategoryItem {
   name: string;
 }
 
-const AddProductScreen = () => {
+const EditProductScreen = () => {
+  const params = useLocalSearchParams();
+  const productId = params.productId as string;
+
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -37,6 +41,7 @@ const AddProductScreen = () => {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Helper function: Format product name (Capitalize first letter of each word)
   const formatProductName = (name: string): string => {
@@ -104,6 +109,44 @@ const AddProductScreen = () => {
     { id: '12', name: 'cm' },
   ];
 
+  // Fetch existing product data
+  useEffect(() => {
+    const fetchProductData = async () => {
+      try {
+        const productRef = ref(database, `products/${productId}`);
+        const snapshot = await get(productRef);
+
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          setProductName(data.productName || '');
+          setDescription(data.description || '');
+          setSelectedCategory(data.category || '');
+          setPrice(data.price?.toString() || '');
+          setQuantity(data.quantity?.toString() || '');
+          setProductSize(data.productSize || '');
+          setSelectedUnit(data.unit || '');
+          setSelectedImage(data.productImage || null);
+        } else {
+          Alert.alert('Error', 'Product not found');
+          router.back();
+        }
+      } catch (error) {
+        console.error('Error fetching product:', error);
+        Alert.alert('Error', 'Failed to load product data');
+        router.back();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (productId) {
+      fetchProductData();
+    } else {
+      Alert.alert('Error', 'No product ID provided');
+      router.back();
+    }
+  }, [productId]);
+
   const handleBack = () => {
     router.back();
   };
@@ -120,10 +163,10 @@ const AddProductScreen = () => {
 
       // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'], // Modern syntax: array of strings (lowercase)
+        mediaTypes: ['images'],
         allowsEditing: true,
-        aspect: [1, 1], // Square aspect ratio for product images
-        quality: 0.8, // Reduce quality to keep Base64 size manageable
+        aspect: [1, 1],
+        quality: 0.8,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -164,7 +207,7 @@ const AddProductScreen = () => {
     setShowUnitDropdown(true);
   };
 
-  const handleAddProduct = async () => {
+  const handleUpdateProduct = async () => {
     // Prevent double-click
     if (isSaving) return;
 
@@ -219,7 +262,6 @@ const AddProductScreen = () => {
         Alert.alert('Error', 'Price cannot exceed ₱999,999');
         return;
       }
-      // Check decimal places
       if (price.includes('.') && price.split('.')[1].length > 2) {
         Alert.alert('Error', 'Price can only have up to 2 decimal places (e.g., ₱12.50)');
         return;
@@ -276,41 +318,7 @@ const AddProductScreen = () => {
       }
 
       // ========================================
-      // 9. DUPLICATE PRODUCT CHECK
-      // ========================================
-      console.log('🔍 Checking for duplicate products...');
-      const productsRef = ref(database, 'products');
-      const storeProductsQuery = query(
-        productsRef,
-        orderByChild('storeOwnerId'),
-        equalTo(currentUser.uid)
-      );
-
-      const snapshot = await get(storeProductsQuery);
-      if (snapshot.exists()) {
-        const existingProducts = snapshot.val();
-        const isDuplicate = Object.values(existingProducts).some((product: any) => {
-          const sameName = product.productName.toLowerCase().trim() === productName.toLowerCase().trim();
-          const sameSize = product.productSize.toLowerCase().trim() === productSize.toLowerCase().trim();
-          const sameUnit = product.unit.toLowerCase() === selectedUnit.toLowerCase();
-
-          return sameName && sameSize && sameUnit;
-        });
-
-        if (isDuplicate) {
-          const formattedName = formatProductName(productName);
-          Alert.alert(
-            'Duplicate Product',
-            `${formattedName} (${productSize}${selectedUnit}) already exists in your inventory.\n\nTo add more stock, go to Store Product and update the existing product.`,
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-      }
-      console.log('✅ No duplicate found - proceeding with save');
-
-      // ========================================
-      // 10. FORMAT DATA
+      // 9. FORMAT DATA
       // ========================================
       const formattedProductName = formatProductName(productName);
       const formattedPrice = formatPrice(priceNum);
@@ -322,9 +330,9 @@ const AddProductScreen = () => {
       console.log('  - Quantity:', formattedQuantity);
 
       // ========================================
-      // 11. PREPARE PRODUCT DATA
+      // 10. PREPARE UPDATE DATA
       // ========================================
-      const productData = {
+      const updateData = {
         productName: formattedProductName,
         description: description.trim(),
         category: selectedCategory,
@@ -332,36 +340,42 @@ const AddProductScreen = () => {
         quantity: formattedQuantity,
         productSize: productSize.trim(),
         unit: selectedUnit,
-        productImage: selectedImage, // Base64 string
-        storeOwnerId: currentUser.uid,
-        createdAt: new Date().toISOString(),
+        productImage: selectedImage,
         updatedAt: new Date().toISOString(),
-        status: 'active'
       };
 
       // ========================================
-      // 12. SAVE TO FIREBASE
+      // 11. UPDATE IN FIREBASE
       // ========================================
-      console.log('💾 Saving to Firebase...');
-      const newProductRef = push(productsRef);
-      await set(newProductRef, productData);
+      console.log('💾 Updating product in Firebase...');
+      const productRef = ref(database, `products/${productId}`);
+      await update(productRef, updateData);
 
-      console.log('✅ Product saved successfully:', productData.productName);
+      console.log('✅ Product updated successfully:', updateData.productName);
 
       // ========================================
-      // 13. SUCCESS FEEDBACK
+      // 12. SUCCESS FEEDBACK
       // ========================================
-      Alert.alert('Success', 'Product added successfully!', [
+      Alert.alert('Success', 'Product updated successfully!', [
         { text: 'OK', onPress: () => router.back() }
       ]);
 
     } catch (error) {
-      console.error('❌ Error adding product:', error);
-      Alert.alert('Error', 'Failed to add product. Please try again.');
+      console.error('❌ Error updating product:', error);
+      Alert.alert('Error', 'Failed to update product. Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Loading product...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -372,7 +386,7 @@ const AddProductScreen = () => {
         contentContainerStyle={styles.scrollContent}
         style={{ flex: 1 }}
       >
-        {/* Back Button - Figma: x: 20, y: 79, width: 30, height: 30 */}
+        {/* Back Button */}
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <Image
             source={require('../../../../src/assets/images/add-product/chevron-left.png')}
@@ -380,35 +394,29 @@ const AddProductScreen = () => {
           />
         </TouchableOpacity>
 
-        {/* Title - Figma: x: 161, y: 83, font: Clash Grotesk 600, size: 20 */}
-        <Text style={styles.title}>Add Product</Text>
+        {/* Title */}
+        <Text style={styles.title}>Edit Product</Text>
 
-        {/* Upload Image Section - Figma: x: 22, y: 145, width: 398, height: 177 */}
+        {/* Upload Image Section */}
         <View style={styles.uploadSection}>
-          {/* Upload Image Label - Figma: x: 24, y: 145, font: Clash Grotesk 500, size: 16 */}
-          <Text style={styles.uploadLabel}>Upload Image</Text>
+          <Text style={styles.uploadLabel}>Product Image</Text>
 
-          {/* Upload Container - Figma: x: 22, y: 172, width: 398, height: 150 */}
           <TouchableOpacity style={styles.uploadContainer} onPress={handleUploadImage} activeOpacity={0.7}>
             {selectedImage ? (
-              /* Selected Image Preview */
               <Image source={{ uri: selectedImage }} style={styles.selectedImagePreview} />
             ) : (
-              /* Upload Placeholder */
               <>
-                {/* Upload Icon - Figma: x: 207, y: 223, width: 25, height: 25 */}
                 <Image
                   source={require('../../../../src/assets/images/add-product/upload-icon.png')}
                   style={styles.uploadIcon}
                 />
-                {/* Upload Text - Figma: x: 172, y: 248, font: Clash Grotesk 400, size: 12 */}
                 <Text style={styles.uploadText}>Upload your photo</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Product Name Section - Figma: x: 20, y: 342, width: 400 */}
+        {/* Product Name Section */}
         <View style={[styles.inputSection, { top: vs(342) }]}>
           <Text style={styles.inputLabel}>Product Name</Text>
           <View style={styles.inputContainer}>
@@ -422,7 +430,7 @@ const AddProductScreen = () => {
           </View>
         </View>
 
-        {/* Description Section - Figma: x: 20, y: 439, width: 400 */}
+        {/* Description Section */}
         <View style={[styles.inputSection, { top: vs(460) }]}>
           <Text style={styles.inputLabel}>Description</Text>
           <View style={[styles.inputContainer, styles.descriptionContainer]}>
@@ -438,14 +446,13 @@ const AddProductScreen = () => {
           </View>
         </View>
 
-        {/* Product Category Section - Figma: x: 20, y: 636, width: 400 */}
+        {/* Product Category Section */}
         <View style={[styles.inputSection, { top: vs(650) }]}>
           <Text style={styles.inputLabel}>Product Category</Text>
           <TouchableOpacity style={styles.categoryContainer} onPress={handleCategoryDropdownOpen} activeOpacity={0.7}>
             <Text style={[styles.categoryText, selectedCategory && { color: Colors.darkGray }]}>
               {selectedCategory || 'Select product category'}
             </Text>
-            {/* Forward Arrow - Figma: width: 30, height: 30 */}
             <Image
               source={require('../../../../src/assets/images/add-product/forward-arrow.png')}
               style={styles.forwardArrow}
@@ -453,9 +460,8 @@ const AddProductScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Price and Quantity Row - Figma: y: 733 */}
+        {/* Price and Quantity Row */}
         <View style={styles.rowContainer}>
-          {/* Price Section - Figma: x: 20, width: 192 */}
           <View style={styles.halfInputSection}>
             <Text style={styles.inputLabel}>Price</Text>
             <View style={styles.halfInputContainer}>
@@ -470,7 +476,6 @@ const AddProductScreen = () => {
             </View>
           </View>
 
-          {/* Quantity Section - Figma: x: 228, width: 192 */}
           <View style={styles.halfInputSection}>
             <Text style={styles.inputLabel}>Quantity</Text>
             <View style={styles.halfInputContainer}>
@@ -488,7 +493,6 @@ const AddProductScreen = () => {
 
         {/* Size and Unit Row */}
         <View style={styles.sizeRowContainer}>
-          {/* Size Section */}
           <View style={styles.halfInputSection}>
             <Text style={styles.inputLabel}>Size</Text>
             <View style={styles.halfInputContainer}>
@@ -503,7 +507,6 @@ const AddProductScreen = () => {
             </View>
           </View>
 
-          {/* Unit Section */}
           <View style={styles.halfInputSection}>
             <Text style={styles.inputLabel}>Unit</Text>
             <TouchableOpacity style={styles.unitContainer} onPress={handleUnitDropdownOpen} activeOpacity={0.7}>
@@ -518,15 +521,15 @@ const AddProductScreen = () => {
           </View>
         </View>
 
-        {/* Add Product Button - Figma: x: 20, y: 850, width: 400, height: 50 */}
+        {/* Update Product Button */}
         <TouchableOpacity
           style={[styles.addButton, isSaving && styles.addButtonDisabled]}
-          onPress={handleAddProduct}
+          onPress={handleUpdateProduct}
           activeOpacity={0.7}
           disabled={isSaving}
         >
           <Text style={styles.addButtonText}>
-            {isSaving ? 'Adding Product...' : 'Add Product'}
+            {isSaving ? 'Updating Product...' : 'Update Product'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -544,7 +547,6 @@ const AddProductScreen = () => {
           onPress={() => setShowCategoryDropdown(false)}
         >
           <View style={styles.dropdownModal}>
-            {/* Close Button */}
             <TouchableOpacity
               style={styles.closeModalButton}
               onPress={() => setShowCategoryDropdown(false)}
@@ -586,7 +588,6 @@ const AddProductScreen = () => {
           onPress={() => setShowUnitDropdown(false)}
         >
           <View style={styles.dropdownModal}>
-            {/* Close Button */}
             <TouchableOpacity
               style={styles.closeModalButton}
               onPress={() => setShowUnitDropdown(false)}
@@ -621,15 +622,28 @@ const AddProductScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.backgroundGray, // Figma: #F4F6F6
+    backgroundColor: Colors.backgroundGray,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.backgroundGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: vs(20),
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    color: Colors.darkGray,
   },
 
   scrollContent: {
-    height: vs(1060), // Increased height for size/unit row
+    height: vs(1060),
     paddingBottom: vs(50),
   },
 
-  // Back Button - Figma: x: 20, y: 79, width: 30, height: 30
   backButton: {
     position: 'absolute',
     left: s(20),
@@ -653,21 +667,19 @@ const styles = StyleSheet.create({
     height: vs(15),
   },
 
-  // Title - Figma: x: 161, y: 83, font: Clash Grotesk 600, size: 20
   title: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: vs(83),
     fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '700', // Bold weight for Add Product title
-    fontSize: ms(20), // Back to original Figma size
-    lineHeight: vs(22), // Back to original line height
+    fontWeight: '700',
+    fontSize: ms(20),
+    lineHeight: vs(22),
     color: Colors.darkGray,
     textAlign: 'center',
   },
 
-  // Upload Section - Figma: x: 22, y: 145, width: 398, height: 177
   uploadSection: {
     position: 'absolute',
     left: s(22),
@@ -676,17 +688,15 @@ const styles = StyleSheet.create({
     height: vs(177),
   },
 
-  // Upload Label - Figma: x: 24, y: 145, font: Clash Grotesk 500, size: 16
   uploadLabel: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
     fontSize: ms(16),
-    lineHeight: vs(22), // 1.375em line height
+    lineHeight: vs(22),
     color: Colors.black,
     marginBottom: vs(5),
   },
 
-  // Upload Container - Figma: x: 22, y: 172, width: 398, height: 150
   uploadContainer: {
     width: s(398),
     height: vs(150),
@@ -701,24 +711,21 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
-  // Upload Icon - Figma: x: 207, y: 223, width: 25, height: 25
   uploadIcon: {
     width: s(25),
     height: vs(25),
     marginBottom: vs(8),
   },
 
-  // Upload Text - Figma: x: 172, y: 248, font: Clash Grotesk 400, size: 12
   uploadText: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.normal,
     fontSize: ms(12),
-    lineHeight: vs(22), // 1.833em line height
+    lineHeight: vs(22),
     color: 'rgba(30, 30, 30, 0.5)',
     textAlign: 'center',
   },
 
-  // Selected Image Preview - Full container size with rounded corners
   selectedImagePreview: {
     width: '100%',
     height: '100%',
@@ -726,24 +733,21 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
 
-  // Input Section - Figma: x: 20, y: 342/439/636, width: 400
   inputSection: {
     position: 'absolute',
     left: s(20),
     width: s(400),
   },
 
-  // Input Label - Font: Clash Grotesk 500, size: 16
   inputLabel: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
     fontSize: ms(16),
     lineHeight: vs(22),
     color: Colors.darkGray,
-    marginBottom: vs(8), // Proper spacing between label and input for better alignment
+    marginBottom: vs(8),
   },
 
-  // Input Container - Figma: borderRadius: 20, stroke: #02545F 2px
   inputContainer: {
     borderWidth: 2,
     borderColor: '#02545F',
@@ -758,29 +762,25 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
-  // Text Input - Font: Clash Grotesk 500, size: 14
   textInput: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
     fontSize: ms(14),
-    lineHeight: vs(22), // 1.571em line height
-    color: '#1E1E1E', // Ensure text is visible when typing
+    lineHeight: vs(22),
+    color: '#1E1E1E',
     textAlignVertical: 'top',
   },
 
-  // Description specific container
   descriptionContainer: {
-    height: vs(146), // Expanded to reach Product Category label (vs(636) - vs(460) - label height)
+    height: vs(146),
   },
 
-  // Description specific input
   descriptionInput: {
-    minHeight: vs(130), // Expanded to fill the larger container
+    minHeight: vs(130),
     textAlignVertical: 'top',
     paddingTop: vs(5),
   },
 
-  // Category Container - Different styling for dropdown
   categoryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -812,31 +812,28 @@ const styles = StyleSheet.create({
     height: vs(30),
   },
 
-  // Row Container for Price and Quantity
   rowContainer: {
     position: 'absolute',
     left: s(20),
-    top: vs(747), // Adjusted for Product Category spacing
+    top: vs(747),
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: s(400),
   },
 
-  // Half Input Section - Figma: width: 192
   halfInputSection: {
     width: s(192),
   },
 
-  // Half Input Container - Figma: width: 180, height: 50
   halfInputContainer: {
     width: s(180),
     height: vs(50),
     borderWidth: 2,
     borderColor: '#02545F',
     borderRadius: s(20),
-    backgroundColor: '#FFFFFF', // Explicit white background
-    paddingHorizontal: s(0), // Remove container padding since input has its own
-    paddingVertical: vs(0), // Remove vertical padding to avoid text clipping
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: s(0),
+    paddingVertical: vs(0),
     justifyContent: 'center',
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
@@ -845,32 +842,29 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
-  // Half Text Input - Specific styling for Price and Quantity inputs
   halfTextInput: {
-    textAlign: 'left', // Left align for better UX when typing/editing
-    textAlignVertical: 'center', // Center align vertically
-    color: '#000000', // Strong black color for maximum visibility
-    fontWeight: '600', // Slightly bolder for better visibility
-    backgroundColor: 'transparent', // Ensure background doesn't interfere
-    fontSize: ms(16), // Slightly larger font for better visibility
-    height: vs(50), // Match container height exactly
-    width: '100%', // Take full width of container
-    paddingHorizontal: s(15), // Add horizontal padding for better text positioning
-    paddingVertical: 0, // Remove any vertical padding
-    margin: 0, // Remove any margins
+    textAlign: 'left',
+    textAlignVertical: 'center',
+    color: '#000000',
+    fontWeight: '600',
+    backgroundColor: 'transparent',
+    fontSize: ms(16),
+    height: vs(50),
+    width: '100%',
+    paddingHorizontal: s(15),
+    paddingVertical: 0,
+    margin: 0,
   },
 
-  // Size Row Container for Size and Unit
   sizeRowContainer: {
     position: 'absolute',
     left: s(20),
-    top: vs(844), // Positioned after price/quantity row
+    top: vs(844),
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: s(400),
   },
 
-  // Unit Container - Similar to category dropdown
   unitContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -903,14 +897,13 @@ const styles = StyleSheet.create({
     height: vs(20),
   },
 
-  // Add Button - Adjusted position for size/unit row
   addButton: {
     position: 'absolute',
     left: s(20),
-    top: vs(961), // Adjusted for size/unit row spacing
+    top: vs(961),
     width: s(400),
     height: vs(50),
-    backgroundColor: Colors.primary, // #3BB77E
+    backgroundColor: Colors.primary,
     borderRadius: s(20),
     justifyContent: 'center',
     alignItems: 'center',
@@ -921,23 +914,20 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // Add Button Text - Font: Clash Grotesk 500, size: 20
   addButtonText: {
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.medium,
     fontSize: ms(20),
-    lineHeight: vs(22), // 1.1em line height
+    lineHeight: vs(22),
     color: Colors.white,
     textAlign: 'center',
   },
 
-  // Disabled button style
   addButtonDisabled: {
-    backgroundColor: 'rgba(59, 183, 126, 0.5)', // Faded green
+    backgroundColor: 'rgba(59, 183, 126, 0.5)',
     opacity: 0.7,
   },
 
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -949,7 +939,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: s(20),
     width: s(380),
-    maxHeight: '70%', // Use percentage-based height for better responsiveness
+    maxHeight: '70%',
     padding: s(20),
     paddingBottom: s(20),
     shadowColor: Colors.shadow,
@@ -961,7 +951,7 @@ const styles = StyleSheet.create({
   },
 
   categoryScrollView: {
-    maxHeight: vs(500), // Set max height to enable scrolling
+    maxHeight: vs(500),
   },
 
   dropdownTitle: {
@@ -992,7 +982,6 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
 
-  // Close Modal Button - Top right corner X button
   closeModalButton: {
     position: 'absolute',
     top: s(15),
@@ -1013,5 +1002,4 @@ const styles = StyleSheet.create({
   },
 });
 
-
-export default AddProductScreen;
+export default EditProductScreen;
