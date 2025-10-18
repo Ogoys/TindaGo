@@ -19,7 +19,9 @@
       "Bash(tee:*)",
       "Bash(for file in signin.tsx phone-verification-code.tsx verify-phone.tsx)",
       "Bash(do)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(cd:*)",
+      "Bash(git checkout HEAD@{4} -- \"app/(main)/shared/product-details.tsx\")"
     ],
     "deny": [],
     "ask": []

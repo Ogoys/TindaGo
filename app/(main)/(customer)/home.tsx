@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,13 @@ import {
   Image,
   TextInput,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { ref, onValue, query, orderByChild, equalTo } from "firebase/database";
+import { database } from "../../../FirebaseConfig";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { BottomNavigation } from "../../../src/components/ui";
 import { useUser } from "../../../src/contexts/UserContext";
@@ -34,9 +38,143 @@ import { useUser } from "../../../src/contexts/UserContext";
  * - Fresh Finds: (24, 1442) - Product carousel
  */
 
+// Product interface matching Firebase schema
+interface Product {
+  id: string;
+  productName: string;
+  description: string;
+  category: string;
+  price: number;
+  quantity: number;
+  productSize: string;
+  unit: string;
+  productImage: string;
+  storeOwnerId: string;
+  storeId: string;
+  storeName: string;
+  storeOwnerName: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'available' | 'out_of_stock';
+}
+
+// Store interface matching Firebase schema
+interface Store {
+  id: string;
+  storeName: string;
+  ownerName: string;
+  logo?: string;
+  coverImage?: string;
+  address?: string;
+  city?: string;
+  description?: string;
+  status: 'pending' | 'approved' | 'active' | 'rejected' | 'suspended';
+}
+
 export default function HomeScreen() {
   // Get user data from context
   const { user } = useUser();
+
+  // State for Firebase data
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allStores, setAllStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch products and stores from Firebase
+  useEffect(() => {
+    console.log('🔥 Fetching products and stores from Firebase...');
+
+    // Fetch all available products
+    const productsRef = ref(database, 'products');
+    const unsubscribeProducts = onValue(productsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const productsList: Product[] = Object.keys(data)
+          .map(key => ({
+            id: key,
+            ...data[key],
+          }))
+          .filter(product => product.status === 'available'); // Only show available products
+
+        console.log(`✅ Fetched ${productsList.length} available products`);
+        setAllProducts(productsList);
+      } else {
+        console.log('⚠️ No products found');
+        setAllProducts([]);
+      }
+      setLoading(false);
+    });
+
+    // Fetch all approved/active stores
+    const storesRef = ref(database, 'stores');
+    const unsubscribeStores = onValue(storesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const storesList: Store[] = Object.keys(data)
+          .map(key => {
+            const storeData = data[key];
+
+            // Extract logo and coverImage from nested businessInfo or flat structure
+            const logo = storeData.logo || storeData.businessInfo?.logo || null;
+            const coverImage = storeData.coverImage || storeData.businessInfo?.coverImage || null;
+            const storeName = storeData.storeName || storeData.businessInfo?.storeName || 'Unknown Store';
+            const ownerName = storeData.ownerName || storeData.personalInfo?.name || 'Unknown Owner';
+            const address = storeData.address || storeData.businessInfo?.address || '';
+            const city = storeData.city || storeData.businessInfo?.city || '';
+            const description = storeData.description || storeData.businessInfo?.description || '';
+
+            return {
+              id: key,
+              storeName,
+              ownerName,
+              logo,
+              coverImage,
+              address,
+              city,
+              description,
+              status: storeData.status || 'active',
+            };
+          })
+          .filter(store =>
+            store.status === 'approved' || store.status === 'active'
+          ); // Only show approved/active stores
+
+        console.log(`✅ Fetched ${storesList.length} verified stores`);
+
+        // Debug: Log store data to verify logo and coverImage
+        storesList.forEach(store => {
+          console.log(`📦 Store: ${store.storeName}`);
+          console.log(`   - Logo: ${store.logo ? '✓ Has logo' : '✗ No logo'}`);
+          console.log(`   - Cover: ${store.coverImage ? '✓ Has cover' : '✗ No cover'}`);
+          if (store.logo) {
+            console.log(`   - Logo URL (first 100 chars): ${store.logo.substring(0, 100)}...`);
+          }
+          if (store.coverImage) {
+            console.log(`   - Cover URL (first 100 chars): ${store.coverImage.substring(0, 100)}...`);
+          }
+        });
+
+        setAllStores(storesList);
+      } else {
+        console.log('⚠️ No stores found');
+        setAllStores([]);
+      }
+    });
+
+    // Cleanup subscriptions
+    return () => {
+      unsubscribeProducts();
+      unsubscribeStores();
+    };
+  }, []);
+
+  // Pull to refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    // Data will refresh via real-time listeners
+    setTimeout(() => setRefreshing(false), 1000);
+  };
 
   // Extract user initials from name or email
   const getUserInitials = (): string => {
@@ -130,40 +268,59 @@ export default function HomeScreen() {
     },
   ];
 
-  // Best Selling Products data
-  // Figma: 903:221 Products - Product card structure (903:222 Product0)
-  const bestSellingProducts = [
-    { id: "1", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
-    { id: "2", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
-    { id: "3", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
-    { id: "4", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
-  ];
+  // ============ SMART PRODUCT RECOMMENDATION LOGIC ============
 
-  // Featured Stores data
-  // Figma: 903:442 Store - Store card structure (903:443 Store)
-  const featuredStores = [
-    { id: "1", name: "Golis Sari-sari", rating: "5.0", distance: "1.3 km" },
-    { id: "2", name: "Golis Sari-sari", rating: "5.0", distance: "1.3 km" },
-    { id: "3", name: "Golis Sari-sari", rating: "5.0", distance: "1.3 km" },
-    { id: "4", name: "Golis Sari-sari", rating: "5.0", distance: "1.3 km" },
-  ];
+  // Best Selling Products - Show recently added products (newest first)
+  const bestSellingProducts = React.useMemo(() => {
+    if (allProducts.length === 0) return [];
 
-  // Popular Picks data
-  // Figma: 903:475 Frame 1 - Popular picks card structure (903:476 Popular picks)
-  const popularPicks = [
-    { id: "1", name: "Brocoli", description: "Fresh from farm", price: "₱100", image: require("../../../src/assets/images/customer-home/popular-picks/broccoli.png") },
-    { id: "2", name: "Brocoli", description: "Fresh from farm", price: "₱100", image: require("../../../src/assets/images/customer-home/popular-picks/broccoli.png") },
-    { id: "3", name: "Brocoli", description: "Fresh from farm", price: "₱100", image: require("../../../src/assets/images/customer-home/popular-picks/broccoli.png") },
-    { id: "4", name: "Brocoli", description: "Fresh from farm", price: "₱100", image: require("../../../src/assets/images/customer-home/popular-picks/broccoli.png") },
-  ];
+    return [...allProducts]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 8); // Show up to 8 products
+  }, [allProducts]);
 
-  // Fresh Finds Products data
-  const freshFindsProducts = [
-    { id: "1", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
-    { id: "2", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
-    { id: "3", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
-    { id: "4", name: "Garlic", shop: "(Local shop)", weight: "500g", image: require("../../../src/assets/images/customer-home/products/garlic.png") },
-  ];
+  // Featured Stores - Show verified stores
+  const featuredStores = React.useMemo(() => {
+    if (allStores.length === 0) return [];
+
+    return [...allStores]
+      .slice(0, 4); // Show up to 4 stores
+  }, [allStores]);
+
+  // Most Popular Picks - Show diverse products from different categories
+  const popularPicks = React.useMemo(() => {
+    if (allProducts.length === 0) return [];
+
+    // Group products by category
+    const categoriesMap = new Map<string, Product[]>();
+    allProducts.forEach(product => {
+      const products = categoriesMap.get(product.category) || [];
+      products.push(product);
+      categoriesMap.set(product.category, products);
+    });
+
+    // Get one product from each category
+    const diverse: Product[] = [];
+    categoriesMap.forEach(products => {
+      if (products.length > 0) {
+        diverse.push(products[0]);
+      }
+    });
+
+    // Shuffle and take up to 8
+    return diverse
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 8);
+  }, [allProducts]);
+
+  // Fresh Finds - Show most recent products with different logic than best selling
+  const freshFindsProducts = React.useMemo(() => {
+    if (allProducts.length === 0) return [];
+
+    return [...allProducts]
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+      .slice(0, 8); // Show up to 8 products
+  }, [allProducts]);
 
   /**
    * PRODUCT CARD COMPONENT
@@ -171,10 +328,10 @@ export default function HomeScreen() {
    * Dimensions: 120x222px
    * Contains: Background, Picture, Label, Add Button
    */
-  const ProductCard = ({ id, name, shop, weight, image }: { id: string; name: string; shop: string; weight: string; image: any }) => (
+  const ProductCard = ({ product }: { product: Product }) => (
     <TouchableOpacity
       style={styles.productCard}
-      onPress={() => router.push(`/(main)/shared/product-details?id=${id}` as any)}
+      onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
       activeOpacity={0.8}
     >
       {/* Background - Figma: 759:267 Rectangle 16 */}
@@ -185,17 +342,21 @@ export default function HomeScreen() {
         {/* Gray background - Figma: 759:269 Rectangle 17 */}
         <View style={styles.productPictureBackground} />
         {/* Product Image - Figma: 759:270 */}
-        <Image source={image} style={styles.productImage} resizeMode="contain" />
+        <Image
+          source={{ uri: product.productImage }}
+          style={styles.productImage}
+          resizeMode="contain"
+        />
       </View>
 
       {/* Label Group - Figma: 759:271 */}
       <View style={styles.productLabelContainer}>
         {/* Product Name - Figma: 759:272 */}
-        <Text style={styles.productName}>{name}</Text>
+        <Text style={styles.productName} numberOfLines={2}>{product.productName}</Text>
         {/* Shop Name - Figma: 759:273 */}
-        <Text style={styles.productShop}>{shop}</Text>
+        <Text style={styles.productShop} numberOfLines={1}>({product.storeName})</Text>
         {/* Weight - Figma: 759:274 */}
-        <Text style={styles.productWeight}>{weight}</Text>
+        <Text style={styles.productWeight}>{product.productSize} {product.unit}</Text>
       </View>
 
       {/* Add Button - Figma: 759:275 */}
@@ -217,44 +378,69 @@ export default function HomeScreen() {
    * Dimensions: 400x150px
    * Contains: Background, Store Image, Logo, Name, Rating, Distance
    */
-  const StoreCard = ({ name, rating, distance }: { name: string; rating: string; distance: string }) => (
-    <View style={styles.storeCard}>
-      {/* White Background - Figma: 759:488 Rectangle 20 */}
-      <View style={styles.storeCardWhiteBackground} />
+  const StoreCard = ({ store }: { store: Store }) => {
+    // Calculate number of products for this store
+    const productCount = allProducts.filter(p => p.storeId === store.id).length;
 
-      {/* Store Image Background - Figma: 759:489 Rectangle 21 */}
-      <Image
-        source={require("../../../src/assets/images/customer-home/stores/store-background.png")}
-        style={styles.storeImageBackground}
-        resizeMode="cover"
-      />
+    return (
+      <TouchableOpacity
+        style={styles.storeCard}
+        onPress={() => router.push(`/(main)/(customer)/store-details?storeId=${store.id}` as any)}
+        activeOpacity={0.8}
+      >
+        {/* White Background - Figma: 759:488 Rectangle 20 */}
+        <View style={styles.storeCardWhiteBackground} />
 
-      {/* Store Logo - Figma: 759:490 Ellipse 8 */}
-      <View style={styles.storeLogoContainer}>
-        <Image
-          source={require("../../../src/assets/images/customer-home/stores/store-logo.png")}
-          style={styles.storeLogo}
-          resizeMode="cover"
-        />
-      </View>
+        {/* Store Cover Image or Default Background - Figma: 759:489 Rectangle 21 */}
+        {store.coverImage ? (
+          <Image
+            source={{ uri: store.coverImage }}
+            style={styles.storeImageBackground}
+            resizeMode="cover"
+          />
+        ) : (
+          <Image
+            source={require("../../../src/assets/images/customer-home/stores/store-background.png")}
+            style={styles.storeImageBackground}
+            resizeMode="cover"
+          />
+        )}
 
-      {/* Store Name - Figma: 759:491 */}
-      <Text style={styles.storeName}>{name}</Text>
+        {/* Store Logo - Figma: 759:490 Ellipse 8 */}
+        <View style={styles.storeLogoContainer}>
+          {store.logo ? (
+            <Image
+              source={{ uri: store.logo }}
+              style={styles.storeLogo}
+              resizeMode="cover"
+            />
+          ) : (
+            <Image
+              source={require("../../../src/assets/images/stores/store-profile-placeholder.png")}
+              style={styles.storeLogo}
+              resizeMode="contain"
+            />
+          )}
+        </View>
 
-      {/* Rating and Distance Container */}
-      <View style={styles.storeMetaContainer}>
-        {/* Star Icon - Figma: 759:494 */}
-        <Image
-          source={require("../../../src/assets/images/customer-home/stores/star-icon.png")}
-          style={styles.storeStarIcon}
-        />
-        {/* Rating - Figma: 759:493 */}
-        <Text style={styles.storeRating}>{rating}</Text>
-        {/* Distance - Figma: 759:492 */}
-        <Text style={styles.storeDistance}>{distance}</Text>
-      </View>
-    </View>
-  );
+        {/* Store Name - Figma: 759:491 */}
+        <Text style={styles.storeName} numberOfLines={1}>{store.storeName}</Text>
+
+        {/* Rating and Product Count Container */}
+        <View style={styles.storeMetaContainer}>
+          {/* Star Icon - Figma: 759:494 */}
+          <Image
+            source={require("../../../src/assets/images/customer-home/stores/star-icon.png")}
+            style={styles.storeStarIcon}
+          />
+          {/* Rating - Figma: 759:493 */}
+          <Text style={styles.storeRating}>5.0</Text>
+          {/* Product Count */}
+          <Text style={styles.storeDistance}>• {productCount} products</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   /**
    * POPULAR PICK CARD COMPONENT
@@ -262,11 +448,11 @@ export default function HomeScreen() {
    * Dimensions: 180x80px (increased to 180x100 for better text spacing)
    * Contains: Background, Picture, Labels (Name, Description, Price)
    */
-  const PopularPickCard = ({ id, name, description, price, image }: { id: string; name: string; description: string; price: string; image: any }) => (
+  const PopularPickCard = ({ product }: { product: Product }) => (
     <TouchableOpacity
       style={styles.popularPickCard}
       activeOpacity={0.8}
-      onPress={() => router.push(`/(main)/shared/product-details?id=${id}` as any)}
+      onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
     >
       {/* Background - Figma: 759:521 Rectangle 22 */}
       <View style={styles.popularPickBackground} />
@@ -276,17 +462,23 @@ export default function HomeScreen() {
         {/* Picture Background - Figma: 759:523 Rectangle 24 */}
         <View style={styles.popularPickPictureBackground} />
         {/* Product Image - Figma: 759:524 */}
-        <Image source={image} style={styles.popularPickImage} resizeMode="contain" />
+        <Image
+          source={{ uri: product.productImage }}
+          style={styles.popularPickImage}
+          resizeMode="contain"
+        />
       </View>
 
       {/* Labels Group - Figma: 759:525 */}
       <View style={styles.popularPickLabels}>
         {/* Product Name - Figma: 759:527 */}
-        <Text style={styles.popularPickName}>{name}</Text>
+        <Text style={styles.popularPickName} numberOfLines={1}>{product.productName}</Text>
         {/* Description - Figma: 759:528 */}
-        <Text style={styles.popularPickDescription}>{description}</Text>
+        <Text style={styles.popularPickDescription} numberOfLines={1}>
+          {product.description || `${product.productSize} ${product.unit}`}
+        </Text>
         {/* Price - Figma: 759:526 */}
-        <Text style={styles.popularPickPrice}>{price}</Text>
+        <Text style={styles.popularPickPrice}>₱{product.price.toFixed(0)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -364,6 +556,9 @@ export default function HomeScreen() {
         style={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContentContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3BB77E" />
+        }
       >
         {/* CATEGORY SECTION - Figma: 903:556 Category (0, 198, 440x90) */}
         <View style={styles.categorySection}>
@@ -404,23 +599,26 @@ export default function HomeScreen() {
         </View>
 
         {/* BEST SELLING PRODUCTS - Figma: 903:221 Products (1, 330, 440x244) */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.productsSection}
-          contentContainerStyle={styles.productsScrollContent}
-        >
-          {bestSellingProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              id={product.id}
-              name={product.name}
-              shop={product.shop}
-              weight={product.weight}
-              image={product.image}
-            />
-          ))}
-        </ScrollView>
+        {loading ? (
+          <View style={[styles.productsSection, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#3BB77E" />
+          </View>
+        ) : bestSellingProducts.length === 0 ? (
+          <View style={[styles.productsSection, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: s(40) }]}>
+            <Text style={styles.emptyText}>No products available yet</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.productsSection}
+            contentContainerStyle={styles.productsScrollContent}
+          >
+            {bestSellingProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </ScrollView>
+        )}
 
         {/* FEATURED STORES SECTION - Figma: 903:215 Label (23, 584) */}
         <View style={styles.sectionHeader}>
@@ -433,16 +631,21 @@ export default function HomeScreen() {
         </View>
 
         {/* FEATURED STORES - Figma: 903:442 Store (20, 628, 400x660) */}
-        <View style={styles.storesSection}>
-          {featuredStores.map((store) => (
-            <StoreCard
-              key={store.id}
-              name={store.name}
-              rating={store.rating}
-              distance={store.distance}
-            />
-          ))}
-        </View>
+        {loading ? (
+          <View style={[styles.storesSection, { justifyContent: 'center', alignItems: 'center', minHeight: vs(150) }]}>
+            <ActivityIndicator size="large" color="#3BB77E" />
+          </View>
+        ) : featuredStores.length === 0 ? (
+          <View style={[styles.storesSection, { justifyContent: 'center', alignItems: 'center', minHeight: vs(150) }]}>
+            <Text style={styles.emptyText}>No stores available yet</Text>
+          </View>
+        ) : (
+          <View style={styles.storesSection}>
+            {featuredStores.map((store) => (
+              <StoreCard key={store.id} store={store} />
+            ))}
+          </View>
+        )}
 
         {/* MOST POPULAR PICKS SECTION - Figma: 903:218 Label (23, 1308) */}
         <View style={styles.sectionHeader}>
@@ -455,23 +658,26 @@ export default function HomeScreen() {
         </View>
 
         {/* POPULAR PICKS - Figma: 903:475 Frame 1 (0, 1332, 440x100) */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.popularPicksSection}
-          contentContainerStyle={styles.popularPicksScrollContent}
-        >
-          {popularPicks.map((pick) => (
-            <PopularPickCard
-              key={pick.id}
-              id={pick.id}
-              name={pick.name}
-              description={pick.description}
-              price={pick.price}
-              image={pick.image}
-            />
-          ))}
-        </ScrollView>
+        {loading ? (
+          <View style={[styles.popularPicksSection, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#3BB77E" />
+          </View>
+        ) : popularPicks.length === 0 ? (
+          <View style={[styles.popularPicksSection, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: s(40) }]}>
+            <Text style={styles.emptyText}>No popular picks available yet</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.popularPicksSection}
+            contentContainerStyle={styles.popularPicksScrollContent}
+          >
+            {popularPicks.map((product) => (
+              <PopularPickCard key={product.id} product={product} />
+            ))}
+          </ScrollView>
+        )}
 
         {/* FRESH FINDS SECTION - Figma: 903:439 Label (24, 1442) */}
         <View style={styles.sectionHeader}>
@@ -484,23 +690,26 @@ export default function HomeScreen() {
         </View>
 
         {/* FRESH FINDS PRODUCTS - Figma: 903:330 Products (0, 1486, 440x244) */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.productsSection}
-          contentContainerStyle={styles.productsScrollContent}
-        >
-          {freshFindsProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              id={product.id}
-              name={product.name}
-              shop={product.shop}
-              weight={product.weight}
-              image={product.image}
-            />
-          ))}
-        </ScrollView>
+        {loading ? (
+          <View style={[styles.productsSection, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#3BB77E" />
+          </View>
+        ) : freshFindsProducts.length === 0 ? (
+          <View style={[styles.productsSection, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: s(40) }]}>
+            <Text style={styles.emptyText}>No fresh finds available yet</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.productsSection}
+            contentContainerStyle={styles.productsScrollContent}
+          >
+            {freshFindsProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </ScrollView>
+        )}
 
         {/* END MESSAGE - Figma: 903:548 That's all for now! (174, 1750) */}
         <Text style={styles.endMessage}>That&apos;s all for now!</Text>
@@ -865,45 +1074,50 @@ const styles = StyleSheet.create({
   },
 
   // Product Label Container - Figma: 759:271, x:27, y:111, width:65, height:66
+  // Improved layout for consistent text alignment regardless of product name length
   productLabelContainer: {
     position: "absolute",
     left: s(10),
     top: vs(105),
     width: s(100),
-    height: vs(70),
-    alignItems: "center", // Center align all text
+    height: vs(74), // Increased height to prevent text cutoff
+    justifyContent: "flex-start", // Align from top for consistent spacing
+    paddingHorizontal: s(4), // Add horizontal padding for better text display
   },
 
   // Product Name - Figma: 759:272, positioned relative to container
   productName: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "600", // Bold
-    fontSize: ms(14),
-    lineHeight: ms(14) * 1.4,
+    fontSize: ms(12), // Reduced from 14 to 12 for better fit
+    lineHeight: ms(12) * 1.3,
     color: "#000000", // Pure black
-    marginBottom: vs(2),
+    marginBottom: vs(3),
     textAlign: "center",
+    width: "100%",
   },
 
   // Product Shop - Figma: 759:273, positioned relative to container
   productShop: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "600", // Bold
-    fontSize: ms(11),
-    lineHeight: ms(11) * 1.5,
+    fontSize: ms(10), // Reduced from 11 to 10 for better fit
+    lineHeight: ms(10) * 1.4,
     color: "#000000", // Pure black
-    marginBottom: vs(2),
+    marginBottom: vs(3),
     textAlign: "center",
+    width: "100%",
   },
 
   // Product Weight - Figma: 759:274, positioned relative to container
   productWeight: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: ms(11),
-    lineHeight: ms(11) * 1.5,
+    fontSize: ms(10), // Reduced from 11 to 10 for consistency
+    lineHeight: ms(10) * 1.4,
     color: "rgba(0, 0, 0, 0.5)",
     textAlign: "center",
+    width: "100%",
   },
 
   // Product Add Button - Figma: 759:275, x:10, y:179, width:100, height:30
@@ -1160,6 +1374,16 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     fontSize: ms(12),
     lineHeight: ms(12) * 1.833,
+    color: "rgba(0, 0, 0, 0.5)",
+    textAlign: "center",
+  },
+
+  // Empty State Text
+  emptyText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(14),
+    lineHeight: ms(14) * 1.5,
     color: "rgba(0, 0, 0, 0.5)",
     textAlign: "center",
   },
