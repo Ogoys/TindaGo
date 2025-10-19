@@ -42,6 +42,7 @@ import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { BottomNavigation } from "../../../src/components/ui";
 import type { Order } from '../../../src/models/Order';
+import { useCartCount } from "../../../src/hooks";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -53,6 +54,9 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  // Get cart count for badge
+  const cartCount = useCartCount(user?.id);
 
   // Fetch user orders from Firebase
   useEffect(() => {
@@ -162,7 +166,7 @@ export default function OrdersScreen() {
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <BottomNavigation activeTab="orders" />
+      <BottomNavigation activeTab="orders" cartCount={cartCount} />
     </SafeAreaView>
   );
 }

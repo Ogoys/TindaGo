@@ -1,0 +1,493 @@
+{
+  "metadata": {
+    "name": "TindaGo Share",
+    "lastModified": "2025-10-19T17:53:38Z",
+    "thumbnailUrl": "https://s3-alpha.figma.com/thumbnails/813cbbd0-856b-45f2-aab7-6534924fb78d?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQ4GOSFWCU44USHFR%2F20251019%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20251019T120000Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=b4d85dc15aa2669e117445a014cb79e31af4599b4791d4ef9cec125ff9ebdc2b",
+    "components": {
+      "42:41": {
+        "id": "42:41",
+        "key": "b26931502f2235efb8811aa081cb40d1f22bf761",
+        "name": "Property 1=Default",
+        "componentSetId": "42:40"
+      }
+    },
+    "componentSets": {
+      "42:40": {
+        "id": "42:40",
+        "key": "6ac375b1b9bb6383fafdd0879dc032e9fde24d57",
+        "name": "NotApproved",
+        "description": ""
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "1057:1494",
+      "name": "Order Error",
+      "type": "FRAME",
+      "boundingBox": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 500
+      },
+      "fills": "fill_GI1DTD",
+      "effects": "effect_JSFIS9",
+      "layout": "layout_ACQECA",
+      "borderRadius": "20px",
+      "children": [
+        {
+          "id": "1057:1495",
+          "name": "Label than kyou",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 79,
+            "y": 270,
+            "width": 243,
+            "height": 57
+          },
+          "layout": "layout_8ZMCS3",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "1057:1496",
+              "name": "Sorry, Your order has failed",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 79,
+                "y": 270,
+                "width": 243,
+                "height": 22
+              },
+              "textStyle": "style_3IOA45",
+              "fills": "fill_EIKGGP",
+              "layout": "layout_FGTBFI",
+              "text": "Sorry, Your order has failed"
+            },
+            {
+              "id": "1057:1497",
+              "name": "Sorry, somethings went wrong. Please try again to continue your order.",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 101,
+                "y": 297,
+                "width": 199,
+                "height": 30
+              },
+              "textStyle": "style_U1FQAG",
+              "fills": "fill_0YKRF4",
+              "layout": "layout_TZLNY3",
+              "text": "Sorry, somethings went wrong.\nPlease try again to continue your order."
+            }
+          ]
+        },
+        {
+          "id": "1057:1498",
+          "name": "Track",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 83,
+            "y": 357,
+            "width": 234,
+            "height": 40
+          },
+          "layout": "layout_FXSEMS",
+          "borderRadius": "10px",
+          "children": [
+            {
+              "id": "1057:1499",
+              "name": "Rectangle 46",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 83,
+                "y": 357,
+                "width": 234,
+                "height": 40
+              },
+              "fills": "fill_U69X5E",
+              "effects": "effect_N0K8VY",
+              "layout": "layout_9R10H6",
+              "borderRadius": "10px"
+            },
+            {
+              "id": "1057:1500",
+              "name": "Try Again",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 170,
+                "y": 366,
+                "width": 60,
+                "height": 22
+              },
+              "textStyle": "style_I22D6Y",
+              "fills": "fill_GI1DTD",
+              "layout": "layout_326KR5",
+              "text": "Try Again"
+            }
+          ]
+        },
+        {
+          "id": "1057:1501",
+          "name": "Track",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 83,
+            "y": 407,
+            "width": 234,
+            "height": 40
+          },
+          "layout": "layout_JI1RI9",
+          "borderRadius": "10px",
+          "children": [
+            {
+              "id": "1057:1502",
+              "name": "Rectangle 46",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 83,
+                "y": 407,
+                "width": 234,
+                "height": 40
+              },
+              "fills": "fill_W25A7L",
+              "effects": "effect_N0K8VY",
+              "layout": "layout_9R10H6",
+              "borderRadius": "10px"
+            },
+            {
+              "id": "1057:1503",
+              "name": "Back to Home",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 157,
+                "y": 416,
+                "width": 87,
+                "height": 22
+              },
+              "textStyle": "style_I22D6Y",
+              "fills": "fill_0YKRF4",
+              "layout": "layout_92SCE7",
+              "text": "Back to Home"
+            }
+          ]
+        },
+        {
+          "id": "1057:1504",
+          "name": "NotApproved",
+          "type": "INSTANCE",
+          "boundingBox": {
+            "x": 110,
+            "y": 50,
+            "width": 180,
+            "height": 180
+          },
+          "componentId": "42:41",
+          "layout": "layout_90ZXVA",
+          "children": [
+            {
+              "id": "I1057:1504;218:258",
+              "name": "Ellipse 3",
+              "type": "ELLIPSE",
+              "boundingBox": {
+                "x": 110,
+                "y": 50,
+                "width": 180,
+                "height": 180
+              },
+              "fills": "fill_JESZ36",
+              "layout": "layout_S4YFQ2"
+            },
+            {
+              "id": "I1057:1504;218:259",
+              "name": "Vector 3",
+              "type": "IMAGE-SVG",
+              "boundingBox": {
+                "x": 112,
+                "y": 181,
+                "width": 176.56661987304688,
+                "height": 109.9448013305664
+              },
+              "fills": "fill_JY3GQF",
+              "layout": "layout_1J9Q0M"
+            },
+            {
+              "id": "I1057:1504;218:260",
+              "name": "Vector 4",
+              "type": "IMAGE-SVG",
+              "boundingBox": {
+                "x": 112,
+                "y": 201,
+                "width": 176.56661987304688,
+                "height": 109.9448013305664
+              },
+              "fills": "fill_QT0IJG",
+              "layout": "layout_09OILT"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "globalVars": {
+    "styles": {
+      "fill_GI1DTD": [
+        "#FFFFFF"
+      ],
+      "effect_JSFIS9": {
+        "boxShadow": "0px 0px 5px 2px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_ACQECA": {
+        "mode": "none",
+        "clipsContent": true,
+        "dimensions": {
+          "width": 400,
+          "height": 500
+        }
+      },
+      "layout_8ZMCS3": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 79,
+          "y": 270
+        },
+        "dimensions": {
+          "width": 243,
+          "height": 57
+        }
+      },
+      "style_3IOA45": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_EIKGGP": [
+        "#1E1E1E"
+      ],
+      "layout_FGTBFI": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 243,
+          "height": 22
+        }
+      },
+      "style_U1FQAG": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 400,
+        "fontSize": 12,
+        "lineHeight": "1.2300000190734863em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_0YKRF4": [
+        "rgba(30, 30, 30, 0.5)"
+      ],
+      "layout_TZLNY3": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 22,
+          "y": 27
+        },
+        "dimensions": {
+          "width": 199,
+          "height": 30
+        }
+      },
+      "layout_FXSEMS": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 83,
+          "y": 357
+        },
+        "dimensions": {
+          "width": 234,
+          "height": 40
+        }
+      },
+      "fill_U69X5E": [
+        "#3BB77E"
+      ],
+      "effect_N0K8VY": {
+        "boxShadow": "0px 0px 5px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_9R10H6": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 234,
+          "height": 40
+        }
+      },
+      "style_I22D6Y": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 14,
+        "lineHeight": "1.5714285714285714em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "layout_326KR5": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 87,
+          "y": 9
+        },
+        "dimensions": {
+          "width": 60,
+          "height": 22
+        }
+      },
+      "layout_JI1RI9": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 83,
+          "y": 407
+        },
+        "dimensions": {
+          "width": 234,
+          "height": 40
+        }
+      },
+      "fill_W25A7L": [
+        "rgba(217, 217, 217, 0.5)"
+      ],
+      "layout_92SCE7": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 74,
+          "y": 9
+        },
+        "dimensions": {
+          "width": 87,
+          "height": 22
+        }
+      },
+      "layout_90ZXVA": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 110,
+          "y": 50
+        },
+        "dimensions": {
+          "width": 180,
+          "height": 180
+        }
+      },
+      "fill_JESZ36": [
+        "#D9D9D9"
+      ],
+      "layout_S4YFQ2": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 180,
+          "height": 180
+        }
+      },
+      "fill_JY3GQF": [
+        {
+          "type": "GRADIENT_LINEAR",
+          "gradientHandlePositions": [
+            {
+              "x": 0.4999999701976756,
+              "y": 1.352074016983118e-10
+            },
+            {
+              "x": 0.5017590379093468,
+              "y": 1.000000066275843
+            },
+            {
+              "x": -6.287264220361521e-8,
+              "y": 0.0022684039131576203
+            }
+          ],
+          "gradientStops": [
+            {
+              "position": 0.3413461446762085,
+              "color": {
+                "hex": "#DF2525",
+                "opacity": 1
+              }
+            },
+            {
+              "position": 1,
+              "color": {
+                "hex": "#791414",
+                "opacity": 1
+              }
+            }
+          ]
+        }
+      ],
+      "layout_1J9Q0M": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 2,
+          "y": 131
+        },
+        "dimensions": {
+          "width": 176.57,
+          "height": 109.94
+        }
+      },
+      "fill_QT0IJG": [
+        {
+          "type": "GRADIENT_LINEAR",
+          "gradientHandlePositions": [
+            {
+              "x": 0.5008795651102227,
+              "y": 0.999999931878809
+            },
+            {
+              "x": 0.49912049737541947,
+              "y": -1.505066027363e-8
+            },
+            {
+              "x": 1.0008795981800784,
+              "y": 0.9977315281384452
+            }
+          ],
+          "gradientStops": [
+            {
+              "position": 0.42307692766189575,
+              "color": {
+                "hex": "#DF2525",
+                "opacity": 1
+              }
+            },
+            {
+              "position": 1,
+              "color": {
+                "hex": "#791414",
+                "opacity": 1
+              }
+            }
+          ]
+        }
+      ],
+      "layout_09OILT": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 2,
+          "y": 151
+        },
+        "dimensions": {
+          "width": 176.57,
+          "height": 109.94
+        }
+      }
+    }
+  }
+}

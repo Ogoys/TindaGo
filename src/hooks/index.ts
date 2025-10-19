@@ -6,3 +6,4 @@
 
 export { useStoreRegistration } from './useStoreRegistration';
 export type { UseStoreRegistrationReturn } from './useStoreRegistration';
+export { useCartCount } from './useCartCount';

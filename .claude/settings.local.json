@@ -21,7 +21,9 @@
       "Bash(do)",
       "Bash(done)",
       "Bash(cd:*)",
-      "Bash(git checkout HEAD@{4} -- \"app/(main)/shared/product-details.tsx\")"
+      "Bash(git checkout HEAD@{4} -- \"app/(main)/shared/product-details.tsx\")",
+      "Bash(ls:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

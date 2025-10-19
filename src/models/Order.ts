@@ -20,7 +20,7 @@ export interface Order {
   status: OrderStatus;
   pickupTime?: string;        // ISO string or Date string
   notes?: string;
-  paymentMethod: 'cash' | 'gcash' | 'paymaya';
+  paymentMethod: 'cash' | 'online' | 'gcash' | 'paymaya';
   paymentStatus: 'pending' | 'paid' | 'refunded';
   createdAt: string;          // ISO string
   updatedAt: string;          // ISO string

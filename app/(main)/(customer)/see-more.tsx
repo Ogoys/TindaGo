@@ -20,7 +20,7 @@ import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
-import { ProductCard } from "../../../src/components/ui/ProductCard";
+import { ProductCard, Toast } from "../../../src/components/ui";
 
 // Product interface matching Firebase schema
 interface Product {
@@ -64,6 +64,11 @@ export default function SeeMoreScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+
+  // Toast notification state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
 
   // Fetch all products from Firebase
   useEffect(() => {
@@ -158,18 +163,17 @@ export default function SeeMoreScreen() {
     }
   };
 
-  // Add product to cart
+  // Quick add product to cart
   const handleAddProduct = async (product: Product) => {
     if (!user) {
-      Alert.alert('Sign In Required', 'Please sign in to add items to cart', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign In', onPress: () => router.push('/(auth)/signin') },
-      ]);
+      router.push('/(auth)/signin' as any);
       return;
     }
 
     if (product.quantity === 0) {
-      Alert.alert('Out of Stock', 'This product is currently out of stock');
+      setToastMessage('Product is out of stock');
+      setToastType('error');
+      setShowToast(true);
       return;
     }
 
@@ -195,13 +199,19 @@ export default function SeeMoreScreen() {
       const success = await addToCart(user.id, cartItem);
 
       if (success) {
-        Alert.alert('Success', 'Product added to cart!');
+        setToastMessage(`${product.productName} added to cart!`);
+        setToastType('success');
+        setShowToast(true);
       } else {
-        Alert.alert('Error', 'Failed to add product to cart');
+        setToastMessage('Failed to add product to cart');
+        setToastType('error');
+        setShowToast(true);
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
-      Alert.alert('Error', 'An error occurred while adding to cart');
+      setToastMessage('Failed to add to cart. Please try again.');
+      setToastType('error');
+      setShowToast(true);
     } finally {
       setAddingToCart(null);
     }
@@ -299,6 +309,14 @@ export default function SeeMoreScreen() {
         {/* Bottom padding for navigation */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Toast Notification */}
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setShowToast(false)}
+      />
     </SafeAreaView>
   );
 }

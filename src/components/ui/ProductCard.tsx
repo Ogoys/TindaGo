@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import { Colors } from "../../constants/Colors";
 import { Fonts } from "../../constants/Fonts";
 import { s, vs } from "../../constants/responsive";
@@ -13,6 +13,7 @@ export interface ProductCardProps {
   onAddPress?: () => void;
   onPress?: () => void;
   variant?: "grid" | "horizontal";
+  isAdding?: boolean;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -23,7 +24,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   image,
   onAddPress,
   onPress,
-  variant = "grid"
+  variant = "grid",
+  isAdding = false,
 }) => {
   const cardStyles = variant === "grid" ? styles.gridCard : styles.horizontalCard;
   const imageStyles = variant === "grid" ? styles.gridImageContainer : styles.horizontalImageContainer;
@@ -61,15 +63,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </View>
       
       {/* Add Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.addButton, variant === "horizontal" && styles.addButtonHorizontal]}
         onPress={onAddPress}
         activeOpacity={0.7}
+        disabled={isAdding}
       >
-        <View style={styles.plusIcon}>
-          <View style={styles.plusHorizontal} />
-          <View style={styles.plusVertical} />
-        </View>
+        {isAdding ? (
+          <ActivityIndicator size="small" color={Colors.primary} />
+        ) : (
+          <View style={styles.plusIcon}>
+            <View style={styles.plusHorizontal} />
+            <View style={styles.plusVertical} />
+          </View>
+        )}
       </TouchableOpacity>
     </TouchableOpacity>
   );

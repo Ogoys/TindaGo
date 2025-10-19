@@ -16,8 +16,10 @@ import { router } from "expo-router";
 import { ref, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { database } from "../../../FirebaseConfig";
 import { s, vs, ms } from "../../../src/constants/responsive";
-import { BottomNavigation } from "../../../src/components/ui";
+import { BottomNavigation, Toast } from "../../../src/components/ui";
 import { useUser } from "../../../src/contexts/UserContext";
+import { addToCart } from "../../../src/api/cart";
+import { useCartCount } from "../../../src/hooks";
 
 /**
  * CUSTOMER HOME PAGE - PIXEL-PERFECT FIGMA REBUILD
@@ -75,11 +77,19 @@ export default function HomeScreen() {
   // Get user data from context
   const { user } = useUser();
 
+  // Get cart count for badge
+  const cartCount = useCartCount(user?.id);
+
   // State for Firebase data
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [allStores, setAllStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // State for quick add to cart
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   // Fetch products and stores from Firebase
   useEffect(() => {
@@ -206,6 +216,49 @@ export default function HomeScreen() {
     return 'Customer';
   };
 
+  // Quick add to cart function
+  const handleQuickAdd = async (product: Product) => {
+    if (!user) {
+      router.push('/(auth)/signin' as any);
+      return;
+    }
+
+    if (product.quantity <= 0) {
+      setToastMessage('Product is out of stock');
+      setShowToast(true);
+      return;
+    }
+
+    setAddingProductId(product.id);
+
+    try {
+      await addToCart(user.id, {
+        productId: product.id,
+        productName: product.productName,
+        productImage: product.productImage,
+        storeId: product.storeId,
+        storeName: product.storeName,
+        quantity: 1,
+        price: product.price,
+        weight: product.productSize,
+        unit: product.unit,
+        subtotal: product.price,
+        stock: product.quantity,
+        isAvailable: product.quantity > 0,
+        notes: '',
+      });
+
+      setToastMessage(`${product.productName} added to cart!`);
+      setShowToast(true);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      setToastMessage('Failed to add to cart. Please try again.');
+      setShowToast(true);
+    } finally {
+      setAddingProductId(null);
+    }
+  };
+
   // Category data - ALIGNED WITH CATEGORY NAVIGATION BAR
   // Matches categories from app/(main)/(customer)/category.tsx
   // Each category has a white circular background (50x50) with centered icon
@@ -328,49 +381,64 @@ export default function HomeScreen() {
    * Dimensions: 120x222px
    * Contains: Background, Picture, Label, Add Button
    */
-  const ProductCard = ({ product }: { product: Product }) => (
-    <TouchableOpacity
-      style={styles.productCard}
-      onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
-      activeOpacity={0.8}
-    >
-      {/* Background - Figma: 759:267 Rectangle 16 */}
-      <View style={styles.productCardBackground} />
+  const ProductCard = ({ product }: { product: Product }) => {
+    const isAdding = addingProductId === product.id;
 
-      {/* Picture Container - Figma: 759:268 */}
-      <View style={styles.productPictureContainer}>
-        {/* Gray background - Figma: 759:269 Rectangle 17 */}
-        <View style={styles.productPictureBackground} />
-        {/* Product Image - Figma: 759:270 */}
-        <Image
-          source={{ uri: product.productImage }}
-          style={styles.productImage}
-          resizeMode="contain"
-        />
-      </View>
+    return (
+      <TouchableOpacity
+        style={styles.productCard}
+        onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
+        activeOpacity={0.8}
+      >
+        {/* Background - Figma: 759:267 Rectangle 16 */}
+        <View style={styles.productCardBackground} />
 
-      {/* Label Group - Figma: 759:271 */}
-      <View style={styles.productLabelContainer}>
-        {/* Product Name - Figma: 759:272 */}
-        <Text style={styles.productName} numberOfLines={2}>{product.productName}</Text>
-        {/* Shop Name - Figma: 759:273 */}
-        <Text style={styles.productShop} numberOfLines={1}>({product.storeName})</Text>
-        {/* Weight - Figma: 759:274 */}
-        <Text style={styles.productWeight}>{product.productSize} {product.unit}</Text>
-      </View>
+        {/* Picture Container - Figma: 759:268 */}
+        <View style={styles.productPictureContainer}>
+          {/* Gray background - Figma: 759:269 Rectangle 17 */}
+          <View style={styles.productPictureBackground} />
+          {/* Product Image - Figma: 759:270 */}
+          <Image
+            source={{ uri: product.productImage }}
+            style={styles.productImage}
+            resizeMode="contain"
+          />
+        </View>
 
-      {/* Add Button - Figma: 759:275 */}
-      <TouchableOpacity style={styles.productAddButton}>
-        {/* Button Background - Figma: 759:276 Rectangle 19 */}
-        <View style={styles.productAddButtonBackground} />
-        {/* Plus Icon - Figma: 759:277 */}
-        <Image
-          source={require("../../../src/assets/images/customer-home/products/plus-icon.png")}
-          style={styles.productPlusIcon}
-        />
+        {/* Label Group - Figma: 759:271 */}
+        <View style={styles.productLabelContainer}>
+          {/* Product Name - Figma: 759:272 */}
+          <Text style={styles.productName} numberOfLines={2}>{product.productName}</Text>
+          {/* Shop Name - Figma: 759:273 */}
+          <Text style={styles.productShop} numberOfLines={1}>({product.storeName})</Text>
+          {/* Weight - Figma: 759:274 */}
+          <Text style={styles.productWeight}>{product.productSize} {product.unit}</Text>
+        </View>
+
+        {/* Add Button - Figma: 759:275 */}
+        <TouchableOpacity
+          style={styles.productAddButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleQuickAdd(product);
+          }}
+          disabled={isAdding}
+        >
+          {/* Button Background - Figma: 759:276 Rectangle 19 */}
+          <View style={styles.productAddButtonBackground} />
+          {/* Plus Icon or Loading - Figma: 759:277 */}
+          {isAdding ? (
+            <ActivityIndicator size="small" color="#3BB77E" />
+          ) : (
+            <Image
+              source={require("../../../src/assets/images/customer-home/products/plus-icon.png")}
+              style={styles.productPlusIcon}
+            />
+          )}
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   /**
    * STORE CARD COMPONENT
@@ -719,7 +787,15 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* BOTTOM NAVIGATION BAR - Figma: 903:612 Nav bar */}
-      <BottomNavigation activeTab="home" />
+      <BottomNavigation activeTab="home" cartCount={cartCount} />
+
+      {/* Toast Notification */}
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type="success"
+        onDismiss={() => setShowToast(false)}
+      />
     </SafeAreaView>
   );
 }

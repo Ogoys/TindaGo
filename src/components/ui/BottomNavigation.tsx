@@ -5,9 +5,10 @@ import { s, vs } from "../../constants/responsive";
 
 interface BottomNavigationProps {
   activeTab?: "home" | "orders" | "category" | "profile" | "cart";
+  cartCount?: number;
 }
 
-export default function BottomNavigation({ activeTab = "home" }: BottomNavigationProps) {
+export default function BottomNavigation({ activeTab = "home", cartCount = 0 }: BottomNavigationProps) {
   const pathname = usePathname();
 
   const currentTab =
@@ -70,6 +71,12 @@ export default function BottomNavigation({ activeTab = "home" }: BottomNavigatio
           style={styles.cartIcon}
           resizeMode="contain"
         />
+        {/* Cart Badge */}
+        {cartCount > 0 && (
+          <View style={styles.cartBadge}>
+            <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+          </View>
+        )}
         {/* Cart Label */}
         <Text style={[styles.tabLabel, currentTab === "cart" && styles.tabLabelActive]}>
           Cart
@@ -241,5 +248,33 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: "#1E1E1E",
     fontWeight: "500",
+  },
+
+  // Cart Badge
+  cartBadge: {
+    position: "absolute",
+    top: s(4),
+    right: s(8),
+    minWidth: s(20),
+    height: s(20),
+    borderRadius: s(10),
+    backgroundColor: "#FF3B30",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: s(5),
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  cartBadgeText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: 11,
+    color: "#FFFFFF",
+    textAlign: "center",
   },
 });

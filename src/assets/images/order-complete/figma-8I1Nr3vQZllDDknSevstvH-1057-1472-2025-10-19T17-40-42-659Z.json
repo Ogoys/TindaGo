@@ -1,0 +1,493 @@
+{
+  "metadata": {
+    "name": "TindaGo Share",
+    "lastModified": "2025-10-19T17:39:09Z",
+    "thumbnailUrl": "https://s3-alpha.figma.com/thumbnails/0b0ad44e-87d5-47cf-b9a7-b5e8277ddffd?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQ4GOSFWCU44USHFR%2F20251019%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20251019T120000Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=83352b3922c042751148833b5632e7ad48fa6a6f6ae262011c4dc0237b8adffb",
+    "components": {
+      "42:24": {
+        "id": "42:24",
+        "key": "3e3ce669400017038ea3cbab22215be08da85b0c",
+        "name": "Property 1=Default",
+        "componentSetId": "42:23"
+      }
+    },
+    "componentSets": {
+      "42:23": {
+        "id": "42:23",
+        "key": "f048e2df215cb6fdd2eaef13f9a3d7c2ddcb4309",
+        "name": "Approved",
+        "description": ""
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "1057:1472",
+      "name": "Order Complete",
+      "type": "FRAME",
+      "boundingBox": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 500
+      },
+      "fills": "fill_GB682Z",
+      "effects": "effect_OHS4MD",
+      "layout": "layout_5MQBT9",
+      "borderRadius": "20px",
+      "children": [
+        {
+          "id": "1057:1473",
+          "name": "Approved",
+          "type": "INSTANCE",
+          "boundingBox": {
+            "x": 110,
+            "y": 50,
+            "width": 180,
+            "height": 180
+          },
+          "componentId": "42:24",
+          "layout": "layout_5C8M0Z",
+          "children": [
+            {
+              "id": "I1057:1473;218:92",
+              "name": "Ellipse 3",
+              "type": "ELLIPSE",
+              "boundingBox": {
+                "x": 110,
+                "y": 50,
+                "width": 180,
+                "height": 180
+              },
+              "fills": "fill_F51E0M",
+              "layout": "layout_U406MN"
+            },
+            {
+              "id": "I1057:1473;218:93",
+              "name": "Vector 3",
+              "type": "IMAGE-SVG",
+              "boundingBox": {
+                "x": 112,
+                "y": 181,
+                "width": 176.56661987304688,
+                "height": 109.9448013305664
+              },
+              "fills": "fill_5HWREB",
+              "layout": "layout_F4J74T"
+            },
+            {
+              "id": "I1057:1473;218:94",
+              "name": "Vector 4",
+              "type": "IMAGE-SVG",
+              "boundingBox": {
+                "x": 112,
+                "y": 201,
+                "width": 176.56661987304688,
+                "height": 109.9448013305664
+              },
+              "fills": "fill_0JSV2G",
+              "layout": "layout_3GWIF3"
+            }
+          ]
+        },
+        {
+          "id": "1057:1474",
+          "name": "Label than kyou",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 83,
+            "y": 270,
+            "width": 234,
+            "height": 57
+          },
+          "layout": "layout_3JJDGH",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "1057:1475",
+              "name": "Thank you for your order!",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 86,
+                "y": 270,
+                "width": 228,
+                "height": 22
+              },
+              "textStyle": "style_VYCVRE",
+              "fills": "fill_RDHAGO",
+              "layout": "layout_NCEWAU",
+              "text": "Thank you for your order!"
+            },
+            {
+              "id": "1057:1476",
+              "name": "Your order has been placed successfully. your order ID is #123",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 83,
+                "y": 297,
+                "width": 234,
+                "height": 30
+              },
+              "textStyle": "style_J6OBRX",
+              "fills": "fill_R7WF5A",
+              "layout": "layout_9J3E7J",
+              "text": "Your order has been placed successfully. your\norder ID is #123"
+            }
+          ]
+        },
+        {
+          "id": "1057:1477",
+          "name": "Track",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 83,
+            "y": 357,
+            "width": 234,
+            "height": 40
+          },
+          "layout": "layout_WSU9LY",
+          "borderRadius": "10px",
+          "children": [
+            {
+              "id": "1057:1478",
+              "name": "Rectangle 46",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 83,
+                "y": 357,
+                "width": 234,
+                "height": 40
+              },
+              "fills": "fill_PMUQHS",
+              "effects": "effect_BNT0DD",
+              "layout": "layout_7OF00G",
+              "borderRadius": "10px"
+            },
+            {
+              "id": "1057:1479",
+              "name": "Track Store",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 146,
+                "y": 366,
+                "width": 108.22500610351562,
+                "height": 22
+              },
+              "textStyle": "style_8KJUZF",
+              "fills": "fill_GB682Z",
+              "layout": "layout_U8475I",
+              "text": "Track Store"
+            }
+          ]
+        },
+        {
+          "id": "1057:1480",
+          "name": "Track",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 83,
+            "y": 407,
+            "width": 234,
+            "height": 40
+          },
+          "layout": "layout_FAD4SV",
+          "borderRadius": "10px",
+          "children": [
+            {
+              "id": "1057:1481",
+              "name": "Rectangle 46",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 83,
+                "y": 407,
+                "width": 234,
+                "height": 40
+              },
+              "fills": "fill_BQBU7R",
+              "effects": "effect_BNT0DD",
+              "layout": "layout_7OF00G",
+              "borderRadius": "10px"
+            },
+            {
+              "id": "1057:1482",
+              "name": "Back to Home",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 135.64990234375,
+                "y": 416,
+                "width": 127.23750305175781,
+                "height": 22
+              },
+              "textStyle": "style_8KJUZF",
+              "fills": "fill_R7WF5A",
+              "layout": "layout_7N6TIY",
+              "text": "Back to Home"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "globalVars": {
+    "styles": {
+      "fill_GB682Z": [
+        "#FFFFFF"
+      ],
+      "effect_OHS4MD": {
+        "boxShadow": "0px 0px 5px 2px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_5MQBT9": {
+        "mode": "none",
+        "clipsContent": true,
+        "dimensions": {
+          "width": 400,
+          "height": 500
+        }
+      },
+      "layout_5C8M0Z": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 110,
+          "y": 50
+        },
+        "dimensions": {
+          "width": 180,
+          "height": 180
+        }
+      },
+      "fill_F51E0M": [
+        "#D9D9D9"
+      ],
+      "layout_U406MN": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 180,
+          "height": 180
+        }
+      },
+      "fill_5HWREB": [
+        {
+          "type": "GRADIENT_LINEAR",
+          "gradientHandlePositions": [
+            {
+              "x": 0.4999999701976756,
+              "y": 1.352074016983118e-10
+            },
+            {
+              "x": 0.5017590379093468,
+              "y": 1.000000066275843
+            },
+            {
+              "x": -6.287264220361521e-8,
+              "y": 0.0022684039131576203
+            }
+          ],
+          "gradientStops": [
+            {
+              "position": 0.3413461446762085,
+              "color": {
+                "hex": "#3BB77E",
+                "opacity": 1
+              }
+            },
+            {
+              "position": 1,
+              "color": {
+                "hex": "#1A5138",
+                "opacity": 1
+              }
+            }
+          ]
+        }
+      ],
+      "layout_F4J74T": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 2,
+          "y": 131
+        },
+        "dimensions": {
+          "width": 176.57,
+          "height": 109.94
+        }
+      },
+      "fill_0JSV2G": [
+        {
+          "type": "GRADIENT_LINEAR",
+          "gradientHandlePositions": [
+            {
+              "x": 0.5008795651102227,
+              "y": 0.999999931878809
+            },
+            {
+              "x": 0.49912049737541947,
+              "y": -1.505066027363e-8
+            },
+            {
+              "x": 1.0008795981800784,
+              "y": 0.9977315281384452
+            }
+          ],
+          "gradientStops": [
+            {
+              "position": 0.42307692766189575,
+              "color": {
+                "hex": "#3BB77E",
+                "opacity": 1
+              }
+            },
+            {
+              "position": 1,
+              "color": {
+                "hex": "#1A5138",
+                "opacity": 1
+              }
+            }
+          ]
+        }
+      ],
+      "layout_3GWIF3": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 2,
+          "y": 151
+        },
+        "dimensions": {
+          "width": 176.57,
+          "height": 109.94
+        }
+      },
+      "layout_3JJDGH": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 83,
+          "y": 270
+        },
+        "dimensions": {
+          "width": 234,
+          "height": 57
+        }
+      },
+      "style_VYCVRE": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_RDHAGO": [
+        "#1E1E1E"
+      ],
+      "layout_NCEWAU": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 3,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 228,
+          "height": 22
+        }
+      },
+      "style_J6OBRX": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 400,
+        "fontSize": 12,
+        "lineHeight": "1.2300000190734863em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_R7WF5A": [
+        "rgba(30, 30, 30, 0.5)"
+      ],
+      "layout_9J3E7J": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 27
+        },
+        "dimensions": {
+          "width": 234,
+          "height": 30
+        }
+      },
+      "layout_WSU9LY": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 83,
+          "y": 357
+        },
+        "dimensions": {
+          "width": 234,
+          "height": 40
+        }
+      },
+      "fill_PMUQHS": [
+        "#3BB77E"
+      ],
+      "effect_BNT0DD": {
+        "boxShadow": "0px 0px 5px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_7OF00G": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 234,
+          "height": 40
+        }
+      },
+      "style_8KJUZF": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 14,
+        "lineHeight": "1.5714285714285714em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "layout_U8475I": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 63,
+          "y": 9
+        },
+        "dimensions": {
+          "width": 108.23,
+          "height": 22
+        }
+      },
+      "layout_FAD4SV": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 83,
+          "y": 407
+        },
+        "dimensions": {
+          "width": 234,
+          "height": 40
+        }
+      },
+      "fill_BQBU7R": [
+        "rgba(217, 217, 217, 0.5)"
+      ],
+      "layout_7N6TIY": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 52.65,
+          "y": 9
+        },
+        "dimensions": {
+          "width": 127.24,
+          "height": 22
+        }
+      }
+    }
+  }
+}

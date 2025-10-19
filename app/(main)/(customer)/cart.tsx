@@ -12,16 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ref, onValue, get } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
-import { removeFromCart, updateCartQuantity, clearCart } from '../../../src/api/cart';
-import { createOrder } from '../../../src/api/orders';
+import { removeFromCart, updateCartQuantity } from '../../../src/api/cart';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from '../../../src/constants/Colors';
 import { Fonts } from '../../../src/constants/Fonts';
 import { s, vs } from '../../../src/constants/responsive';
 import type { CartItem as CartItemType } from '../../../src/models/Cart';
-import type { OrderItem } from '../../../src/models/Order';
 
 const CartScreen = () => {
   const router = useRouter();
@@ -30,7 +28,6 @@ const CartScreen = () => {
   const [cartItems, setCartItems] = useState<CartItemType[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingItem, setUpdatingItem] = useState<string | null>(null);
-  const [placingOrder, setPlacingOrder] = useState(false);
 
   // Fetch cart items from Firebase with real-time updates
   useEffect(() => {
@@ -98,7 +95,7 @@ const CartScreen = () => {
   const discount = 0; // Will be calculated based on discount type
   const grandTotal = subtotal + serviceFee - discount;
 
-  const handlePlaceOrder = async () => {
+  const handleProceedToPayment = () => {
     if (!user) {
       Alert.alert('Error', 'Please sign in to place an order');
       router.push('/(auth)/signin');
@@ -110,96 +107,8 @@ const CartScreen = () => {
       return;
     }
 
-    try {
-      setPlacingOrder(true);
-
-      // Get user details
-      const userRef = ref(database, `users/${user.id}`);
-      const userSnapshot = await get(userRef);
-      const userData = userSnapshot.val();
-
-      // Group cart items by store
-      const itemsByStore: { [storeId: string]: CartItemType[] } = {};
-      cartItems.forEach(item => {
-        if (!itemsByStore[item.storeId]) {
-          itemsByStore[item.storeId] = [];
-        }
-        itemsByStore[item.storeId].push(item);
-      });
-
-      // Create separate order for each store
-      const orderIds: string[] = [];
-      for (const storeId in itemsByStore) {
-        const storeItems = itemsByStore[storeId];
-        const storeSubtotal = storeItems.reduce((sum, item) => sum + item.subtotal, 0);
-
-        // Convert cart items to order items
-        const orderItems: OrderItem[] = storeItems.map(item => ({
-          productId: item.productId,
-          productName: item.productName,
-          productImage: item.productImage,
-          quantity: item.quantity,
-          price: item.price,
-          weight: item.weight,
-          unit: item.unit,
-          subtotal: item.subtotal,
-        }));
-
-        // Generate order number
-        const orderNumber = `ORD-${new Date().getFullYear()}-${Date.now()}`;
-
-        // Create order
-        const orderId = await createOrder({
-          orderNumber,
-          customerId: user.id,
-          customerName: userData?.name || user.email || 'Customer',
-          customerPhone: userData?.phone || '',
-          storeId,
-          storeName: storeItems[0].storeName,
-          items: orderItems,
-          subtotal: storeSubtotal,
-          tax: 0,
-          serviceFee: 0,
-          total: storeSubtotal,
-          status: 'pending',
-          notes: notes.trim() || '',  // Use empty string instead of undefined
-          paymentMethod: 'cash', // Default to cash on pickup
-          paymentStatus: 'pending',
-        });
-
-        if (orderId) {
-          orderIds.push(orderId);
-        }
-      }
-
-      if (orderIds.length > 0) {
-        // Clear cart after successful order
-        await clearCart(user.id);
-
-        // Show success message
-        Alert.alert(
-          'Order Placed Successfully!',
-          `Your ${orderIds.length > 1 ? 'orders have' : 'order has'} been placed. Please wait for store confirmation.`,
-          [
-            {
-              text: 'View Orders',
-              onPress: () => router.push('/(main)/(customer)/orders'),
-            },
-            {
-              text: 'Continue Shopping',
-              onPress: () => router.push('/(main)/(customer)/home'),
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Error', 'Failed to place order. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error placing order:', error);
-      Alert.alert('Error', 'An error occurred while placing your order. Please try again.');
-    } finally {
-      setPlacingOrder(false);
-    }
+    // Navigate to payment screen
+    router.push('/(main)/(customer)/payment');
   };
 
   return (
@@ -362,20 +271,16 @@ const CartScreen = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Place Order Button */}
+      {/* Proceed to Payment Button */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[styles.proceedButton, (placingOrder || cartItems.length === 0) && styles.proceedButtonDisabled]}
-          onPress={handlePlaceOrder}
-          disabled={placingOrder || cartItems.length === 0}
+          style={[styles.proceedButton, cartItems.length === 0 && styles.proceedButtonDisabled]}
+          onPress={handleProceedToPayment}
+          disabled={cartItems.length === 0}
         >
-          {placingOrder ? (
-            <ActivityIndicator size="small" color={Colors.white} />
-          ) : (
-            <Text style={styles.proceedButtonText}>
-              {cartItems.length === 0 ? 'Cart is Empty' : 'Place Order (Cash on Pickup)'}
-            </Text>
-          )}
+          <Text style={styles.proceedButtonText}>
+            {cartItems.length === 0 ? 'Cart is Empty' : 'Proceed to Payment'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
