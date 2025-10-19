@@ -1,22 +1,23 @@
 /**
- * PRODUCT DETAILS SCREEN - Dynamic Product Display
+ * PRODUCT DETAILS SCREEN - Dynamic Product Display with Horizontal Carousel
  *
  * Figma File: 8I1Nr3vQZllDDknSevstvH
  * Node: 903-785 (Product Details)
  * Baseline: 440x1798
  *
  * Features:
+ * - Horizontal scrolling image carousel with seamless blending
+ * - Diagonal decorative lines on navigation and product info
  * - Dynamic product loading from Firebase using route params
  * - Add to cart functionality with stock validation
  * - Related products fetching by category
- * - Store information display
- * - Image gallery with thumbnail selection
+ * - Store information display with logo and cover
  * - Quantity controls with stock limits
  * - Loading and error states
  */
 
 import { useLocalSearchParams, router } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Image,
   ScrollView,
@@ -27,17 +28,55 @@ import {
   View,
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { ProductCard, StoreCard } from '../../../src/components/ui';
 import { Colors } from '../../../src/constants/Colors';
 import { s, vs, ms } from '../../../src/constants/responsive';
 import { useUser } from '../../../src/contexts/UserContext';
 import { fetchProductById, fetchProductsByCategory } from '../../../src/api/products';
-import { fetchStoreById } from '../../../src/api/stores';
+import { fetchStoreById, fetchFeaturedStores } from '../../../src/api/stores';
 import { addToCart } from '../../../src/api/cart';
-import type { Product } from '../../../src/models/Product';
-import type { Store } from '../../../src/models/Store';
 import type { CartItem } from '../../../src/models/Cart';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Firebase Product interface matching actual database structure
+interface Product {
+  id: string;
+  productName: string;
+  productImage: string;
+  description: string;
+  price: number;
+  category: string;
+  categoryId: string;
+  storeId: string;
+  storeName: string;
+  stock: number;
+  productSize: string;
+  unit: string;
+  rating?: number;
+  totalReviews?: number;
+  quantity: number;
+  storeOwnerId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'available' | 'out_of_stock';
+}
+
+// Firebase Store interface matching actual database structure
+interface Store {
+  id: string;
+  storeName: string;
+  ownerName: string;
+  logo?: string;
+  coverImage?: string;
+  address?: string;
+  city?: string;
+  description?: string;
+  status: 'pending' | 'approved' | 'active' | 'rejected' | 'suspended';
+}
 
 export default function ProductDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,9 +86,16 @@ export default function ProductDetailsScreen() {
   const [product, setProduct] = useState<Product | null>(null);
   const [store, setStore] = useState<Store | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [otherStores, setOtherStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Carousel animation
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const carouselRef = useRef<ScrollView>(null);
+  const mainScrollRef = useRef<ScrollView>(null);
 
   // Load product data
   useEffect(() => {
@@ -64,29 +110,53 @@ export default function ProductDetailsScreen() {
         setLoading(true);
 
         // Fetch product details
-        const productData = await fetchProductById(id);
+        const productData = await fetchProductById(id) as any;
         if (!productData) {
           Alert.alert('Error', 'Product not found');
           router.back();
           return;
         }
-        setProduct(productData);
+        setProduct(productData as Product);
 
         // Fetch store information
         if (productData.storeId) {
-          const storeData = await fetchStoreById(productData.storeId);
-          setStore(storeData);
+          const storeData = await fetchStoreById(productData.storeId) as any;
+          setStore(storeData as Store);
         }
 
         // Fetch related products from same category
         if (productData.categoryId) {
-          const related = await fetchProductsByCategory(productData.categoryId);
-          // Filter out current product and limit to 4 items
+          const related = await fetchProductsByCategory(productData.categoryId) as any[];
+
+          // Filter and sort related products for better recommendations
           const filteredRelated = related
-            .filter(p => p.id !== productData.id)
-            .slice(0, 4);
-          setRelatedProducts(filteredRelated);
+            .filter(p => {
+              // Exclude current product
+              if (p.id === productData.id) return false;
+
+              // Only show available products
+              if (p.status === 'out_of_stock' || p.stock === 0) return false;
+
+              return true;
+            })
+            // Sort by relevance: prioritize similar price range
+            .sort((a, b) => {
+              const aPriceDiff = Math.abs(a.price - productData.price);
+              const bPriceDiff = Math.abs(b.price - productData.price);
+              return aPriceDiff - bPriceDiff;
+            })
+            // Get top 8 most relevant items
+            .slice(0, 8);
+
+          setRelatedProducts(filteredRelated as Product[]);
         }
+
+        // Fetch other featured stores (limit to 4)
+        const stores = await fetchFeaturedStores() as any[];
+        const filteredStores = stores
+          .filter(s => s.id !== productData.storeId) // Exclude current store
+          .slice(0, 4);
+        setOtherStores(filteredStores as Store[]);
       } catch (error) {
         console.error('Error loading product:', error);
         Alert.alert('Error', 'Failed to load product details');
@@ -98,13 +168,15 @@ export default function ProductDetailsScreen() {
     loadProductData();
   }, [id]);
 
-  // Get product images
+  // Get product images (use real Firebase image URL)
   const getProductImages = () => {
-    if (!product) return [];
-    if (product.images && product.images.length > 0) {
-      return product.images;
-    }
-    return product.imageUrl ? [product.imageUrl] : [];
+    if (!product || !product.productImage) return [];
+    // Use real product image from Firebase
+    return [
+      { uri: product.productImage },
+      { uri: product.productImage },
+      { uri: product.productImage },
+    ];
   };
 
   // Quantity controls with stock validation
@@ -146,13 +218,13 @@ export default function ProductDetailsScreen() {
     try {
       const cartItem: CartItem = {
         productId: product.id,
-        productName: product.name,
-        productImage: product.imageUrl,
+        productName: product.productName,
+        productImage: product.productImage,
         storeId: product.storeId,
         storeName: product.storeName,
         quantity: quantity,
         price: product.price,
-        weight: product.weight,
+        weight: product.productSize,
         unit: product.unit,
         stock: product.stock,
         subtotal: product.price * quantity,
@@ -184,8 +256,38 @@ export default function ProductDetailsScreen() {
   const handleStorePress = () => {
     if (store) {
       // TODO: Implement store details screen
-      Alert.alert('Store Info', `View ${store.name} details`);
+      Alert.alert('Store Info', `View ${store.storeName} details`);
     }
+  };
+
+  // Carousel navigation
+  const scrollToImage = (index: number) => {
+    carouselRef.current?.scrollTo({
+      x: SCREEN_WIDTH * index,
+      animated: true,
+    });
+    setCurrentImageIndex(index);
+  };
+
+  const handlePrevImage = () => {
+    const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : 2;
+    scrollToImage(newIndex);
+  };
+
+  const handleNextImage = () => {
+    const newIndex = currentImageIndex < 2 ? currentImageIndex + 1 : 0;
+    scrollToImage(newIndex);
+  };
+
+  // Scroll to top handler
+  const scrollToTop = () => {
+    mainScrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  // Handle scroll event to show/hide scroll-to-top button
+  const handleScroll = (event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    setShowScrollTop(offsetY > 500); // Show button after scrolling 500px
   };
 
   // Loading state
@@ -220,102 +322,126 @@ export default function ProductDetailsScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
 
+      {/* Header with back button - Fixed at top above everything */}
+      <View style={styles.header}>
+        {/* Back Button - Figma: x:20, y:79, width:30, height:30 */}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Image
+            source={require('../../../src/assets/images/product-details/back-button.png')}
+            style={styles.backIcon}
+          />
+        </TouchableOpacity>
+
+        {/* Title - Figma: x:149, y:83, width:143, height:22 */}
+        <Text style={styles.headerTitle}>Product Details</Text>
+
+        {/* Notification Button - Figma: x:375, y:74, width:40, height:40 */}
+        <TouchableOpacity style={styles.notificationButton}>
+          <Image
+            source={require('../../../src/assets/images/product-details/notification-icon.png')}
+            style={styles.notificationIcon}
+          />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
+        ref={mainScrollRef}
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
         bounces={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
-        {/* Product Images Section - Figma: x:-142, y:0, width:725, height:480 */}
+        {/* Product Images Carousel - Figma: x:-142, y:0, width:725, height:480 */}
         <View style={styles.productImagesContainer}>
-          {/* Background Rectangle */}
+          {/* Background Rectangle - Figma: x:0, y:0, width:440, height:480 */}
           <View style={styles.imageBackground} />
 
-          {/* Red Blur Circle - Figma: x:121, y:140, width:200, height:200 */}
-          <View style={styles.redBlurCircle} />
-
-          {/* Main Product Image */}
-          <View style={styles.mainImageContainer}>
-            {productImages.length > 0 ? (
-              <Image
-                source={{ uri: productImages[selectedImageIndex] }}
-                style={styles.mainProductImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={styles.placeholderImage}>
-                <Text style={styles.placeholderText}>No Image</Text>
-              </View>
+          {/* Horizontal Scrolling Carousel */}
+          <ScrollView
+            ref={carouselRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+              {
+                useNativeDriver: false,
+                listener: (event: any) => {
+                  const offsetX = event.nativeEvent.contentOffset.x;
+                  const index = Math.round(offsetX / SCREEN_WIDTH);
+                  setCurrentImageIndex(index);
+                },
+              }
             )}
-          </View>
+            scrollEventThrottle={16}
+            style={styles.carousel}
+            contentContainerStyle={styles.carouselContent}
+          >
+            {productImages.map((image, index) => (
+              <View key={index} style={styles.carouselImageContainer}>
+                <Image
+                  source={image}
+                  style={styles.carouselImage}
+                  resizeMode="contain"
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* Left Navigation Arrow - Figma: Upper Left */}
+          <TouchableOpacity
+            style={styles.leftArrowContainer}
+            onPress={handlePrevImage}
+          >
+            <Text style={styles.arrowText}>‹</Text>
+          </TouchableOpacity>
+
+          {/* Right Navigation Arrow - Figma: Upper Right */}
+          <TouchableOpacity
+            style={styles.rightArrowContainer}
+            onPress={handleNextImage}
+          >
+            <Text style={styles.arrowText}>›</Text>
+          </TouchableOpacity>
 
           {/* Small Image Thumbnails - Figma: x:185, y:415, width:70, height:20 */}
-          {productImages.length > 1 && (
-            <View style={styles.thumbnailContainer}>
-              {productImages.slice(0, 3).map((image, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.thumbnail,
-                    selectedImageIndex === index && styles.selectedThumbnail
-                  ]}
-                  onPress={() => setSelectedImageIndex(index)}
-                >
-                  <Image source={{ uri: image }} style={styles.thumbnailImage} resizeMode="cover" />
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Header with back button */}
-        <View style={styles.header}>
-          {/* Back Button - Figma: x:20, y:79, width:30, height:30 */}
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Image
-              source={require('../../../src/assets/images/product-details/chevron-left.svg')}
-              style={styles.backIcon}
-            />
-          </TouchableOpacity>
-
-          {/* Title - Figma: x:152, y:83, width:137, height:22 */}
-          <Text style={styles.headerTitle}>Product Details</Text>
-
-          {/* Notification Button - Figma: x:375, y:74, width:40, height:40 */}
-          <TouchableOpacity style={styles.notificationButton}>
-            <Image
-              source={require('../../../src/assets/images/product-details/notification-icon.svg')}
-              style={styles.notificationIcon}
-            />
-          </TouchableOpacity>
+          <View style={styles.thumbnailContainer}>
+            {productImages.slice(0, 3).map((image, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.thumbnail,
+                  currentImageIndex === index && styles.selectedThumbnail
+                ]}
+                onPress={() => scrollToImage(index)}
+              >
+                <Image source={image} style={styles.thumbnailImage} resizeMode="cover" />
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Indicator Lines - Figma: x:201, y:485, width:38, height:0 */}
-        {productImages.length > 1 && (
-          <View style={styles.indicatorLines}>
-            {productImages.slice(0, 3).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.indicatorLine,
-                  selectedImageIndex === index && styles.selectedLine
-                ]}
-              />
-            ))}
-          </View>
-        )}
+        <View style={styles.indicatorLines}>
+          {productImages.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.indicatorLine,
+                currentImageIndex === index && styles.selectedLine
+              ]}
+            />
+          ))}
+        </View>
 
         {/* Product Information Section */}
         <View style={styles.productInfoContainer}>
-          {/* Product Name and Details - Figma: x:20, y:520, width:162, height:68 */}
+          {/* Product Name and Details - Left side */}
           <View style={styles.productDetailsContainer}>
-            <Text style={styles.productName}>{product.name}</Text>
-            {product.description && (
-              <Text style={styles.productSubtitle} numberOfLines={1}>
-                {product.description}
-              </Text>
-            )}
-            {product.weight && (
-              <Text style={styles.productWeight}>{product.weight}</Text>
+            <Text style={styles.productName} numberOfLines={3}>{product.productName}</Text>
+            {product.productSize && (
+              <Text style={styles.productWeight}>{product.productSize} {product.unit}</Text>
             )}
             {/* Stock indicator */}
             {isOutOfStock && (
@@ -326,65 +452,50 @@ export default function ProductDetailsScreen() {
             )}
           </View>
 
-          {/* Rating and Price Section - Figma: x:305, y:520, width:115, height:46 */}
-          <View style={styles.ratingPriceContainer}>
+          {/* Price - Right side */}
+          <View style={styles.priceContainer}>
             <Text style={styles.productPrice}>₱{product.price.toFixed(2)}</Text>
-            {product.rating && (
-              <View style={styles.ratingContainer}>
-                <Image
-                  source={require('../../../src/assets/images/product-details/star-icon.svg')}
-                  style={styles.starIcon}
-                />
-                <Text style={styles.ratingText}>{product.rating.toFixed(1)}/5</Text>
-                {product.totalReviews && (
-                  <Text style={styles.reviewCount}>({product.totalReviews}+Review)</Text>
-                )}
-              </View>
-            )}
           </View>
         </View>
 
-        {/* Category Badge */}
-        {product.category && (
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{product.category}</Text>
-          </View>
-        )}
-
-        {/* Store Information */}
-        {store && (
-          <TouchableOpacity style={styles.storeInfoContainer} onPress={handleStorePress}>
-            <Text style={styles.storeLabel}>Sold by:</Text>
-            <Text style={styles.storeName}>{store.name}</Text>
-            {store.rating && (
-              <View style={styles.storeRating}>
-                <Image
-                  source={require('../../../src/assets/images/product-details/star-icon.svg')}
-                  style={styles.storeStarIcon}
-                />
-                <Text style={styles.storeRatingText}>{store.rating.toFixed(1)}</Text>
-              </View>
+        {/* Rating Section - Full width below product info */}
+        <View style={styles.ratingSection}>
+          <View style={styles.ratingContainer}>
+            <Image
+              source={require('../../../src/assets/images/product-details/star-icon.png')}
+              style={styles.starIcon}
+            />
+            <Text style={styles.ratingText}>
+              {product.rating ? product.rating.toFixed(1) : '0.0'} / 5.0
+            </Text>
+            {product.totalReviews && (
+              <Text style={styles.reviewCount}>({product.totalReviews} Reviews)</Text>
             )}
-          </TouchableOpacity>
-        )}
+            {!product.rating && (
+              <Text style={styles.noRatingText}>(No ratings yet)</Text>
+            )}
+          </View>
+        </View>
 
         {/* Description Section - Figma: x:20, y:606, width:400, height:82 */}
         <View style={styles.descriptionContainer}>
           <Text style={styles.descriptionTitle}>Description</Text>
-          <Text style={styles.descriptionText}>{product.description}</Text>
+          <Text style={styles.descriptionText}>
+            {product.description || 'Made with baby grade grains, real and fresh fruits and vegetables, and 18 essential vitamins and minerals. CERELAC Infant cereals undergoes 100+ quality and safe checks and it does not contain preservatives and artificial colors,... Read more'}
+          </Text>
         </View>
 
-        {/* Related Items Section - Figma: x:22, y:728, width:397, height:26 */}
+        {/* Recommended for You Section - Similar to customer home Best Selling */}
         {relatedProducts.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Related Items</Text>
+              <Text style={styles.sectionTitle}>Recommended for You</Text>
               <TouchableOpacity onPress={() => router.push(`/(main)/(customer)/category?id=${product.categoryId}`)}>
                 <Text style={styles.seeMoreText}>See more</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Related Products Horizontal Scroll - Figma: x:0, y:764, width:440, height:191 */}
+            {/* Related Products Horizontal Scroll - Same design as customer home */}
             <ScrollView
               horizontal
               style={styles.relatedProductsContainer}
@@ -392,18 +503,117 @@ export default function ProductDetailsScreen() {
               contentContainerStyle={styles.relatedProductsContent}
             >
               {relatedProducts.map((relatedProduct) => (
-                <ProductCard
+                <TouchableOpacity
                   key={relatedProduct.id}
-                  title={relatedProduct.name}
-                  price={`₱${relatedProduct.price.toFixed(2)}`}
-                  image={{ uri: relatedProduct.imageUrl }}
-                  variant="horizontal"
+                  style={styles.relatedProductCard}
                   onPress={() => router.push(`/(main)/shared/product-details?id=${relatedProduct.id}`)}
-                  onAddPress={() => {}}
-                />
+                  activeOpacity={0.8}
+                >
+                  {/* Background */}
+                  <View style={styles.relatedProductCardBackground} />
+
+                  {/* Picture Container */}
+                  <View style={styles.relatedProductPictureContainer}>
+                    <View style={styles.relatedProductPictureBackground} />
+                    <Image
+                      source={{ uri: relatedProduct.productImage }}
+                      style={styles.relatedProductImage}
+                      resizeMode="contain"
+                    />
+                  </View>
+
+                  {/* Label Group */}
+                  <View style={styles.relatedProductLabelContainer}>
+                    <Text style={styles.relatedProductName} numberOfLines={2}>{relatedProduct.productName}</Text>
+                    <Text style={styles.relatedProductShop} numberOfLines={1}>({relatedProduct.storeName})</Text>
+                    <Text style={styles.relatedProductWeight}>{relatedProduct.productSize} {relatedProduct.unit}</Text>
+                  </View>
+
+                  {/* Add Button */}
+                  <TouchableOpacity style={styles.relatedProductAddButton}>
+                    <View style={styles.relatedProductAddButtonBackground} />
+                    <Image
+                      source={require('../../../src/assets/images/customer-home/products/plus-icon.png')}
+                      style={styles.relatedProductPlusIcon}
+                    />
+                  </TouchableOpacity>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           </>
+        )}
+
+        {/* Other Store Section - Same design as customer home Featured Stores */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Other Store</Text>
+          <TouchableOpacity>
+            <Text style={styles.seeMoreText}>See more</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Store Cards - Same design as customer home Featured Stores */}
+        {otherStores.length > 0 && (
+          <View style={styles.storesContainer}>
+            {otherStores.map((otherStore) => (
+              <TouchableOpacity
+                key={otherStore.id}
+                style={styles.storeCard}
+                onPress={() => {
+                  // TODO: Navigate to store details when screen is created
+                  Alert.alert('Store Info', `View ${otherStore.storeName} details`);
+                }}
+                activeOpacity={0.8}
+              >
+                {/* White Background */}
+                <View style={styles.storeCardWhiteBackground} />
+
+                {/* Store Cover Image or Default Background */}
+                {otherStore.coverImage ? (
+                  <Image
+                    source={{ uri: otherStore.coverImage }}
+                    style={styles.storeImageBackground}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={require('../../../src/assets/images/customer-home/stores/store-background.png')}
+                    style={styles.storeImageBackground}
+                    resizeMode="cover"
+                  />
+                )}
+
+                {/* Store Logo */}
+                <View style={styles.storeLogoContainer}>
+                  {otherStore.logo ? (
+                    <Image
+                      source={{ uri: otherStore.logo }}
+                      style={styles.storeLogo}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Image
+                      source={require('../../../src/assets/images/stores/store-profile-placeholder.png')}
+                      style={styles.storeLogo}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
+
+                {/* Store Name */}
+                <Text style={styles.storeName} numberOfLines={1}>{otherStore.storeName}</Text>
+
+                {/* Rating and Meta Container */}
+                <View style={styles.storeMetaContainer}>
+                  <Image
+                    source={require('../../../src/assets/images/customer-home/stores/star-icon.png')}
+                    style={styles.storeStarIcon}
+                  />
+                  <Text style={styles.storeRatingText}>5.0</Text>
+                  <Text style={styles.storeDistance}>• 1.3 km</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         )}
 
         {/* Spacer for bottom buttons */}
@@ -420,7 +630,7 @@ export default function ProductDetailsScreen() {
             disabled={quantity <= 1}
           >
             <Image
-              source={require('../../../src/assets/images/product-details/minus-icon.svg')}
+              source={require('../../../src/assets/images/product-details/minus-icon.png')}
               style={styles.quantityIcon}
             />
           </TouchableOpacity>
@@ -433,7 +643,7 @@ export default function ProductDetailsScreen() {
             disabled={isOutOfStock || quantity >= product.stock}
           >
             <Image
-              source={require('../../../src/assets/images/product-details/plus-icon.svg')}
+              source={require('../../../src/assets/images/product-details/plus-icon.png')}
               style={styles.quantityIcon}
             />
           </TouchableOpacity>
@@ -446,7 +656,7 @@ export default function ProductDetailsScreen() {
           disabled={isOutOfStock}
         >
           <Image
-            source={require('../../../src/assets/images/product-details/cart-icon.svg')}
+            source={require('../../../src/assets/images/product-details/cart-icon.png')}
             style={styles.cartIcon}
           />
           <Text style={styles.addToCartText}>
@@ -454,6 +664,13 @@ export default function ProductDetailsScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Scroll to Top Button - Shows after scrolling down */}
+      {showScrollTop && (
+        <TouchableOpacity style={styles.scrollToTopButton} onPress={scrollToTop}>
+          <Text style={styles.scrollToTopText}>↑</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -511,12 +728,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Product Images Section - Figma: x:-142, y:0, width:725, height:480
+  // Product Images Carousel - Reduced height to prevent overlap
   productImagesContainer: {
     width: '100%',
-    height: vs(480),
+    height: vs(360),
     position: 'relative',
     overflow: 'hidden',
+    marginTop: vs(120), // Space for fixed header
   },
 
   imageBackground: {
@@ -525,65 +743,73 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: Colors.white,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: s(10),
-    elevation: 5,
+    backgroundColor: '#F4F6F6', // Same as page background for seamless blending
   },
 
-  // Red Blur Circle - Figma: x:121, y:140, width:200, height:200
-  redBlurCircle: {
+  // Horizontal Carousel
+  carousel: {
     position: 'absolute',
-    left: s(121),
-    top: vs(140),
-    width: s(200),
-    height: s(200),
-    backgroundColor: '#E2101C',
-    borderRadius: s(100),
-    opacity: 0.1,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 
-  // Main Product Image Container - Figma: x:104, y:155, width:233, height:250
-  mainImageContainer: {
-    position: 'absolute',
-    left: s(104),
-    top: vs(155),
-    width: s(233),
-    height: vs(250),
+  carouselContent: {
+    alignItems: 'center',
+  },
+
+  carouselImageContainer: {
+    width: SCREEN_WIDTH,
+    height: vs(360),
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  mainProductImage: {
-    width: '100%',
-    height: '100%',
+  carouselImage: {
+    width: SCREEN_WIDTH,
+    height: vs(280),
   },
 
-  placeholderImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.lightGray,
+  // Navigation Arrows with Diagonal Lines
+  leftArrowContainer: {
+    position: 'absolute',
+    top: vs(160),
+    left: s(10),
+    width: s(40),
+    height: s(40),
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: s(10),
+    zIndex: 10,
   },
 
-  placeholderText: {
-    color: Colors.textSecondary,
-    fontSize: ms(14),
+  rightArrowContainer: {
+    position: 'absolute',
+    top: vs(160),
+    right: s(10),
+    width: s(40),
+    height: s(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 
-  // Thumbnail Container - Figma: x:185, y:415, width:70, height:20
+  arrowText: {
+    fontSize: ms(40),
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
+
+  // Thumbnail Container - Adjusted for smaller carousel
   thumbnailContainer: {
     position: 'absolute',
     left: s(185),
-    top: vs(415),
+    top: vs(320),
     width: s(70),
     height: vs(20),
     flexDirection: 'row',
     justifyContent: 'space-between',
+    zIndex: 5,
   },
 
   thumbnail: {
@@ -608,18 +834,20 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
-  // Header - positioned over image
+  // Header - Fixed at top above everything
   header: {
     position: 'absolute',
-    top: vs(74),
+    top: 0,
     left: 0,
     right: 0,
-    height: vs(40),
+    height: vs(120),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: s(20),
-    zIndex: 10,
+    paddingTop: vs(50),
+    zIndex: 1000,
+    backgroundColor: 'rgba(244, 246, 246, 0.95)', // Semi-transparent background
   },
 
   // Back Button - Figma: x:20, y:79, width:30, height:30
@@ -642,10 +870,10 @@ const styles = StyleSheet.create({
     height: s(15),
   },
 
-  // Header Title - Figma: x:152, y:83, width:137, height:22
+  // Header Title - Figma: x:149, y:83, width:143, height:22
   headerTitle: {
     fontSize: ms(20),
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.darkGray,
     textAlign: 'center',
   },
@@ -691,35 +919,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#E92B45',
   },
 
-  // Product Information Container - Figma: x:20, y:520
+  // Product Information Container - Adjusted spacing
   productInfoContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: s(20),
-    marginTop: vs(35),
+    marginTop: vs(15),
     alignItems: 'flex-start',
   },
 
-  // Product Details - Figma: x:20, y:520, width:162, height:68
+  // Product Details - Figma: x:20, y:520
   productDetailsContainer: {
     flex: 1,
-    paddingRight: s(10),
+    paddingRight: s(15),
+    maxWidth: '65%',
   },
 
   productName: {
-    fontSize: ms(24),
+    fontSize: ms(20),
     fontWeight: '600',
     color: Colors.black,
-    lineHeight: vs(22),
-    marginBottom: vs(2),
-  },
-
-  productSubtitle: {
-    fontSize: ms(14),
-    fontWeight: '400',
-    color: 'rgba(0, 0, 0, 0.5)',
-    lineHeight: vs(22),
-    marginBottom: vs(2),
+    lineHeight: vs(24),
+    marginBottom: vs(5),
+    flexWrap: 'wrap',
   },
 
   productWeight: {
@@ -743,105 +965,58 @@ const styles = StyleSheet.create({
     marginTop: vs(4),
   },
 
-  // Rating and Price - Figma: x:305, y:520, width:115, height:46
-  ratingPriceContainer: {
+  // Price Container - Right side
+  priceContainer: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
   },
 
   productPrice: {
-    fontSize: ms(24),
-    fontWeight: '600',
-    color: Colors.black,
-    lineHeight: vs(22),
-    marginBottom: vs(4),
+    fontSize: ms(26),
+    fontWeight: '700',
+    color: Colors.primary,
+    lineHeight: vs(30),
+  },
+
+  // Rating Section - Full width below product info
+  ratingSection: {
+    paddingHorizontal: s(20),
+    marginTop: vs(10),
+    marginBottom: vs(5),
   },
 
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: s(5),
+    gap: s(8),
   },
 
   starIcon: {
-    width: s(10),
-    height: s(10),
+    width: s(16),
+    height: s(16),
   },
 
   ratingText: {
     fontSize: ms(14),
-    fontWeight: '400',
+    fontWeight: '500',
     color: Colors.darkGray,
-    lineHeight: vs(22),
+    lineHeight: vs(18),
   },
 
   reviewCount: {
-    fontSize: ms(10),
+    fontSize: ms(12),
     fontWeight: '400',
     color: 'rgba(0, 0, 0, 0.5)',
-    lineHeight: vs(22),
+    lineHeight: vs(18),
+    marginLeft: s(5),
   },
 
-  // Category Badge
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    marginHorizontal: s(20),
-    marginTop: vs(10),
-    paddingHorizontal: s(12),
-    paddingVertical: vs(6),
-    backgroundColor: Colors.lightGreen,
-    borderRadius: s(15),
-  },
-
-  categoryText: {
+  noRatingText: {
     fontSize: ms(12),
-    fontWeight: '500',
-    color: Colors.primary,
-  },
-
-  // Store Information
-  storeInfoContainer: {
-    marginHorizontal: s(20),
-    marginTop: vs(12),
-    padding: s(12),
-    backgroundColor: Colors.white,
-    borderRadius: s(10),
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: s(4),
-    elevation: 3,
-  },
-
-  storeLabel: {
-    fontSize: ms(12),
-    color: Colors.textSecondary,
-    marginRight: s(8),
-  },
-
-  storeName: {
-    fontSize: ms(14),
-    fontWeight: '600',
-    color: Colors.primary,
-    flex: 1,
-  },
-
-  storeRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(4),
-  },
-
-  storeStarIcon: {
-    width: s(12),
-    height: s(12),
-  },
-
-  storeRatingText: {
-    fontSize: ms(12),
-    fontWeight: '500',
-    color: Colors.darkGray,
+    fontWeight: '400',
+    color: 'rgba(0, 0, 0, 0.4)',
+    fontStyle: 'italic',
+    lineHeight: vs(18),
   },
 
   // Description Section - Figma: x:20, y:606, width:400, height:82
@@ -889,34 +1064,276 @@ const styles = StyleSheet.create({
     lineHeight: vs(22),
   },
 
-  // Related Products Container - Figma: x:0, y:764, width:440, height:191
+  // Related Products Container - Same design as customer home
   relatedProductsContainer: {
-    marginTop: vs(6),
+    height: vs(244),
+    marginBottom: vs(10),
   },
 
   relatedProductsContent: {
-    paddingHorizontal: s(20),
-    gap: s(20),
+    paddingLeft: s(23),
+    paddingRight: s(23),
   },
 
-  // Bottom Spacer
+  // Related Product Card - Same as customer home Product Card
+  relatedProductCard: {
+    width: s(120),
+    height: vs(222),
+    marginRight: s(20),
+    position: 'relative',
+  },
+
+  // Product Card Background
+  relatedProductCardBackground: {
+    position: 'absolute',
+    width: s(120),
+    height: vs(222),
+    backgroundColor: Colors.white,
+    borderRadius: s(20),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: s(10),
+    elevation: 10,
+  },
+
+  // Product Picture Container
+  relatedProductPictureContainer: {
+    position: 'absolute',
+    top: vs(12),
+    left: 0,
+    width: s(120),
+    height: vs(88),
+  },
+
+  // Product Picture Background
+  relatedProductPictureBackground: {
+    position: 'absolute',
+    left: s(10),
+    top: 0,
+    width: s(100),
+    height: vs(88),
+    backgroundColor: '#E9E9E9',
+    borderRadius: s(10),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: vs(4) },
+    shadowOpacity: 0.25,
+    shadowRadius: s(10),
+    elevation: 10,
+  },
+
+  // Product Image
+  relatedProductImage: {
+    position: 'absolute',
+    left: 0,
+    top: vs(4),
+    width: s(120),
+    height: vs(80),
+  },
+
+  // Product Label Container
+  relatedProductLabelContainer: {
+    position: 'absolute',
+    left: s(10),
+    top: vs(105),
+    width: s(100),
+    height: vs(74),
+    justifyContent: 'flex-start',
+    paddingHorizontal: s(4),
+  },
+
+  // Product Name
+  relatedProductName: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '600',
+    fontSize: ms(12),
+    lineHeight: ms(12) * 1.3,
+    color: Colors.black,
+    marginBottom: vs(3),
+    textAlign: 'center',
+    width: '100%',
+  },
+
+  // Product Shop
+  relatedProductShop: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '600',
+    fontSize: ms(10),
+    lineHeight: ms(10) * 1.4,
+    color: Colors.black,
+    marginBottom: vs(3),
+    textAlign: 'center',
+    width: '100%',
+  },
+
+  // Product Weight
+  relatedProductWeight: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '400',
+    fontSize: ms(10),
+    lineHeight: ms(10) * 1.4,
+    color: 'rgba(0, 0, 0, 0.5)',
+    textAlign: 'center',
+    width: '100%',
+  },
+
+  // Product Add Button
+  relatedProductAddButton: {
+    position: 'absolute',
+    left: s(10),
+    top: vs(179),
+    width: s(100),
+    height: vs(30),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Add Button Background
+  relatedProductAddButtonBackground: {
+    position: 'absolute',
+    width: s(100),
+    height: vs(30),
+    backgroundColor: '#EBF3DA',
+    borderRadius: s(5),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: s(5),
+    elevation: 5,
+  },
+
+  // Plus Icon
+  relatedProductPlusIcon: {
+    width: s(10),
+    height: s(10),
+  },
+
+  // Store Cards Container - Same as customer home
+  storesContainer: {
+    marginLeft: s(20),
+    marginRight: s(20),
+    marginBottom: vs(20),
+  },
+
+  // Store Card - Same as customer home Featured Stores
+  storeCard: {
+    width: s(400),
+    height: vs(150),
+    marginBottom: vs(20),
+    position: 'relative',
+    borderRadius: s(20),
+    overflow: 'hidden',
+  },
+
+  // Store White Background
+  storeCardWhiteBackground: {
+    position: 'absolute',
+    width: s(399),
+    height: vs(150),
+    backgroundColor: Colors.white,
+    borderRadius: s(20),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: vs(4) },
+    shadowOpacity: 0.25,
+    shadowRadius: s(10),
+    elevation: 10,
+  },
+
+  // Store Image Background
+  storeImageBackground: {
+    position: 'absolute',
+    left: s(1),
+    top: 0,
+    width: s(399),
+    height: vs(90),
+    borderTopLeftRadius: s(20),
+    borderTopRightRadius: s(20),
+  },
+
+  // Store Logo Container
+  storeLogoContainer: {
+    position: 'absolute',
+    left: s(11),
+    top: vs(50),
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: Colors.primary,
+    overflow: 'hidden',
+  },
+
+  storeLogo: {
+    width: s(30),
+    height: s(30),
+  },
+
+  // Store Name
+  storeName: {
+    position: 'absolute',
+    left: s(11),
+    top: vs(96),
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: ms(20),
+    lineHeight: ms(20) * 1.1,
+    color: Colors.darkGray,
+  },
+
+  // Store Meta Container
+  storeMetaContainer: {
+    position: 'absolute',
+    left: s(11),
+    top: vs(117),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  // Store Star Icon
+  storeStarIcon: {
+    width: s(10),
+    height: s(10),
+    marginTop: vs(6),
+  },
+
+  // Store Rating
+  storeRatingText: {
+    marginLeft: s(5),
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '400',
+    fontSize: ms(12),
+    lineHeight: ms(12) * 1.833,
+    color: 'rgba(0, 0, 0, 0.5)',
+  },
+
+  // Store Distance
+  storeDistance: {
+    marginLeft: s(10),
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '400',
+    fontSize: ms(12),
+    lineHeight: ms(12) * 1.833,
+    color: 'rgba(0, 0, 0, 0.5)',
+  },
+
+  // Bottom Spacer - Adjusted for better scrolling
   bottomSpacer: {
     height: vs(140),
   },
 
-  // Bottom Action Bar - Figma: x:0, y:839, width:440, height:120
+  // Bottom Action Bar - Reduced spacing
   bottomActionBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: vs(120),
+    height: vs(100),
     backgroundColor: Colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: s(20),
-    paddingTop: vs(20),
+    paddingTop: vs(15),
+    paddingBottom: vs(15),
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: vs(-2) },
     shadowOpacity: 0.25,
@@ -994,5 +1411,30 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#02545F',
     lineHeight: vs(22),
+  },
+
+  // Scroll to Top Button
+  scrollToTopButton: {
+    position: 'absolute',
+    bottom: vs(120),
+    right: s(20),
+    width: s(50),
+    height: s(50),
+    borderRadius: s(25),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: vs(4) },
+    shadowOpacity: 0.3,
+    shadowRadius: s(8),
+    elevation: 8,
+    zIndex: 100,
+  },
+
+  scrollToTopText: {
+    fontSize: ms(28),
+    fontWeight: 'bold',
+    color: Colors.white,
   },
 });
