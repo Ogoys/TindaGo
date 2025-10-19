@@ -17,7 +17,15 @@ export async function fetchStoreById(storeId: string): Promise<Store | null> {
     const snapshot = await get(storeRef);
 
     if (snapshot.exists()) {
-      return snapshot.val() as Store;
+      const data = snapshot.val();
+      // Include the store ID and ensure logo/coverImage are properly mapped
+      return {
+        id: storeId,
+        ...data,
+        // Ensure logo and coverImage are included from businessInfo if they exist
+        logo: data.logo || data.businessInfo?.logo || null,
+        coverImage: data.coverImage || data.businessInfo?.coverImage || null,
+      } as Store;
     }
     return null;
   } catch (error) {
@@ -36,7 +44,15 @@ export async function fetchFeaturedStores(): Promise<Store[]> {
     const snapshot = await get(featuredQuery);
 
     if (snapshot.exists()) {
-      return Object.values(snapshot.val()) as Store[];
+      const data = snapshot.val();
+      // Map store data and include the store ID, logo, and coverImage
+      return Object.keys(data).map(storeId => ({
+        id: storeId,
+        ...data[storeId],
+        // Ensure logo and coverImage are included from businessInfo if they exist
+        logo: data[storeId].logo || data[storeId].businessInfo?.logo || null,
+        coverImage: data[storeId].coverImage || data[storeId].businessInfo?.coverImage || null,
+      })) as Store[];
     }
     return [];
   } catch (error) {
@@ -54,7 +70,15 @@ export async function fetchAllStores(): Promise<Store[]> {
     const snapshot = await get(storesRef);
 
     if (snapshot.exists()) {
-      return Object.values(snapshot.val()) as Store[];
+      const data = snapshot.val();
+      // Map store data and include the store ID, logo, and coverImage
+      return Object.keys(data).map(storeId => ({
+        id: storeId,
+        ...data[storeId],
+        // Ensure logo and coverImage are included from businessInfo if they exist
+        logo: data[storeId].logo || data[storeId].businessInfo?.logo || null,
+        coverImage: data[storeId].coverImage || data[storeId].businessInfo?.coverImage || null,
+      })) as Store[];
     }
     return [];
   } catch (error) {

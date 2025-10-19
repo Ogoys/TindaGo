@@ -5,7 +5,7 @@
  */
 
 import { ref, get, set, remove, update } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { database } from '../../../FirebaseConfig';
 import type { Cart, CartItem } from '@/models';
 
 /**

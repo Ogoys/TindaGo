@@ -5,7 +5,7 @@
  */
 
 import { ref, get, set, update, push, query, orderByChild, equalTo } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { database } from '../../../FirebaseConfig';
 import type { Order, OrderStatus } from '@/models';
 
 /**
@@ -19,11 +19,12 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'u
 
     if (!orderId) return null;
 
-    const order: Order = {
+    const now = new Date().toISOString();
+    const order = {
       ...orderData,
       id: orderId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     };
 
     await set(newOrderRef, order);

@@ -18,7 +18,7 @@
  * - Responsive design with pixel-perfect alignment
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -29,130 +29,62 @@ import {
   Animated,
   LayoutAnimation,
   Platform,
-  UIManager
+  UIManager,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { ref, onValue } from 'firebase/database';
+import { database } from '../../../FirebaseConfig';
+import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { BottomNavigation } from "../../../src/components/ui";
+import type { Order } from '../../../src/models/Order';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-interface OrderItem {
-  id: string;
-  orderId: string;
-  placedDate: string;
-  itemsCount: number;
-  total: string;
-  pickupDate: string;
-  status: 'pending' | 'ready' | 'completed' | 'cancelled';
-  products: Product[];
-}
-
-interface Product {
-  id: string;
-  name: string;
-  quantity: number;
-  price: string;
-  image?: any;
-}
-
-// Mock data - Replace with actual data from Firebase
-const mockOrders: OrderItem[] = [
-  {
-    id: '1',
-    orderId: '#OD1234',
-    placedDate: 'Sept 04, 2025',
-    itemsCount: 3,
-    total: '100.54',
-    pickupDate: 'Sept 04, 2025',
-    status: 'pending',
-    products: [
-      { id: 'p1', name: 'Garlic', quantity: 2, price: '25.00' },
-      { id: 'p2', name: 'Onion', quantity: 3, price: '35.50' },
-      { id: 'p3', name: 'Tomato', quantity: 1, price: '40.04' },
-    ]
-  },
-  {
-    id: '2',
-    orderId: '#OD1235',
-    placedDate: 'Sept 04, 2025',
-    itemsCount: 4,
-    total: '250.00',
-    pickupDate: 'Sept 05, 2025',
-    status: 'ready',
-    products: [
-      { id: 'p1', name: 'Rice (5kg)', quantity: 1, price: '150.00' },
-      { id: 'p2', name: 'Cooking Oil', quantity: 2, price: '50.00' },
-      { id: 'p3', name: 'Salt', quantity: 1, price: '25.00' },
-      { id: 'p4', name: 'Sugar', quantity: 1, price: '25.00' },
-    ]
-  },
-  {
-    id: '3',
-    orderId: '#OD1236',
-    placedDate: 'Sept 03, 2025',
-    itemsCount: 5,
-    total: '450.75',
-    pickupDate: 'Sept 04, 2025',
-    status: 'completed',
-    products: [
-      { id: 'p1', name: 'Eggs (1 dozen)', quantity: 2, price: '120.00' },
-      { id: 'p2', name: 'Bread', quantity: 3, price: '90.00' },
-      { id: 'p3', name: 'Milk', quantity: 2, price: '100.00' },
-      { id: 'p4', name: 'Butter', quantity: 1, price: '80.75' },
-      { id: 'p5', name: 'Cheese', quantity: 1, price: '60.00' },
-    ]
-  },
-  {
-    id: '4',
-    orderId: '#OD1237',
-    placedDate: 'Sept 02, 2025',
-    itemsCount: 2,
-    total: '180.30',
-    pickupDate: 'Sept 03, 2025',
-    status: 'pending',
-    products: [
-      { id: 'p1', name: 'Chicken (1kg)', quantity: 1, price: '120.00' },
-      { id: 'p2', name: 'Soy Sauce', quantity: 2, price: '60.30' },
-    ]
-  },
-  {
-    id: '5',
-    orderId: '#OD1238',
-    placedDate: 'Sept 01, 2025',
-    itemsCount: 3,
-    total: '95.00',
-    pickupDate: 'Sept 02, 2025',
-    status: 'completed',
-    products: [
-      { id: 'p1', name: 'Instant Noodles', quantity: 5, price: '50.00' },
-      { id: 'p2', name: 'Canned Goods', quantity: 2, price: '45.00' },
-    ]
-  },
-  {
-    id: '6',
-    orderId: '#OD1239',
-    placedDate: 'Aug 31, 2025',
-    itemsCount: 6,
-    total: '320.50',
-    pickupDate: 'Sept 01, 2025',
-    status: 'completed',
-    products: [
-      { id: 'p1', name: 'Fish (1kg)', quantity: 1, price: '180.00' },
-      { id: 'p2', name: 'Vegetables', quantity: 3, price: '90.50' },
-      { id: 'p3', name: 'Fruits', quantity: 2, price: '50.00' },
-    ]
-  }
-];
-
 export default function OrdersScreen() {
+  const { user } = useUser();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  // Fetch user orders from Firebase
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const ordersRef = ref(database, 'orders');
+    const unsubscribe = onValue(ordersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Filter orders for current user and map to array
+        const userOrders = Object.keys(data)
+          .map(orderId => ({
+            ...data[orderId],
+            id: orderId,
+          }))
+          .filter((order: Order) => order.customerId === user.id)
+          .sort((a: Order, b: Order) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+        setOrders(userOrders as Order[]);
+      } else {
+        setOrders([]);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const toggleOrder = (orderId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -201,15 +133,32 @@ export default function OrdersScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {mockOrders.map((order, index) => (
-          <OrderCard
-            key={order.id}
-            order={order}
-            isExpanded={expandedOrderId === order.id}
-            onToggle={() => toggleOrder(order.id)}
-            index={index}
-          />
-        ))}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Loading orders...</Text>
+          </View>
+        ) : orders.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No orders yet</Text>
+            <TouchableOpacity
+              style={styles.shopButton}
+              onPress={() => router.push('/(main)/(customer)/home')}
+            >
+              <Text style={styles.shopButtonText}>Start Shopping</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          orders.map((order, index) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              isExpanded={expandedOrderId === order.id}
+              onToggle={() => toggleOrder(order.id)}
+              index={index}
+            />
+          ))
+        )}
       </ScrollView>
 
       {/* Bottom Navigation */}
@@ -219,7 +168,7 @@ export default function OrdersScreen() {
 }
 
 interface OrderCardProps {
-  order: OrderItem;
+  order: Order;
   isExpanded: boolean;
   onToggle: () => void;
   index: number;
@@ -231,9 +180,16 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
   const baseY = 145;
   const spacing = 170;
 
+  // Format date
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return 'N/A';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+  };
+
   const handleCardPress = () => {
-    // Navigate to order details screen
-    router.push("/(main)/(customer)/order-details");
+    // Navigate to order details screen with order ID
+    router.push(`/(main)/(customer)/order-details?id=${order.id}`);
   };
 
   const handleDropdownPress = (e: any) => {
@@ -268,11 +224,11 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
 
         {/* Order Details - Figma: x:110, y:24 */}
         <View style={styles.orderDetails}>
-          <Text style={styles.orderId}>Order ID: {order.orderId}</Text>
-          <Text style={styles.placedDate}>Placed on {order.placedDate}</Text>
+          <Text style={styles.orderId}>Order ID: {order.orderNumber}</Text>
+          <Text style={styles.placedDate}>Placed on {formatDate(order.createdAt)}</Text>
           <View style={styles.itemTotalRow}>
-            <Text style={styles.itemsText}>Items: {order.itemsCount}</Text>
-            <Text style={styles.totalText}>Total: ₱{order.total}</Text>
+            <Text style={styles.itemsText}>Items: {order.items.length}</Text>
+            <Text style={styles.totalText}>Total: ₱{order.total.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -337,7 +293,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
       <View style={styles.lowerSection}>
         <View style={styles.statusIndicator} />
         <Text style={styles.pickupText}>Pickup Order</Text>
-        <Text style={styles.pickupDate}>{order.pickupDate}</Text>
+        <Text style={styles.pickupDate}>{order.pickupTime ? formatDate(order.pickupTime) : 'To be scheduled'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -634,5 +590,43 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.primary,
     lineHeight: ms(22),
+  },
+  // Loading Container
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: vs(60),
+  },
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+  // Empty State Container
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: vs(80),
+    paddingHorizontal: s(40),
+  },
+  emptyText: {
+    fontSize: ms(18),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: 'rgba(30, 30, 30, 0.5)',
+    marginBottom: vs(20),
+    textAlign: 'center',
+  },
+  shopButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: s(20),
+    paddingHorizontal: s(30),
+    paddingVertical: vs(12),
+  },
+  shopButtonText: {
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });

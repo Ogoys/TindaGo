@@ -39,3 +39,10 @@ export type {
   CartUpdate,
   AddToCartRequest,
 } from './Cart';
+
+// Review models
+export type {
+  Review,
+  ProductRating,
+  StoreRating,
+} from './Review';

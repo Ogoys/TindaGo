@@ -593,7 +593,7 @@ export default function HomeScreen() {
           {/* Section Title - Figma: 903:213 Best Selling */}
           <Text style={styles.sectionTitle}>Best Selling</Text>
           {/* See More - Figma: 903:214 See more */}
-          <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more")}>
+          <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more?section=bestSelling" as any)}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
@@ -652,7 +652,7 @@ export default function HomeScreen() {
           {/* Section Title - Figma: 903:219 Most popular picks */}
           <Text style={styles.sectionTitle}>Most popular picks</Text>
           {/* See More - Figma: 903:220 See more */}
-          <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more")}>
+          <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more?section=mostPopular" as any)}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
@@ -684,7 +684,7 @@ export default function HomeScreen() {
           {/* Section Title - Figma: 903:440 Fresh finds of the day */}
           <Text style={styles.sectionTitle}>Fresh finds of the day</Text>
           {/* See More - Figma: 903:441 See more */}
-          <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more")}>
+          <TouchableOpacity onPress={() => router.push("/(main)/(customer)/see-more?section=freshFinds" as any)}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>

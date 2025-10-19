@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,67 +7,200 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ref, onValue, get } from 'firebase/database';
+import { database } from '../../../FirebaseConfig';
+import { removeFromCart, updateCartQuantity, clearCart } from '../../../src/api/cart';
+import { createOrder } from '../../../src/api/orders';
+import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from '../../../src/constants/Colors';
 import { Fonts } from '../../../src/constants/Fonts';
 import { s, vs } from '../../../src/constants/responsive';
-
-interface CartItem {
-  id: string;
-  name: string;
-  weight: string;
-  price: number;
-  image?: any;
-}
+import type { CartItem as CartItemType } from '../../../src/models/Cart';
+import type { OrderItem } from '../../../src/models/Order';
 
 const CartScreen = () => {
   const router = useRouter();
+  const { user } = useUser();
   const [notes, setNotes] = useState('');
-  
-  // Mock cart data based on Figma design
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: '1',
-      name: 'Assorted Capsicum',
-      weight: '500g',
-      price: 500.25,
-    },
-    {
-      id: '2',
-      name: 'Assorted Capsicum',
-      weight: '500g',
-      price: 500.25,
-    },
-    {
-      id: '3',
-      name: 'Assorted Capsicum',
-      weight: '500g',
-      price: 500.25,
-    },
-    {
-      id: '4',
-      name: 'Assorted Capsicum',
-      weight: '500g',
-      price: 500.25,
-    },
-    {
-      id: '5',
-      name: 'Assorted Capsicum',
-      weight: '500g',
-      price: 500.25,
-    },
-  ]);
+  const [cartItems, setCartItems] = useState<CartItemType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingItem, setUpdatingItem] = useState<string | null>(null);
+  const [placingOrder, setPlacingOrder] = useState(false);
 
-  const removeItem = (id: string) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
+  // Fetch cart items from Firebase with real-time updates
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const cartItemsRef = ref(database, `carts/${user.id}/items`);
+    const unsubscribe = onValue(cartItemsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const items = Object.keys(data).map(productId => ({
+          ...data[productId],
+          productId,
+        })) as CartItemType[];
+        setCartItems(items);
+      } else {
+        setCartItems([]);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const removeItem = async (productId: string) => {
+    if (!user) return;
+
+    try {
+      const success = await removeFromCart(user.id, productId);
+      if (!success) {
+        Alert.alert('Error', 'Failed to remove item from cart');
+      }
+    } catch (error) {
+      console.error('Error removing item:', error);
+      Alert.alert('Error', 'An error occurred while removing the item');
+    }
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
-  const serviceFee = 50.25;
-  const discount = 50.25;
+  const updateQuantity = async (productId: string, newQuantity: number, maxStock: number) => {
+    if (!user || newQuantity < 1) return;
+
+    if (newQuantity > maxStock) {
+      Alert.alert('Stock Limit', `Only ${maxStock} items available`);
+      return;
+    }
+
+    try {
+      setUpdatingItem(productId);
+      const success = await updateCartQuantity(user.id, productId, newQuantity);
+      if (!success) {
+        Alert.alert('Error', 'Failed to update quantity');
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      Alert.alert('Error', 'An error occurred while updating quantity');
+    } finally {
+      setUpdatingItem(null);
+    }
+  };
+
+  const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+  const serviceFee = 0; // No service fee for pickup
+  const discount = 0; // Will be calculated based on discount type
   const grandTotal = subtotal + serviceFee - discount;
+
+  const handlePlaceOrder = async () => {
+    if (!user) {
+      Alert.alert('Error', 'Please sign in to place an order');
+      router.push('/(auth)/signin');
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      Alert.alert('Empty Cart', 'Please add items to your cart first');
+      return;
+    }
+
+    try {
+      setPlacingOrder(true);
+
+      // Get user details
+      const userRef = ref(database, `users/${user.id}`);
+      const userSnapshot = await get(userRef);
+      const userData = userSnapshot.val();
+
+      // Group cart items by store
+      const itemsByStore: { [storeId: string]: CartItemType[] } = {};
+      cartItems.forEach(item => {
+        if (!itemsByStore[item.storeId]) {
+          itemsByStore[item.storeId] = [];
+        }
+        itemsByStore[item.storeId].push(item);
+      });
+
+      // Create separate order for each store
+      const orderIds: string[] = [];
+      for (const storeId in itemsByStore) {
+        const storeItems = itemsByStore[storeId];
+        const storeSubtotal = storeItems.reduce((sum, item) => sum + item.subtotal, 0);
+
+        // Convert cart items to order items
+        const orderItems: OrderItem[] = storeItems.map(item => ({
+          productId: item.productId,
+          productName: item.productName,
+          productImage: item.productImage,
+          quantity: item.quantity,
+          price: item.price,
+          weight: item.weight,
+          unit: item.unit,
+          subtotal: item.subtotal,
+        }));
+
+        // Generate order number
+        const orderNumber = `ORD-${new Date().getFullYear()}-${Date.now()}`;
+
+        // Create order
+        const orderId = await createOrder({
+          orderNumber,
+          customerId: user.id,
+          customerName: userData?.name || user.email || 'Customer',
+          customerPhone: userData?.phone || '',
+          storeId,
+          storeName: storeItems[0].storeName,
+          items: orderItems,
+          subtotal: storeSubtotal,
+          tax: 0,
+          serviceFee: 0,
+          total: storeSubtotal,
+          status: 'pending',
+          notes: notes.trim() || '',  // Use empty string instead of undefined
+          paymentMethod: 'cash', // Default to cash on pickup
+          paymentStatus: 'pending',
+        });
+
+        if (orderId) {
+          orderIds.push(orderId);
+        }
+      }
+
+      if (orderIds.length > 0) {
+        // Clear cart after successful order
+        await clearCart(user.id);
+
+        // Show success message
+        Alert.alert(
+          'Order Placed Successfully!',
+          `Your ${orderIds.length > 1 ? 'orders have' : 'order has'} been placed. Please wait for store confirmation.`,
+          [
+            {
+              text: 'View Orders',
+              onPress: () => router.push('/(main)/(customer)/orders'),
+            },
+            {
+              text: 'Continue Shopping',
+              onPress: () => router.push('/(main)/(customer)/home'),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to place order. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      Alert.alert('Error', 'An error occurred while placing your order. Please try again.');
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -96,28 +229,76 @@ const CartScreen = () => {
 
         {/* Product Items */}
         <View style={styles.ordersContainer}>
-          {cartItems.map((item, index) => (
-            <View key={item.id} style={styles.orderItem}>
-              <View style={styles.productImage} />
-              
-              <View style={styles.productInfo}>
-                <Text style={styles.productName}>{item.name}</Text>
-                <Text style={styles.productWeight}>{item.weight}</Text>
-              </View>
-              
-              <Text style={styles.productPrice}>₱{item.price.toFixed(2)}</Text>
-              
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Loading cart...</Text>
+            </View>
+          ) : cartItems.length === 0 ? (
+            <View style={styles.emptyCartContainer}>
+              <Text style={styles.emptyCartText}>Your cart is empty</Text>
               <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => removeItem(item.id)}
+                style={styles.shopNowButton}
+                onPress={() => router.push('/(main)/(customer)/home')}
               >
-                <Image
-                  source={require('../../../src/assets/images/product-chart/trash-icon.png')}
-                  style={styles.trashIcon}
-                />
+                <Text style={styles.shopNowText}>Start Shopping</Text>
               </TouchableOpacity>
             </View>
-          ))}
+          ) : (
+            cartItems.map((item) => (
+              <View key={item.productId} style={styles.orderItem}>
+                {/* Product Image */}
+                {item.productImage ? (
+                  <Image
+                    source={{ uri: item.productImage }}
+                    style={styles.productImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.productImagePlaceholder} />
+                )}
+
+                {/* Product Info */}
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName} numberOfLines={1}>{item.productName}</Text>
+                  <Text style={styles.productWeight}>{item.weight} {item.unit}</Text>
+                  <Text style={styles.productPrice}>₱{item.price.toFixed(2)}</Text>
+                </View>
+
+                {/* Quantity Controls */}
+                <View style={styles.quantityControls}>
+                  <TouchableOpacity
+                    style={styles.quantityButton}
+                    onPress={() => updateQuantity(item.productId, item.quantity - 1, item.stock)}
+                    disabled={updatingItem === item.productId || item.quantity <= 1}
+                  >
+                    <Text style={styles.quantityButtonText}>-</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.quantityText}>{item.quantity}</Text>
+
+                  <TouchableOpacity
+                    style={styles.quantityButton}
+                    onPress={() => updateQuantity(item.productId, item.quantity + 1, item.stock)}
+                    disabled={updatingItem === item.productId || item.quantity >= item.stock}
+                  >
+                    <Text style={styles.quantityButtonText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Delete Button */}
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => removeItem(item.productId)}
+                >
+                  <Image
+                    source={require('../../../src/assets/images/product-chart/trash-icon.png')}
+                    style={styles.trashIcon}
+                  />
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
         </View>
 
         {/* Notes Section */}
@@ -181,16 +362,20 @@ const CartScreen = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Proceed to Payment Button */}
+      {/* Place Order Button */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={styles.proceedButton}
-          onPress={() => {
-            // Navigate to payment screen or handle payment logic
-            console.log('Proceed to payment');
-          }}
+          style={[styles.proceedButton, (placingOrder || cartItems.length === 0) && styles.proceedButtonDisabled]}
+          onPress={handlePlaceOrder}
+          disabled={placingOrder || cartItems.length === 0}
         >
-          <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
+          {placingOrder ? (
+            <ActivityIndicator size="small" color={Colors.white} />
+          ) : (
+            <Text style={styles.proceedButtonText}>
+              {cartItems.length === 0 ? 'Cart is Empty' : 'Place Order (Cash on Pickup)'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -282,6 +467,12 @@ const styles = StyleSheet.create({
     width: s(60),
     height: vs(60),
     borderRadius: s(14),
+    marginRight: s(15),
+  },
+  productImagePlaceholder: {
+    width: s(60),
+    height: vs(60),
+    borderRadius: s(14),
     backgroundColor: '#D9D9D9',
     marginRight: s(15),
   },
@@ -329,6 +520,74 @@ const styles = StyleSheet.create({
   trashIcon: {
     width: s(20),
     height: vs(20),
+  },
+  // Quantity Controls
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: s(8),
+    borderWidth: 1,
+    borderColor: '#02545F',
+    paddingHorizontal: s(8),
+    paddingVertical: vs(4),
+    marginRight: s(10),
+  },
+  quantityButton: {
+    width: s(24),
+    height: vs(24),
+    borderRadius: s(12),
+    backgroundColor: Colors.lightGreen,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantityButtonText: {
+    fontSize: s(16),
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  quantityText: {
+    fontSize: s(14),
+    fontWeight: '600',
+    color: Colors.darkGray,
+    marginHorizontal: s(12),
+    minWidth: s(20),
+    textAlign: 'center',
+  },
+  // Loading state
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: vs(60),
+  },
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: s(16),
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  // Empty cart
+  emptyCartContainer: {
+    alignItems: 'center',
+    paddingVertical: vs(80),
+    paddingHorizontal: s(40),
+  },
+  emptyCartText: {
+    fontSize: s(18),
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: vs(20),
+    textAlign: 'center',
+  },
+  shopNowButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: s(20),
+    paddingHorizontal: s(30),
+    paddingVertical: vs(12),
+  },
+  shopNowText: {
+    fontSize: s(16),
+    fontWeight: '600',
+    color: Colors.white,
   },
   // Notes section - Figma: x: 20, y: 666, width: 400, height: 150
   notesSection: {
@@ -496,6 +755,10 @@ const styles = StyleSheet.create({
     fontWeight: Fonts.weights.medium,
     color: Colors.white,
     lineHeight: s(22),
+  },
+  proceedButtonDisabled: {
+    backgroundColor: 'rgba(59, 183, 126, 0.5)',
+    opacity: 0.6,
   },
 });
 

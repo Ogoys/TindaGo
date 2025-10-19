@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,15 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { ref, onValue } from 'firebase/database';
+import { database } from '../../../FirebaseConfig';
 import { s, vs, ms } from "../../../src/constants/responsive";
+import { Colors } from "../../../src/constants/Colors";
+import type { Order } from '../../../src/models/Order';
 
 /**
  * ORDER DETAILS PAGE - PIXEL-PERFECT FIGMA CONVERSION
@@ -26,6 +31,87 @@ import { s, vs, ms } from "../../../src/constants/responsive";
  */
 
 export default function OrderDetailsScreen() {
+  const params = useLocalSearchParams();
+  const orderId = params.id as string;
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch order data from Firebase
+  useEffect(() => {
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
+
+    const orderRef = ref(database, `orders/${orderId}`);
+    const unsubscribe = onValue(orderRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setOrder({ ...data, id: orderId } as Order);
+      } else {
+        setOrder(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [orderId]);
+
+  // Format date and time
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return 'N/A';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+  };
+
+  const formatTime = (date: Date | string | undefined) => {
+    if (!date) return 'N/A';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Get payment method display name
+  const getPaymentMethodName = (method: string) => {
+    switch (method) {
+      case 'cash':
+        return 'Cash on Pickup';
+      case 'gcash':
+        return 'GCash';
+      case 'paymaya':
+        return 'PayMaya';
+      default:
+        return method;
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading order details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!order) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Order not found</Text>
+          <TouchableOpacity
+            style={styles.backToOrdersButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backToOrdersText}>Back to Orders</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
@@ -68,7 +154,7 @@ export default function OrderDetailsScreen() {
         {/* ORDER ID SECTION - Figma: 759:4027 & 759:4028, y:149 */}
         <View style={styles.orderIdContainer}>
           <Text style={styles.orderIdLabel}>Order ID :</Text>
-          <Text style={styles.orderIdValue}>123456789</Text>
+          <Text style={styles.orderIdValue}>{order.orderNumber}</Text>
         </View>
 
         {/* STATUS ORDER CARD - Figma: 759:4029, x:20, y:191, width:400, height:200 */}
@@ -95,55 +181,97 @@ export default function OrderDetailsScreen() {
               </View>
             </View>
             <Text style={styles.statusTextConfirmed}>Order Confirmed</Text>
-            <Text style={styles.statusTime1}>12:30 PM</Text>
+            <Text style={styles.statusTime1}>{formatTime(order.createdAt)}</Text>
           </View>
 
           {/* STATUS ITEM 2: PREPARING ORDER - Figma: 759:4039, x:36, y:256 */}
           <View style={styles.statusItem2}>
             <View style={styles.statusIconContainer}>
               {/* Process Circle - Figma: 759:4040 */}
-              <View style={styles.processCircle} />
+              <View style={[
+                styles.processCircle,
+                order.status === 'pending' && styles.inactiveCircle
+              ]} />
               {/* Process Icon - Figma: 759:4041 */}
               <Image
                 source={require("../../../src/assets/images/customer-order-details/process-icon.png")}
-                style={styles.processIcon}
+                style={[
+                  styles.processIcon,
+                  order.status === 'pending' && styles.inactiveIcon
+                ]}
                 resizeMode="cover"
               />
             </View>
-            <Text style={styles.statusText}>Preparing your Order</Text>
-            <Text style={styles.statusTime2}>12:35 PM</Text>
+            <Text style={[
+              styles.statusText,
+              order.status === 'pending' && styles.inactiveText
+            ]}>Preparing your Order</Text>
+            <Text style={[
+              styles.statusTime2,
+              order.status === 'pending' && styles.inactiveText
+            ]}>
+              {order.status === 'pending' ? 'Pending' : formatTime(order.updatedAt)}
+            </Text>
           </View>
 
           {/* STATUS ITEM 3: READY TO PICKUP - Figma: 759:4042, x:36, y:306 */}
           <View style={styles.statusItem3}>
             <View style={styles.statusIconContainer}>
               {/* Pickup Circle - Figma: 759:4043 */}
-              <View style={styles.pickupCircle} />
+              <View style={[
+                styles.pickupCircle,
+                (order.status === 'pending' || order.status === 'preparing') && styles.inactiveCircle
+              ]} />
               {/* Pickup Icon - Figma: 759:4044 */}
               <Image
                 source={require("../../../src/assets/images/customer-order-details/pickup-icon.png")}
-                style={styles.pickupIcon}
+                style={[
+                  styles.pickupIcon,
+                  (order.status === 'pending' || order.status === 'preparing') && styles.inactiveIcon
+                ]}
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.statusText}>Your Order is Ready to Pickup</Text>
-            <Text style={styles.statusTime3}>12:37 PM</Text>
+            <Text style={[
+              styles.statusText,
+              (order.status === 'pending' || order.status === 'preparing') && styles.inactiveText
+            ]}>Your Order is Ready to Pickup</Text>
+            <Text style={[
+              styles.statusTime3,
+              (order.status === 'pending' || order.status === 'preparing') && styles.inactiveText
+            ]}>
+              {(order.status === 'pending' || order.status === 'preparing') ? 'Pending' : formatTime(order.updatedAt)}
+            </Text>
           </View>
 
           {/* STATUS ITEM 4: PICKUP ORDER - Figma: 759:4051, x:36, y:356 */}
           <View style={styles.statusItem4}>
             <View style={styles.statusIconContainer}>
               {/* Pickup Circle - Figma: 759:4052 */}
-              <View style={styles.pickupCircle} />
+              <View style={[
+                styles.pickupCircle,
+                order.status !== 'completed' && styles.inactiveCircle
+              ]} />
               {/* Pickup Icon - Figma: 759:4053 */}
               <Image
                 source={require("../../../src/assets/images/customer-order-details/pickup-icon.png")}
-                style={styles.pickupIcon}
+                style={[
+                  styles.pickupIcon,
+                  order.status !== 'completed' && styles.inactiveIcon
+                ]}
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.statusText}>Pickup Order</Text>
-            <Text style={styles.statusTime4}>12:45 PM</Text>
+            <Text style={[
+              styles.statusText,
+              order.status !== 'completed' && styles.inactiveText
+            ]}>Pickup Order</Text>
+            <Text style={[
+              styles.statusTime4,
+              order.status !== 'completed' && styles.inactiveText
+            ]}>
+              {order.status !== 'completed' ? 'Pending' : formatTime(order.updatedAt)}
+            </Text>
           </View>
         </View>
 
@@ -156,43 +284,40 @@ export default function OrderDetailsScreen() {
           {/* Item Count - Figma: 759:4086 & 759:4087, y:434 */}
           <View style={styles.billRow1}>
             <Text style={styles.billLabel}>Item</Text>
-            <Text style={styles.billValue}>12</Text>
+            <Text style={styles.billValue}>{order.items.length}</Text>
           </View>
 
           {/* Sub Total - Figma: 759:4075 & 759:4085, y:471 */}
           <View style={styles.billRow2}>
             <Text style={styles.billLabel}>Sub Total</Text>
-            <Text style={styles.billValue}>₱ 500.25</Text>
+            <Text style={styles.billValue}>₱ {order.subtotal.toFixed(2)}</Text>
           </View>
 
           {/* Service Fee - Figma: 759:4076 & 759:4084, y:508 */}
           <View style={styles.billRow3}>
             <Text style={styles.billLabel}>Service Fee</Text>
-            <Text style={styles.billValue}>₱ 50.25</Text>
+            <Text style={styles.billValue}>₱ {order.serviceFee.toFixed(2)}</Text>
           </View>
 
-          {/* Discount - Figma: 759:4077 & 759:4079, y:545 */}
-          <View style={styles.billRow4}>
-            <Text style={styles.billLabel}>Discount (20%)</Text>
-            <Text style={styles.billValue}>₱ 50.25</Text>
-          </View>
-
-          {/* Discount Note - Figma: 759:4078, y:567 */}
-          <Text style={styles.discountNote}>
-            Discount depend on what you are{"\n"}senior of pwd.
-          </Text>
+          {/* Tax - Figma: 759:4077 & 759:4079, y:545 */}
+          {order.tax > 0 && (
+            <View style={styles.billRow4}>
+              <Text style={styles.billLabel}>Tax</Text>
+              <Text style={styles.billValue}>₱ {order.tax.toFixed(2)}</Text>
+            </View>
+          )}
 
           {/* Dashed Divider Line - Figma: 759:4088, y:617 */}
-          <View style={styles.dashedDivider}>
+          <View style={[styles.dashedDivider, { top: order.tax > 0 ? vs(156) : vs(134) }]}>
             {[...Array(18)].map((_, i) => (
               <View key={i} style={styles.dash} />
             ))}
           </View>
 
           {/* Grand Total - Figma: 759:4080 & 759:4081, y:639 */}
-          <View style={styles.billRowGrandTotal}>
+          <View style={[styles.billRowGrandTotal, { top: order.tax > 0 ? vs(178) : vs(156) }]}>
             <Text style={styles.grandTotalLabel}>Grand Total</Text>
-            <Text style={styles.grandTotalValue}>₱ 50.25</Text>
+            <Text style={styles.grandTotalValue}>₱ {order.total.toFixed(2)}</Text>
           </View>
 
           {/* Invoice - Figma: 759:4082 & 759:4083, y:676 */}
@@ -211,12 +336,23 @@ export default function OrderDetailsScreen() {
         <View style={styles.paymentCard}>
           <View style={styles.paymentCardBackground} />
           <View style={styles.paymentContent}>
-            <Image
-              source={require("../../../src/assets/images/customer-order-details/paypal-icon.png")}
-              style={styles.paypalIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.paymentText}>Pay Pal</Text>
+            {order.paymentMethod === 'cash' ? (
+              <>
+                <View style={styles.cashIconCircle}>
+                  <Text style={styles.cashIconText}>₱</Text>
+                </View>
+                <Text style={styles.paymentText}>{getPaymentMethodName(order.paymentMethod)}</Text>
+              </>
+            ) : (
+              <>
+                <Image
+                  source={require("../../../src/assets/images/customer-order-details/paypal-icon.png")}
+                  style={styles.paypalIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.paymentText}>{getPaymentMethodName(order.paymentMethod)}</Text>
+              </>
+            )}
           </View>
         </View>
 
@@ -779,8 +915,83 @@ const styles = StyleSheet.create({
     color: "#1E1E1E",
   },
 
+  // Cash Icon Circle - Custom style for cash payment
+  cashIconCircle: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: "#3BB77E",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Cash Icon Text
+  cashIconText: {
+    fontSize: ms(18),
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+
   // Bottom Padding
   bottomPadding: {
     height: vs(900), // Ensure all absolutely positioned content is visible
+  },
+
+  // Loading Container
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: vs(60),
+  },
+
+  // Loading Text
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    color: "rgba(30, 30, 30, 0.5)",
+  },
+
+  // Error Text
+  errorText: {
+    fontSize: ms(18),
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    color: "rgba(30, 30, 30, 0.5)",
+    marginBottom: vs(20),
+    textAlign: "center",
+  },
+
+  // Back to Orders Button
+  backToOrdersButton: {
+    backgroundColor: "#3BB77E",
+    borderRadius: s(20),
+    paddingHorizontal: s(30),
+    paddingVertical: vs(12),
+  },
+
+  // Back to Orders Text
+  backToOrdersText: {
+    fontSize: ms(16),
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+
+  // Inactive Circle - For pending status items
+  inactiveCircle: {
+    backgroundColor: "#D9D9D9",
+  },
+
+  // Inactive Icon - For pending status items
+  inactiveIcon: {
+    opacity: 0.5,
+  },
+
+  // Inactive Text - For pending status items
+  inactiveText: {
+    color: "rgba(30, 30, 30, 0.5)",
   },
 });

@@ -5,7 +5,7 @@
  */
 
 import { ref, get, query, orderByChild, equalTo, limitToFirst } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { database } from '../../../FirebaseConfig';
 import type { Product } from '@/models';
 
 /**
@@ -17,7 +17,11 @@ export async function fetchProductById(productId: string): Promise<Product | nul
     const snapshot = await get(productRef);
 
     if (snapshot.exists()) {
-      return snapshot.val() as Product;
+      // Include the product ID in the returned object
+      return {
+        id: productId,
+        ...snapshot.val()
+      } as Product;
     }
     return null;
   } catch (error) {
@@ -121,6 +125,30 @@ export async function fetchAllProducts(): Promise<Product[]> {
     return [];
   } catch (error) {
     console.error('Error fetching all products:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch products by store ID
+ */
+export async function fetchProductsByStore(storeId: string): Promise<Product[]> {
+  try {
+    const productsRef = ref(database, 'products');
+    const storeProductsQuery = query(productsRef, orderByChild('storeId'), equalTo(storeId));
+    const snapshot = await get(storeProductsQuery);
+
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      // Map products with their IDs
+      return Object.keys(data).map(productId => ({
+        id: productId,
+        ...data[productId]
+      })) as Product[];
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching products by store:', error);
     return [];
   }
 }

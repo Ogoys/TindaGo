@@ -53,12 +53,11 @@ interface Product {
   categoryId: string;
   storeId: string;
   storeName: string;
-  stock: number;
+  quantity: number;  // Firebase uses 'quantity' for stock count
   productSize: string;
   unit: string;
   rating?: number;
   totalReviews?: number;
-  quantity: number;
   storeOwnerId: string;
   createdAt: string;
   updatedAt: string;
@@ -121,6 +120,17 @@ export default function ProductDetailsScreen() {
         // Fetch store information
         if (productData.storeId) {
           const storeData = await fetchStoreById(productData.storeId) as any;
+
+          // Debug: Log current store data to verify logo and coverImage
+          console.log('🏪 Current Store:', {
+            id: storeData?.id,
+            name: storeData?.storeName,
+            hasLogo: !!storeData?.logo,
+            hasCoverImage: !!storeData?.coverImage,
+            logoUrl: storeData?.logo ? storeData.logo.substring(0, 50) + '...' : 'No logo',
+            coverImageUrl: storeData?.coverImage ? storeData.coverImage.substring(0, 50) + '...' : 'No cover',
+          });
+
           setStore(storeData as Store);
         }
 
@@ -135,7 +145,7 @@ export default function ProductDetailsScreen() {
               if (p.id === productData.id) return false;
 
               // Only show available products
-              if (p.status === 'out_of_stock' || p.stock === 0) return false;
+              if (p.status === 'out_of_stock' || p.quantity === 0) return false;
 
               return true;
             })
@@ -156,6 +166,20 @@ export default function ProductDetailsScreen() {
         const filteredStores = stores
           .filter(s => s.id !== productData.storeId) // Exclude current store
           .slice(0, 4);
+
+        // Debug: Log store data to verify logo and coverImage are retrieved
+        console.log('📦 Other Stores Retrieved:', filteredStores.length);
+        filteredStores.forEach((store, index) => {
+          console.log(`  Store ${index + 1}:`, {
+            id: store.id,
+            name: store.storeName,
+            hasLogo: !!store.logo,
+            hasCoverImage: !!store.coverImage,
+            logoUrl: store.logo ? store.logo.substring(0, 50) + '...' : 'No logo',
+            coverImageUrl: store.coverImage ? store.coverImage.substring(0, 50) + '...' : 'No cover',
+          });
+        });
+
         setOtherStores(filteredStores as Store[]);
       } catch (error) {
         console.error('Error loading product:', error);
@@ -181,10 +205,10 @@ export default function ProductDetailsScreen() {
 
   // Quantity controls with stock validation
   const increaseQuantity = () => {
-    if (product && quantity < product.stock) {
+    if (product && quantity < product.quantity) {
       setQuantity(prev => prev + 1);
     } else {
-      Alert.alert('Stock Limit', `Only ${product?.stock} items available`);
+      Alert.alert('Stock Limit', `Only ${product?.quantity} items available`);
     }
   };
 
@@ -205,13 +229,13 @@ export default function ProductDetailsScreen() {
     if (!product) return;
 
     // Check stock availability
-    if (product.stock === 0) {
+    if (product.quantity === 0) {
       Alert.alert('Out of Stock', 'This product is currently out of stock');
       return;
     }
 
-    if (quantity > product.stock) {
-      Alert.alert('Stock Limit', `Only ${product.stock} items available`);
+    if (quantity > product.quantity) {
+      Alert.alert('Stock Limit', `Only ${product.quantity} items available`);
       return;
     }
 
@@ -226,9 +250,9 @@ export default function ProductDetailsScreen() {
         price: product.price,
         weight: product.productSize,
         unit: product.unit,
-        stock: product.stock,
+        stock: product.quantity,
         subtotal: product.price * quantity,
-        isAvailable: product.stock > 0,
+        isAvailable: product.quantity > 0,
       };
 
       const success = await addToCart(user.id, cartItem);
@@ -238,7 +262,11 @@ export default function ProductDetailsScreen() {
           'Success',
           `${quantity} ${quantity > 1 ? 'items' : 'item'} added to cart`,
           [
-            { text: 'Continue Shopping', style: 'cancel' },
+            {
+              text: 'Continue Shopping',
+              onPress: () => router.back(),  // Go back to where user came from (home/see-more/category)
+              style: 'cancel'
+            },
             { text: 'View Cart', onPress: () => router.push('/(main)/(customer)/cart') },
           ]
         );
@@ -253,11 +281,8 @@ export default function ProductDetailsScreen() {
   };
 
   // Navigate to store page
-  const handleStorePress = () => {
-    if (store) {
-      // TODO: Implement store details screen
-      Alert.alert('Store Info', `View ${store.storeName} details`);
-    }
+  const handleStorePress = (storeId: string) => {
+    router.push(`/(main)/shared/store-details?id=${storeId}`);
   };
 
   // Carousel navigation
@@ -315,8 +340,8 @@ export default function ProductDetailsScreen() {
   }
 
   const productImages = getProductImages();
-  const isOutOfStock = product.stock === 0;
-  const isLowStock = product.stock > 0 && product.stock < 10;
+  const isOutOfStock = product.quantity === 0;
+  const isLowStock = product.quantity > 0 && product.quantity < 10;
 
   return (
     <View style={styles.container}>
@@ -379,7 +404,7 @@ export default function ProductDetailsScreen() {
             contentContainerStyle={styles.carouselContent}
           >
             {productImages.map((image, index) => (
-              <View key={index} style={styles.carouselImageContainer}>
+              <View key={`carousel-${index}`} style={styles.carouselImageContainer}>
                 <Image
                   source={image}
                   style={styles.carouselImage}
@@ -409,7 +434,7 @@ export default function ProductDetailsScreen() {
           <View style={styles.thumbnailContainer}>
             {productImages.slice(0, 3).map((image, index) => (
               <TouchableOpacity
-                key={index}
+                key={`thumbnail-${index}`}
                 style={[
                   styles.thumbnail,
                   currentImageIndex === index && styles.selectedThumbnail
@@ -426,7 +451,7 @@ export default function ProductDetailsScreen() {
         <View style={styles.indicatorLines}>
           {productImages.map((_, index) => (
             <View
-              key={index}
+              key={`indicator-${index}`}
               style={[
                 styles.indicatorLine,
                 currentImageIndex === index && styles.selectedLine
@@ -448,7 +473,7 @@ export default function ProductDetailsScreen() {
               <Text style={styles.outOfStockText}>Out of Stock</Text>
             )}
             {isLowStock && (
-              <Text style={styles.lowStockText}>Only {product.stock} left!</Text>
+              <Text style={styles.lowStockText}>Only {product.quantity} left!</Text>
             )}
           </View>
 
@@ -502,9 +527,9 @@ export default function ProductDetailsScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.relatedProductsContent}
             >
-              {relatedProducts.map((relatedProduct) => (
+              {relatedProducts.map((relatedProduct, index) => (
                 <TouchableOpacity
-                  key={relatedProduct.id}
+                  key={`related-${relatedProduct.id}-${index}`}
                   style={styles.relatedProductCard}
                   onPress={() => router.push(`/(main)/shared/product-details?id=${relatedProduct.id}`)}
                   activeOpacity={0.8}
@@ -554,14 +579,11 @@ export default function ProductDetailsScreen() {
         {/* Store Cards - Same design as customer home Featured Stores */}
         {otherStores.length > 0 && (
           <View style={styles.storesContainer}>
-            {otherStores.map((otherStore) => (
+            {otherStores.map((otherStore, index) => (
               <TouchableOpacity
-                key={otherStore.id}
+                key={`store-${otherStore.id}-${index}`}
                 style={styles.storeCard}
-                onPress={() => {
-                  // TODO: Navigate to store details when screen is created
-                  Alert.alert('Store Info', `View ${otherStore.storeName} details`);
-                }}
+                onPress={() => handleStorePress(otherStore.id)}
                 activeOpacity={0.8}
               >
                 {/* White Background */}
@@ -640,7 +662,7 @@ export default function ProductDetailsScreen() {
           <TouchableOpacity
             style={styles.quantityButton}
             onPress={increaseQuantity}
-            disabled={isOutOfStock || quantity >= product.stock}
+            disabled={isOutOfStock || quantity >= product.quantity}
           >
             <Image
               source={require('../../../src/assets/images/product-details/plus-icon.png')}

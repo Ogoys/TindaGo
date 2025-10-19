@@ -466,7 +466,10 @@ const StoreProductScreen = () => {
                     <View style={styles.detailsRow}>
                       <Text style={styles.detailsLabel}>Added:</Text>
                       <Text style={styles.detailsValue}>
-                        {new Date(selectedProduct.createdAt).toLocaleDateString()}
+                        {selectedProduct.createdAt
+                          ? new Date(selectedProduct.createdAt).toLocaleDateString()
+                          : 'N/A'
+                        }
                       </Text>
                     </View>
                   </View>

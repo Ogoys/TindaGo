@@ -46,7 +46,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useUser } from '../../../../src/contexts/UserContext';
 import { s, vs } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
-import { auth } from '../../../../FirebaseConfig';
+import { auth, database } from '../../../../FirebaseConfig';
+import { ref, update as updateDB } from 'firebase/database';
 import {
   updateProfile,
   updateEmail,
@@ -54,6 +55,7 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
 } from 'firebase/auth';
+import { updateUserProfileData, subscribeToUserProfile } from '../../../../src/api/users';
 
 interface EditableField {
   label: string;
@@ -76,6 +78,7 @@ export default function AccountSettings() {
 
   // Editing states
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [savingField, setSavingField] = useState<string | null>(null);
 
   // Original values for comparison
   const [originalFullName, setOriginalFullName] = useState('');
@@ -94,22 +97,30 @@ export default function AccountSettings() {
     return 'DO';
   };
 
-  // Load user data on mount
+  // Load user data on mount and subscribe to real-time updates
   useEffect(() => {
-    if (user) {
-      const name = auth.currentUser?.displayName || user.email?.split('@')[0] || '';
-      const userEmail = user.email || '';
-      const phone = user.phoneNumber || '';
+    if (!user) return;
 
-      setFullName(name);
-      setEmail(userEmail);
-      setPhoneNumber(phone);
+    // Subscribe to real-time user profile updates from Firebase
+    const unsubscribe = subscribeToUserProfile(user.id, (profile) => {
+      if (profile) {
+        const name = profile.name || auth.currentUser?.displayName || user.email?.split('@')[0] || '';
+        const userEmail = profile.email || user.email || '';
+        const phone = profile.phoneNumber || '';
 
-      // Store original values
-      setOriginalFullName(name);
-      setOriginalEmail(userEmail);
-      setOriginalPhoneNumber(phone);
-    }
+        setFullName(name);
+        setEmail(userEmail);
+        setPhoneNumber(phone);
+
+        // Store original values
+        setOriginalFullName(name);
+        setOriginalEmail(userEmail);
+        setOriginalPhoneNumber(phone);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, [user]);
 
   // Check if there are any changes
@@ -181,6 +192,126 @@ export default function AccountSettings() {
     return phoneRegex.test(cleanPhone);
   };
 
+  // Handle real-time field update when user finishes editing
+  const handleFieldBlur = async (fieldName: 'name' | 'email' | 'phoneNumber', value: string) => {
+    if (!user) return;
+
+    // Check if value actually changed
+    let originalValue = '';
+    switch (fieldName) {
+      case 'name':
+        originalValue = originalFullName;
+        break;
+      case 'email':
+        originalValue = originalEmail;
+        break;
+      case 'phoneNumber':
+        originalValue = originalPhoneNumber;
+        break;
+    }
+
+    // No change, skip
+    if (value === originalValue) return;
+
+    // Validate before saving
+    if (fieldName === 'name' && !value.trim()) {
+      Alert.alert('Validation Error', 'Full name cannot be empty');
+      setFullName(originalFullName); // Revert to original
+      return;
+    }
+
+    if (fieldName === 'email' && !isValidEmail(value)) {
+      Alert.alert('Validation Error', 'Please enter a valid email address');
+      setEmail(originalEmail); // Revert to original
+      return;
+    }
+
+    if (fieldName === 'phoneNumber' && value && !isValidPhoneNumber(value)) {
+      Alert.alert('Validation Error', 'Please enter a valid Philippine phone number');
+      setPhoneNumber(originalPhoneNumber); // Revert to original
+      return;
+    }
+
+    // Save to Firebase
+    setSavingField(fieldName);
+
+    try {
+      const updates: any = {};
+      updates[fieldName] = value;
+
+      // Update Firebase Realtime Database
+      const success = await updateUserProfileData(user.id, updates);
+
+      if (!success) {
+        throw new Error('Failed to update field');
+      }
+
+      // Update Firebase Auth display name if name changed
+      if (fieldName === 'name' && auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: value,
+        });
+      }
+
+      // Update Firebase Auth email if email changed (may require re-auth)
+      if (fieldName === 'email' && auth.currentUser) {
+        try {
+          await updateEmail(auth.currentUser, value);
+        } catch (error: any) {
+          if (error.code === 'auth/requires-recent-login') {
+            Alert.alert(
+              'Re-authentication Required',
+              'For security reasons, please save all changes and log out/in again to update your email'
+            );
+            setEmail(originalEmail); // Revert
+            return;
+          }
+          throw error;
+        }
+      }
+
+      // Update user context
+      await updateUserProfile({
+        email: fieldName === 'email' ? value : email,
+        phoneNumber: fieldName === 'phoneNumber' ? value : phoneNumber,
+        name: fieldName === 'name' ? value : fullName,
+      });
+
+      // Update original value after successful save
+      switch (fieldName) {
+        case 'name':
+          setOriginalFullName(value);
+          break;
+        case 'email':
+          setOriginalEmail(value);
+          break;
+        case 'phoneNumber':
+          setOriginalPhoneNumber(value);
+          break;
+      }
+
+      console.log(`✅ ${fieldName} updated successfully to Firebase`);
+    } catch (error) {
+      console.error(`Error updating ${fieldName}:`, error);
+      Alert.alert('Error', `Failed to update ${fieldName}. Please try again.`);
+
+      // Revert to original value on error
+      switch (fieldName) {
+        case 'name':
+          setFullName(originalFullName);
+          break;
+        case 'email':
+          setEmail(originalEmail);
+          break;
+        case 'phoneNumber':
+          setPhoneNumber(originalPhoneNumber);
+          break;
+      }
+    } finally {
+      setSavingField(null);
+    }
+  };
+
   // Handle save changes
   const handleSave = async () => {
     // Validate inputs
@@ -207,6 +338,11 @@ export default function AccountSettings() {
       return;
     }
 
+    if (!user) {
+      Alert.alert('Error', 'User not found. Please sign in again.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -222,10 +358,33 @@ export default function AccountSettings() {
         await updateEmail(auth.currentUser, email);
       }
 
+      // Update Firebase Realtime Database with all profile changes
+      const profileUpdates: any = {};
+
+      if (fullName !== originalFullName) {
+        profileUpdates.name = fullName;
+      }
+
+      if (email !== originalEmail) {
+        profileUpdates.email = email;
+      }
+
+      if (phoneNumber !== originalPhoneNumber) {
+        profileUpdates.phoneNumber = phoneNumber;
+      }
+
+      // Save to Firebase Realtime Database
+      const dbUpdateSuccess = await updateUserProfileData(user.id, profileUpdates);
+
+      if (!dbUpdateSuccess) {
+        throw new Error('Failed to update profile in database');
+      }
+
       // Update user context with new data
       await updateUserProfile({
         email: email,
         phoneNumber: phoneNumber,
+        name: fullName,
       });
 
       // Update original values
@@ -356,17 +515,25 @@ export default function AccountSettings() {
             style={styles.fieldValue}
             value={fullName}
             onChangeText={setFullName}
+            onBlur={() => handleFieldBlur('name', fullName)}
             placeholder="Enter your full name"
             placeholderTextColor={Colors.textSecondary}
             autoCapitalize="words"
+            editable={savingField !== 'name'}
           />
-          <TouchableOpacity style={styles.editIcon} activeOpacity={0.7}>
-            <Image
-              source={require('../../../../src/assets/images/customer-account-settings/edit-pencil.png')}
-              style={styles.editPencilIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+          {savingField === 'name' ? (
+            <View style={styles.editIcon}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.editIcon} activeOpacity={0.7}>
+              <Image
+                source={require('../../../../src/assets/images/customer-account-settings/edit-pencil.png')}
+                style={styles.editPencilIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Email Card - Figma: x: 20, y: 382 (400x67) */}
@@ -376,19 +543,27 @@ export default function AccountSettings() {
             style={styles.fieldValue}
             value={email}
             onChangeText={setEmail}
+            onBlur={() => handleFieldBlur('email', email)}
             placeholder="Enter your email"
             placeholderTextColor={Colors.textSecondary}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
+            editable={savingField !== 'email'}
           />
-          <TouchableOpacity style={styles.editIcon} activeOpacity={0.7}>
-            <Image
-              source={require('../../../../src/assets/images/customer-account-settings/edit-pencil.png')}
-              style={styles.editPencilIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+          {savingField === 'email' ? (
+            <View style={styles.editIcon}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.editIcon} activeOpacity={0.7}>
+              <Image
+                source={require('../../../../src/assets/images/customer-account-settings/edit-pencil.png')}
+                style={styles.editPencilIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Phone Number Card - Figma: x: 20, y: 469 (400x67) */}
@@ -398,18 +573,26 @@ export default function AccountSettings() {
             style={styles.fieldValue}
             value={phoneNumber}
             onChangeText={setPhoneNumber}
+            onBlur={() => handleFieldBlur('phoneNumber', phoneNumber)}
             placeholder="Enter your phone number"
             placeholderTextColor={Colors.textSecondary}
             keyboardType="phone-pad"
             autoComplete="tel"
+            editable={savingField !== 'phoneNumber'}
           />
-          <TouchableOpacity style={styles.editIcon} activeOpacity={0.7}>
-            <Image
-              source={require('../../../../src/assets/images/customer-account-settings/edit-pencil.png')}
-              style={styles.editPencilIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+          {savingField === 'phoneNumber' ? (
+            <View style={styles.editIcon}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.editIcon} activeOpacity={0.7}>
+              <Image
+                source={require('../../../../src/assets/images/customer-account-settings/edit-pencil.png')}
+                style={styles.editPencilIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Password Card - Figma: x: 20, y: 556 (400x67) */}

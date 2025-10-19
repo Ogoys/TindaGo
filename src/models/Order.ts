@@ -18,14 +18,14 @@ export interface Order {
   serviceFee: number;
   total: number;
   status: OrderStatus;
-  pickupTime?: Date;
+  pickupTime?: string;        // ISO string or Date string
   notes?: string;
   paymentMethod: 'cash' | 'gcash' | 'paymaya';
   paymentStatus: 'pending' | 'paid' | 'refunded';
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
-  cancelledAt?: Date;
+  createdAt: string;          // ISO string
+  updatedAt: string;          // ISO string
+  completedAt?: string;       // ISO string
+  cancelledAt?: string;       // ISO string
   cancellationReason?: string;
 }
 
@@ -54,7 +54,7 @@ export interface OrderHistory {
   orderId: string;
   status: OrderStatus;
   message: string;
-  timestamp: Date;
+  timestamp: string;          // ISO string
   updatedBy?: string;
 }
 

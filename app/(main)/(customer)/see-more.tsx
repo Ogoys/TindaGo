@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,39 @@ import {
   Image,
   TextInput,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { ref, onValue } from 'firebase/database';
+import { database } from '../../../FirebaseConfig';
+import { addToCart } from '../../../src/api/cart';
+import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { ProductCard } from "../../../src/components/ui/ProductCard";
+
+// Product interface matching Firebase schema
+interface Product {
+  id: string;
+  productName: string;
+  description: string;
+  category: string;
+  price: number;
+  quantity: number;
+  productSize: string;
+  unit: string;
+  productImage: string;
+  storeOwnerId: string;
+  storeId: string;
+  storeName: string;
+  storeOwnerName: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'available' | 'out_of_stock';
+}
 
 /**
  * SEE MORE SCREEN - PRODUCT GRID VIEW
@@ -29,23 +55,161 @@ import { ProductCard } from "../../../src/components/ui/ProductCard";
  */
 
 export default function SeeMoreScreen() {
-  // Sample product data for the grid
-  const products = Array.from({ length: 12 }, (_, index) => ({
-    id: index + 1,
-    title: "Garlic",
-    subtitle: "(Local shop)",
-    weight: "500g",
-    image: require("../../../src/assets/images/see-more/product-image.png"),
-  }));
+  const params = useLocalSearchParams();
+  const section = (params.section as string) || 'all';
+  const { user } = useUser();
 
-  const handleAddProduct = (productId: number) => {
-    // Add to cart functionality
-    console.log("Add product to cart:", productId);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
+
+  // Fetch all products from Firebase
+  useEffect(() => {
+    const productsRef = ref(database, 'products');
+    const unsubscribe = onValue(productsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const productsList: Product[] = Object.keys(data)
+          .map(key => ({
+            id: key,
+            ...data[key],
+          }))
+          .filter(product => product.status === 'available');
+
+        setAllProducts(productsList);
+        setFilteredProducts(getSectionProducts(productsList, section));
+      } else {
+        setAllProducts([]);
+        setFilteredProducts([]);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [section]);
+
+  // Filter products based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredProducts(getSectionProducts(allProducts, section));
+    } else {
+      const query = searchQuery.toLowerCase();
+      const results = getSectionProducts(allProducts, section).filter(product =>
+        product.productName.toLowerCase().includes(query) ||
+        product.storeName.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query)
+      );
+      setFilteredProducts(results);
+    }
+  }, [searchQuery, allProducts, section]);
+
+  // Get products based on section type
+  const getSectionProducts = (products: Product[], sectionType: string): Product[] => {
+    if (products.length === 0) return [];
+
+    switch (sectionType) {
+      case 'bestSelling':
+        // Best Selling - Recently added products (newest first)
+        return [...products]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      case 'mostPopular':
+        // Most Popular - Diverse products from different categories
+        const categoriesMap = new Map<string, Product[]>();
+        products.forEach(product => {
+          const prods = categoriesMap.get(product.category) || [];
+          prods.push(product);
+          categoriesMap.set(product.category, prods);
+        });
+
+        const diverse: Product[] = [];
+        categoriesMap.forEach(prods => {
+          if (prods.length > 0) {
+            diverse.push(...prods);
+          }
+        });
+
+        return diverse.sort(() => Math.random() - 0.5);
+
+      case 'freshFinds':
+        // Fresh Finds - Most recently updated products
+        return [...products]
+          .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
+
+      default:
+        // All products
+        return products;
+    }
   };
 
-  const handleProductPress = (productId: number) => {
-    // Navigate to product details
-    console.log("Navigate to product details:", productId);
+  // Get section title based on section type
+  const getSectionTitle = (): string => {
+    switch (section) {
+      case 'bestSelling':
+        return 'Best Selling';
+      case 'mostPopular':
+        return 'Most Popular Picks';
+      case 'freshFinds':
+        return 'Fresh Finds';
+      default:
+        return 'All Items';
+    }
+  };
+
+  // Add product to cart
+  const handleAddProduct = async (product: Product) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to add items to cart', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/signin') },
+      ]);
+      return;
+    }
+
+    if (product.quantity === 0) {
+      Alert.alert('Out of Stock', 'This product is currently out of stock');
+      return;
+    }
+
+    try {
+      setAddingToCart(product.id);
+
+      // Create cart item object matching CartItem interface
+      const cartItem = {
+        productId: product.id,
+        productName: product.productName,
+        productImage: product.productImage,
+        storeId: product.storeId,
+        storeName: product.storeName,
+        quantity: 1,
+        price: product.price,
+        weight: product.productSize,
+        unit: product.unit,
+        stock: product.quantity,
+        subtotal: product.price * 1,
+        isAvailable: product.quantity > 0,
+      };
+
+      const success = await addToCart(user.id, cartItem);
+
+      if (success) {
+        Alert.alert('Success', 'Product added to cart!');
+      } else {
+        Alert.alert('Error', 'Failed to add product to cart');
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'An error occurred while adding to cart');
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  // Navigate to product details
+  const handleProductPress = (productId: string) => {
+    router.push(`/(main)/shared/product-details?id=${productId}` as any);
   };
 
   return (
@@ -65,9 +229,9 @@ export default function SeeMoreScreen() {
           />
         </TouchableOpacity>
 
-        {/* Title - Fixed positioning to prevent text cropping */}
+        {/* Title - Dynamic based on section */}
         <Text style={styles.headerTitle} numberOfLines={1} allowFontScaling={false}>
-          Daily Essential
+          {getSectionTitle()}
         </Text>
 
         {/* Notification Button - Figma: x:375, y:74, width:40, height:40 */}
@@ -85,9 +249,11 @@ export default function SeeMoreScreen() {
             style={styles.searchIcon} 
           />
           <TextInput
-            placeholder={'Search for "Items"'}
+            placeholder='Search for "Items"'
             placeholderTextColor="#7A7B7B"
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
       </View>
@@ -95,24 +261,40 @@ export default function SeeMoreScreen() {
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Section Label - Figma: x:23, y:225, width:80, height:22 */}
         <View style={styles.sectionLabelContainer}>
-          <Text style={styles.sectionLabel}>All Items</Text>
+          <Text style={styles.sectionLabel}>
+            {searchQuery ? `Search Results (${filteredProducts.length})` : getSectionTitle()}
+          </Text>
         </View>
 
         {/* Products Grid - Starting from Figma: y:267 */}
-        <View style={styles.productsGrid}>
-          {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              title={product.title}
-              subtitle={product.subtitle}
-              weight={product.weight}
-              image={product.image}
-              variant="grid"
-              onAddPress={() => handleAddProduct(product.id)}
-              onPress={() => handleProductPress(product.id)}
-            />
-          ))}
-        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Loading products...</Text>
+          </View>
+        ) : filteredProducts.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {searchQuery ? 'No products found for your search' : 'No products available'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.productsGrid}>
+            {filteredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                title={product.productName}
+                subtitle={`(${product.storeName})`}
+                weight={`${product.productSize} ${product.unit}`}
+                image={{ uri: product.productImage }}
+                variant="grid"
+                onAddPress={() => handleAddProduct(product)}
+                onPress={() => handleProductPress(product.id)}
+                isAdding={addingToCart === product.id}
+              />
+            ))}
+          </View>
+        )}
 
         {/* Bottom padding for navigation */}
         <View style={styles.bottomPadding} />
@@ -257,5 +439,37 @@ const styles = StyleSheet.create({
   
   bottomPadding: {
     height: vs(120), // Space for navigation
+  },
+
+  // Loading Container
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: vs(60),
+    paddingHorizontal: s(40),
+  },
+
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.medium,
+    color: Colors.textSecondary,
+  },
+
+  // Empty Container
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: vs(80),
+    paddingHorizontal: s(40),
+  },
+
+  emptyText: {
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.medium,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 });
