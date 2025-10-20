@@ -95,7 +95,7 @@ const categories: Category[] = [
     color: "#F15A8D",
     circleColor: "rgba(241, 90, 141, 0.6)",
     icon: require("../../../src/assets/images/customer-categories/staple-foods.png"),
-    background: require("../../../src/assets/images/customer-categories/cat-bg-7.png"),
+    background: require("../../../src/assets/images/customer-home/categories/staple-foods-bg.png"),
   },
   {
     id: "8",
@@ -113,7 +113,7 @@ const categories: Category[] = [
     color: "#A4E0E3",
     circleColor: "rgba(103, 204, 209, 0.6)",
     icon: require("../../../src/assets/images/customer-categories/frozen-goods.png"),
-    background: require("../../../src/assets/images/customer-categories/cat-bg-9.png"),
+    background: require("../../../src/assets/images/customer-home/categories/frozen-goods-bg.png"),
   },
   {
     id: "10",
@@ -122,7 +122,7 @@ const categories: Category[] = [
     color: "#765640",
     circleColor: "rgba(118, 86, 64, 0.6)",
     icon: require("../../../src/assets/images/customer-categories/miscellaneous.png"),
-    background: require("../../../src/assets/images/customer-categories/cat-bg-10.png"),
+    background: require("../../../src/assets/images/customer-home/categories/miscellaneous-bg.png"),
   },
 ];
 

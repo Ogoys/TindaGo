@@ -129,16 +129,12 @@ const styles = StyleSheet.create({
   
   productImageBackground: {
     flex: 1,
-    backgroundColor: "#E9E9E9", // Figma background color
+    backgroundColor: "#FFFFFF", // Pure white to match card background - NO visible box
     borderRadius: s(10),
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: vs(4) },
-    shadowOpacity: 0.25,
-    shadowRadius: s(10),
-    elevation: 5,
     overflow: "hidden",
+    // No shadow to ensure complete invisibility - images blend seamlessly
   },
   
   productImage: {

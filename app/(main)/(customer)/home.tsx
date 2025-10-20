@@ -262,62 +262,74 @@ export default function HomeScreen() {
   // Category data - ALIGNED WITH CATEGORY NAVIGATION BAR
   // Matches categories from app/(main)/(customer)/category.tsx
   // Each category has a white circular background (50x50) with centered icon
+  // Updated to use Figma-downloaded images from customer-home/categories/
   const categoryData = [
     {
       id: "all",
       label: "All",
       icon: require("../../../src/assets/images/customer-home/categories/all-icon.png"),
-      active: true
+      active: true,
+      categoryName: "All"
     },
     {
       id: "fruits-vegetables",
       label: "Fruits &\nVegetables",
-      icon: require("../../../src/assets/images/customer-categories/fruits-vegetables.png")
+      icon: require("../../../src/assets/images/customer-home/categories/fruits-vegetables.png"),
+      categoryName: "Fruits & Vegetables"
     },
     {
       id: "dairy-bakery",
       label: "Dairy &\nBakery",
-      icon: require("../../../src/assets/images/customer-categories/dairy-bakery.png")
+      icon: require("../../../src/assets/images/customer-home/categories/dairy-bakery.png"),
+      categoryName: "Dairy & Bakery"
     },
     {
       id: "snacks-sweets",
       label: "Snacks &\nSweets",
-      icon: require("../../../src/assets/images/customer-categories/snacks.png")
+      icon: require("../../../src/assets/images/customer-home/categories/snacks.png"),
+      categoryName: "Snacks & Sweets"
     },
     {
       id: "beverages",
       label: "Beverages",
-      icon: require("../../../src/assets/images/customer-categories/beverages.png")
+      icon: require("../../../src/assets/images/customer-home/categories/beverages.png"),
+      categoryName: "Beverages"
     },
     {
       id: "personal-baby-care",
       label: "Personal &\nBaby Care",
-      icon: require("../../../src/assets/images/customer-categories/personal-baby-care.png")
+      icon: require("../../../src/assets/images/customer-home/categories/personal-care.png"),
+      categoryName: "Personal & Baby Care"
     },
     {
       id: "home-kitchen",
       label: "Home &\nKitchen",
-      icon: require("../../../src/assets/images/customer-categories/home-kitchen.png")
+      icon: require("../../../src/assets/images/customer-home/categories/home-kitchen.png"),
+      categoryName: "Home & Kitchen"
     },
     {
       id: "staple-foods",
       label: "Staple\nFoods",
-      icon: require("../../../src/assets/images/customer-categories/staple-foods.png")
+      icon: require("../../../src/assets/images/customer-home/categories/staple-foods.png"),
+      categoryName: "Staple Foods"
     },
     {
       id: "condiments-cooking",
       label: "Condiments &\nCooking",
-      icon: require("../../../src/assets/images/customer-categories/condiments-cooking.png")
+      icon: require("../../../src/assets/images/customer-home/categories/condiments-cooking.png"),
+      categoryName: "Condiments & Cooking"
     },
     {
       id: "frozen-goods",
       label: "Frozen\nGoods",
-      icon: require("../../../src/assets/images/customer-categories/frozen-goods.png")
+      icon: require("../../../src/assets/images/customer-home/categories/frozen-goods.png"),
+      categoryName: "Frozen Goods"
     },
     {
       id: "miscellaneous",
       label: "Miscellaneous\n& Others",
-      icon: require("../../../src/assets/images/customer-categories/miscellaneous.png")
+      icon: require("../../../src/assets/images/customer-home/categories/miscellaneous.png"),
+      categoryName: "Miscellaneous & Others"
     },
   ];
 
@@ -629,6 +641,7 @@ export default function HomeScreen() {
         }
       >
         {/* CATEGORY SECTION - Figma: 903:556 Category (0, 198, 440x90) */}
+        {/* Horizontal scrollable category navigation with icons */}
         <View style={styles.categorySection}>
           <ScrollView
             horizontal
@@ -636,7 +649,15 @@ export default function HomeScreen() {
             contentContainerStyle={styles.categoryScrollContent}
           >
             {categoryData.map((category, index) => (
-              <TouchableOpacity key={category.id} style={styles.categoryItem}>
+              <TouchableOpacity
+                key={category.id}
+                style={styles.categoryItem}
+                onPress={() => {
+                  // Navigate to category screen when any category is tapped
+                  router.push("/(main)/(customer)/category" as any);
+                }}
+                activeOpacity={0.7}
+              >
                 {/* Category Icon Circle - Figma: 50x50 white background ellipse with shadow */}
                 <View style={[
                   styles.categoryIconCircle,
@@ -1124,20 +1145,16 @@ const styles = StyleSheet.create({
     height: vs(88),
   },
 
-  // Product Picture Background - Figma: 759:269, x:10, y:0, width:100, height:88
+  // Product Picture Background - Seamless blend with white card background
   productPictureBackground: {
     position: "absolute",
     left: s(10),
     top: 0,
     width: s(100),
     height: vs(88),
-    backgroundColor: "#E9E9E9",
+    backgroundColor: "#FFFFFF", // Pure white to match card background - NO visible box
     borderRadius: s(10),
-    shadowColor: "rgba(0, 0, 0, 0.25)",
-    shadowOffset: { width: 0, height: vs(4) },
-    shadowOpacity: 1,
-    shadowRadius: s(10),
-    elevation: 10,
+    // No shadow to ensure complete invisibility - images blend seamlessly
   },
 
   // Product Image - Figma: 759:270, x:0, y:4, width:120, height:80
@@ -1380,18 +1397,14 @@ const styles = StyleSheet.create({
     height: vs(80), // Increased to meet card height
   },
 
-  // Popular Pick Picture Background - Figma: 759:523, Rectangle 24 with shadow
+  // Popular Pick Picture Background - Seamless blend with white card background
   popularPickPictureBackground: {
     position: "absolute",
     width: s(60),
     height: vs(80), // Increased to match container
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFFFFF", // Pure white to match card background - NO visible box
     borderRadius: s(16),
-    shadowColor: "rgba(0, 0, 0, 0.25)",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: s(4),
-    elevation: 4,
+    // No shadow to ensure complete invisibility - images blend seamlessly
   },
 
   // Popular Pick Image - Figma: 759:524, increased to fill height
