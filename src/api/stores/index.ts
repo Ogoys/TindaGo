@@ -35,24 +35,28 @@ export async function fetchStoreById(storeId: string): Promise<Store | null> {
 }
 
 /**
- * Fetch featured stores
+ * Fetch featured stores (only OPEN stores visible to customers)
  */
 export async function fetchFeaturedStores(): Promise<Store[]> {
   try {
     const storesRef = ref(database, 'stores');
-    const featuredQuery = query(storesRef, orderByChild('status'), equalTo('active'));
-    const snapshot = await get(featuredQuery);
+    const snapshot = await get(storesRef);
 
     if (snapshot.exists()) {
       const data = snapshot.val();
-      // Map store data and include the store ID, logo, and coverImage
-      return Object.keys(data).map(storeId => ({
-        id: storeId,
-        ...data[storeId],
-        // Ensure logo and coverImage are included from businessInfo if they exist
-        logo: data[storeId].logo || data[storeId].businessInfo?.logo || null,
-        coverImage: data[storeId].coverImage || data[storeId].businessInfo?.coverImage || null,
-      })) as Store[];
+      // Map store data and filter by active + open status
+      return Object.keys(data)
+        .map(storeId => ({
+          id: storeId,
+          ...data[storeId],
+          // Ensure logo and coverImage are included from businessInfo if they exist
+          logo: data[storeId].logo || data[storeId].businessInfo?.logo || null,
+          coverImage: data[storeId].coverImage || data[storeId].businessInfo?.coverImage || null,
+        }))
+        .filter(store =>
+          store.status === 'active' &&
+          store.isOpen !== false  // Only hide stores explicitly marked as closed
+        ) as Store[];
     }
     return [];
   } catch (error) {

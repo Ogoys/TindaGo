@@ -13,6 +13,7 @@ export interface Product {
   categoryId: string;
   storeId: string;
   storeName: string;
+  storeIsOpen?: boolean;      // Denormalized store open status - synced from store.isOpen
   imageUrl: string;
   images?: string[];          // Multiple product images
   stock: number;

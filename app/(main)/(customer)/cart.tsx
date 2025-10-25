@@ -83,6 +83,19 @@ const CartScreen = () => {
       const unsubscribe = onValue(productRef, async (snapshot) => {
         if (snapshot.exists()) {
           const product = snapshot.val();
+
+          // Check if store is closed
+          if (product.storeIsOpen === false) {
+            console.log(`Store for ${item.productName} is now closed, removing from cart...`);
+            await removeFromCart(user.id, item.productId);
+
+            // Show toast notification for store closure
+            setToastMessage(`${item.storeName} is now closed. ${item.productName} removed from cart.`);
+            setToastType('info');
+            setShowToast(true);
+            return; // Exit early to avoid multiple removals
+          }
+
           // Check if product became unavailable
           if (product.status === 'out_of_stock') {
             console.log(`Product ${item.productName} is now out of stock, removing from cart...`);
@@ -199,7 +212,13 @@ const CartScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        bounces={true}
+        alwaysBounceVertical={true}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -242,34 +261,41 @@ const CartScreen = () => {
           ) : (
             cartItems.map((item) => (
               <View key={item.productId} style={styles.orderItem}>
-                {/* Product Image */}
-                {item.productImage ? (
-                  <Image
-                    source={{ uri: item.productImage }}
-                    style={styles.productImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.productImagePlaceholder} />
-                )}
+                {/* Clickable Product Section - Image and Info */}
+                <TouchableOpacity
+                  style={styles.productClickableSection}
+                  onPress={() => router.push(`/(main)/shared/product-details?id=${item.productId}` as any)}
+                  activeOpacity={0.7}
+                >
+                  {/* Product Image */}
+                  {item.productImage ? (
+                    <Image
+                      source={{ uri: item.productImage }}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.productImagePlaceholder} />
+                  )}
 
-                {/* Product Info */}
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName} numberOfLines={1}>{item.productName}</Text>
-                  <Text style={styles.productWeight}>{item.weight} {item.unit}</Text>
-                  <View style={styles.priceContainer}>
-                    <Text style={styles.productPriceLabel}>₱{item.price.toFixed(2)} each</Text>
-                    <Text style={styles.productSubtotal}>₱{item.subtotal.toFixed(2)} total</Text>
+                  {/* Product Info */}
+                  <View style={styles.productInfo}>
+                    <Text style={styles.productName} numberOfLines={1}>{item.productName}</Text>
+                    <Text style={styles.productWeight}>{item.weight} {item.unit}</Text>
+                    <View style={styles.priceContainer}>
+                      <Text style={styles.productPriceLabel}>₱{item.price.toFixed(2)} each</Text>
+                      <Text style={styles.productSubtotal}>₱{item.subtotal.toFixed(2)} total</Text>
+                    </View>
+                    {/* Low Stock Warning */}
+                    {item.stock > 0 && item.stock < 10 && (
+                      <Text style={styles.lowStockWarning}>Only {item.stock} left!</Text>
+                    )}
+                    {/* Max Stock Indicator */}
+                    {item.quantity >= item.stock && (
+                      <Text style={styles.maxStockIndicator}>Max quantity</Text>
+                    )}
                   </View>
-                  {/* Low Stock Warning */}
-                  {item.stock > 0 && item.stock < 10 && (
-                    <Text style={styles.lowStockWarning}>Only {item.stock} left!</Text>
-                  )}
-                  {/* Max Stock Indicator */}
-                  {item.quantity >= item.stock && (
-                    <Text style={styles.maxStockIndicator}>Max quantity</Text>
-                  )}
-                </View>
+                </TouchableOpacity>
 
                 {/* Quantity Controls */}
                 <View style={styles.quantityControls}>
@@ -414,6 +440,10 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: vs(20),
+  },
   // Header - Figma position: y: 74, height: 40
   header: {
     flexDirection: 'row',
@@ -485,6 +515,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 4,
+  },
+  // Clickable section containing image and info
+  productClickableSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: s(10),
   },
   // Product image - Figma: x: 35, y: 176, width: 60, height: 60
   productImage: {

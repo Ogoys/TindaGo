@@ -166,8 +166,9 @@ export default function ProductDetailsScreen() {
                   // Exclude current product
                   if (p.id === productData.id) return false;
 
-                  // Only show available products
+                  // Only show available products from OPEN stores
                   if (p.status === 'out_of_stock' || p.quantity === 0) return false;
+                  if (p.storeIsOpen === false) return false;
 
                   return true;
                 })
@@ -568,6 +569,9 @@ export default function ProductDetailsScreen() {
           {/* Product Name and Details - Left side */}
           <View style={styles.productDetailsContainer}>
             <Text style={styles.productName} numberOfLines={3}>{product.productName}</Text>
+            {product.storeName && (
+              <Text style={styles.storeNameLabel}>from {product.storeName}</Text>
+            )}
             {product.productSize && (
               <Text style={styles.productWeight}>{product.productSize} {product.unit}</Text>
             )}
@@ -1057,6 +1061,15 @@ const styles = StyleSheet.create({
     lineHeight: vs(24),
     marginBottom: vs(5),
     flexWrap: 'wrap',
+  },
+
+  storeNameLabel: {
+    fontSize: ms(13),
+    fontWeight: '500',
+    color: Colors.primary,
+    lineHeight: vs(18),
+    marginBottom: vs(4),
+    fontStyle: 'italic',
   },
 
   productWeight: {

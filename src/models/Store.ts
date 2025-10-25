@@ -13,6 +13,7 @@ export interface Store {
   logoUrl: string;
   coverImageUrl: string;
   status: 'active' | 'inactive' | 'suspended';
+  isOpen?: boolean; // Store open/close toggle - controls customer visibility
   rating: number;
   totalReviews: number;
   totalOrders?: number;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View, Switch } from "react-native";
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View, Switch, Alert } from "react-native";
 import { auth, database } from "@/lib/firebase";
-import { ref, get } from "firebase/database";
+import { ref, get, update, onValue } from "firebase/database";
 import { Typography } from "../../../src/components/ui/Typography";
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
@@ -66,6 +66,85 @@ export default function StoreHomeScreen() {
 
     fetchStoreData();
   }, []);
+
+  // Real-time sync of store open/close status from Firebase
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const storeRef = ref(database, `stores/${user.uid}`);
+    const unsubscribe = onValue(storeRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const store = snapshot.val();
+        setIsStoreOpen(store.isOpen ?? true); // Default to open if not set
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Handle store open/close toggle with Firebase sync
+  const handleToggleStore = async (newStatus: boolean) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      console.log('🔄 Toggling store:', { uid: user.uid, newStatus });
+
+      // 1. Update store status
+      const storeRef = ref(database, `stores/${user.uid}`);
+      await update(storeRef, {
+        isOpen: newStatus,
+        updatedAt: new Date().toISOString(),
+      });
+      console.log('✅ Store status updated in Firebase');
+
+      // 2. Update ALL products from this store
+      const productsRef = ref(database, 'products');
+      const snapshot = await get(productsRef);
+
+      if (snapshot.exists()) {
+        const products = snapshot.val();
+        const updates: Record<string, any> = {};
+
+        // Find all products from this store and update their storeIsOpen
+        Object.keys(products).forEach(productId => {
+          if (products[productId].storeOwnerId === user.uid) {
+            updates[`products/${productId}/storeIsOpen`] = newStatus;
+            console.log(`📦 Will update product: ${products[productId].productName}`);
+          }
+        });
+
+        console.log(`🔢 Found ${Object.keys(updates).length} products to update`);
+
+        // Batch update all products
+        if (Object.keys(updates).length > 0) {
+          await update(ref(database), updates);
+          console.log('✅ All products updated successfully');
+        } else {
+          console.log('⚠️ No products found for this store owner');
+        }
+      }
+
+      // 3. Update local state
+      setIsStoreOpen(newStatus);
+
+      // 4. Show confirmation
+      Alert.alert(
+        'Success',
+        newStatus
+          ? '🟢 Your store is now OPEN!\n\nCustomers can see your store and products.'
+          : '🔴 Your store is now CLOSED.\n\nYour store and products are hidden from customers.'
+      );
+
+    } catch (error) {
+      console.error('❌ Error toggling store:', error);
+      Alert.alert('Error', 'Failed to update store status. Please try again.');
+    }
+  };
 
   const dashboardStats = [
     {
@@ -182,7 +261,7 @@ export default function StoreHomeScreen() {
             <View style={styles.switchContainer}>
               <Switch
                 value={isStoreOpen}
-                onValueChange={setIsStoreOpen}
+                onValueChange={handleToggleStore}
                 trackColor={{ false: '#E5E7EB', true: '#3BB77E' }}
                 thumbColor={isStoreOpen ? '#FFFFFF' : '#9CA3AF'}
                 style={styles.toggleSwitch}

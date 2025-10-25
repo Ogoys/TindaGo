@@ -133,6 +133,7 @@ export default function CategoryDetailScreen() {
           }))
           .filter(product =>
             product.status === 'available' &&
+            product.storeIsOpen !== false &&  // Only show products from open stores
             product.category.toLowerCase() === categoryName.toLowerCase()
           );
 

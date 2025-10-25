@@ -71,6 +71,7 @@ interface Store {
   city?: string;
   description?: string;
   status: 'pending' | 'approved' | 'active' | 'rejected' | 'suspended';
+  isOpen?: boolean; // Store open/close status
 }
 
 export default function HomeScreen() {
@@ -106,8 +107,11 @@ export default function HomeScreen() {
             ...data[key],
           }))
           .filter(product => {
-            // Only show available products with required fields
+            // Only show available products from OPEN stores
             if (product.status !== 'available') return false;
+
+            // Filter out products from closed stores
+            if (product.storeIsOpen === false) return false;
 
             // Log products with missing data
             if (!product.productName || !product.price || !product.storeName) {
@@ -163,11 +167,22 @@ export default function HomeScreen() {
               status: storeData.status || 'active',
             };
           })
-          .filter(store =>
-            store.status === 'approved' || store.status === 'active'
-          ); // Only show approved/active stores
+          .filter(store => {
+            // Only show approved/active stores that are currently open
+            const isActiveStore = store.status === 'approved' || store.status === 'active';
+            const isOpenStore = data[store.id]?.isOpen !== false; // Only hide stores explicitly marked as closed
 
-        console.log(`✅ Fetched ${storesList.length} verified stores`);
+            // Debug log for store visibility
+            if (isActiveStore && !isOpenStore) {
+              console.log(`🔴 Store HIDDEN (closed): ${store.storeName}`);
+            } else if (isActiveStore && isOpenStore) {
+              console.log(`🟢 Store VISIBLE (open): ${store.storeName}`);
+            }
+
+            return isActiveStore && isOpenStore;
+          });
+
+        console.log(`✅ Fetched ${storesList.length} open stores (filtered by isOpen status)`);
 
         // Debug: Log store data to verify logo and coverImage
         storesList.forEach(store => {

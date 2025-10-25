@@ -81,7 +81,10 @@ export default function SeeMoreScreen() {
             id: key,
             ...data[key],
           }))
-          .filter(product => product.status === 'available');
+          .filter(product =>
+            product.status === 'available' &&
+            product.storeIsOpen !== false  // Only show products from open stores
+          );
 
         setAllProducts(productsList);
         setFilteredProducts(getSectionProducts(productsList, section));
