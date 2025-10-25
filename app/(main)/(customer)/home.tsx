@@ -16,7 +16,7 @@ import { router } from "expo-router";
 import { ref, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { database } from "../../../FirebaseConfig";
 import { s, vs, ms } from "../../../src/constants/responsive";
-import { BottomNavigation, Toast } from "../../../src/components/ui";
+import { BottomNavigation, Toast, ProductCard } from "../../../src/components/ui";
 import { useUser } from "../../../src/contexts/UserContext";
 import { addToCart } from "../../../src/api/cart";
 import { useCartCount } from "../../../src/hooks";
@@ -105,9 +105,26 @@ export default function HomeScreen() {
             id: key,
             ...data[key],
           }))
-          .filter(product => product.status === 'available'); // Only show available products
+          .filter(product => {
+            // Only show available products with required fields
+            if (product.status !== 'available') return false;
 
-        console.log(`✅ Fetched ${productsList.length} available products`);
+            // Log products with missing data
+            if (!product.productName || !product.price || !product.storeName) {
+              console.warn(`⚠️ Product ${product.id} has incomplete data:`, {
+                productName: product.productName || 'MISSING',
+                price: product.price || 'MISSING',
+                storeName: product.storeName || 'MISSING',
+                productSize: product.productSize || 'MISSING',
+                unit: product.unit || 'MISSING',
+              });
+              return false; // Skip incomplete products
+            }
+
+            return true;
+          });
+
+        console.log(`✅ Fetched ${productsList.length} complete available products`);
         setAllProducts(productsList);
       } else {
         console.log('⚠️ No products found');
@@ -245,7 +262,6 @@ export default function HomeScreen() {
         subtotal: product.price,
         stock: product.quantity,
         isAvailable: product.quantity > 0,
-        notes: '',
       });
 
       setToastMessage(`${product.productName} added to cart!`);
@@ -340,7 +356,12 @@ export default function HomeScreen() {
     if (allProducts.length === 0) return [];
 
     return [...allProducts]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .filter(p => p != null && p.id && p.productName && p.price) // Remove null/undefined products
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      })
       .slice(0, 8); // Show up to 8 products
   }, [allProducts]);
 
@@ -356,9 +377,12 @@ export default function HomeScreen() {
   const popularPicks = React.useMemo(() => {
     if (allProducts.length === 0) return [];
 
+    // Filter out null/undefined products first
+    const validProducts = allProducts.filter(p => p != null && p.id && p.productName && p.price && p.category);
+
     // Group products by category
     const categoriesMap = new Map<string, Product[]>();
-    allProducts.forEach(product => {
+    validProducts.forEach(product => {
       const products = categoriesMap.get(product.category) || [];
       products.push(product);
       categoriesMap.set(product.category, products);
@@ -367,13 +391,14 @@ export default function HomeScreen() {
     // Get one product from each category
     const diverse: Product[] = [];
     categoriesMap.forEach(products => {
-      if (products.length > 0) {
+      if (products.length > 0 && products[0] != null) {
         diverse.push(products[0]);
       }
     });
 
     // Shuffle and take up to 8
     return diverse
+      .filter(p => p != null) // Extra safety check
       .sort(() => Math.random() - 0.5)
       .slice(0, 8);
   }, [allProducts]);
@@ -383,74 +408,14 @@ export default function HomeScreen() {
     if (allProducts.length === 0) return [];
 
     return [...allProducts]
-      .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+      .filter(p => p != null && p.id && p.productName && p.price) // Remove null/undefined products
+      .sort((a, b) => {
+        const dateA = (a.updatedAt || a.createdAt) ? new Date(a.updatedAt || a.createdAt).getTime() : 0;
+        const dateB = (b.updatedAt || b.createdAt) ? new Date(b.updatedAt || b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      })
       .slice(0, 8); // Show up to 8 products
   }, [allProducts]);
-
-  /**
-   * PRODUCT CARD COMPONENT
-   * Figma: 903:222 Product0 (23, 341, 120x222)
-   * Dimensions: 120x222px
-   * Contains: Background, Picture, Label, Add Button
-   */
-  const ProductCard = ({ product }: { product: Product }) => {
-    const isAdding = addingProductId === product.id;
-
-    return (
-      <TouchableOpacity
-        style={styles.productCard}
-        onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
-        activeOpacity={0.8}
-      >
-        {/* Background - Figma: 759:267 Rectangle 16 */}
-        <View style={styles.productCardBackground} />
-
-        {/* Picture Container - Figma: 759:268 */}
-        <View style={styles.productPictureContainer}>
-          {/* Gray background - Figma: 759:269 Rectangle 17 */}
-          <View style={styles.productPictureBackground} />
-          {/* Product Image - Figma: 759:270 */}
-          <Image
-            source={{ uri: product.productImage }}
-            style={styles.productImage}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Label Group - Figma: 759:271 */}
-        <View style={styles.productLabelContainer}>
-          {/* Product Name - Figma: 759:272 */}
-          <Text style={styles.productName} numberOfLines={2}>{product.productName}</Text>
-          {/* Shop Name - Figma: 759:273 */}
-          <Text style={styles.productShop} numberOfLines={1}>({product.storeName})</Text>
-          {/* Weight - Figma: 759:274 */}
-          <Text style={styles.productWeight}>{product.productSize} {product.unit}</Text>
-        </View>
-
-        {/* Add Button - Figma: 759:275 */}
-        <TouchableOpacity
-          style={styles.productAddButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleQuickAdd(product);
-          }}
-          disabled={isAdding}
-        >
-          {/* Button Background - Figma: 759:276 Rectangle 19 */}
-          <View style={styles.productAddButtonBackground} />
-          {/* Plus Icon or Loading - Figma: 759:277 */}
-          {isAdding ? (
-            <ActivityIndicator size="small" color="#3BB77E" />
-          ) : (
-            <Image
-              source={require("../../../src/assets/images/customer-home/products/plus-icon.png")}
-              style={styles.productPlusIcon}
-            />
-          )}
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  };
 
   /**
    * STORE CARD COMPONENT
@@ -558,7 +523,7 @@ export default function HomeScreen() {
           {product.description || `${product.productSize} ${product.unit}`}
         </Text>
         {/* Price - Figma: 759:526 */}
-        <Text style={styles.popularPickPrice}>₱{product.price.toFixed(0)}</Text>
+        <Text style={styles.popularPickPrice}>₱{product.price ? product.price.toFixed(2) : '0.00'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -653,8 +618,14 @@ export default function HomeScreen() {
                 key={category.id}
                 style={styles.categoryItem}
                 onPress={() => {
-                  // Navigate to category screen when any category is tapped
-                  router.push("/(main)/(customer)/category" as any);
+                  // Navigate to dynamic category detail screen with category parameter
+                  if (category.id === 'all') {
+                    // "All" goes to regular category grid view
+                    router.push("/(main)/(customer)/category" as any);
+                  } else {
+                    // Specific category goes to filtered category detail view
+                    router.push(`/(main)/(customer)/category-detail?category=${category.id}` as any);
+                  }
                 }}
                 activeOpacity={0.7}
               >
@@ -703,9 +674,22 @@ export default function HomeScreen() {
             style={styles.productsSection}
             contentContainerStyle={styles.productsScrollContent}
           >
-            {bestSellingProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {bestSellingProducts
+              .filter(product => product && product.id) // Extra safety: remove any null/undefined
+              .map((product) => (
+                <ProductCard
+                  key={product.id}
+                  title={product.productName || 'Unnamed Product'}
+                  subtitle={product.storeName ? `(${product.storeName})` : ''}
+                  weight={product.productSize && product.unit ? `${product.productSize} ${product.unit}` : ''}
+                  price={product.price ? `₱${product.price.toFixed(2)}` : '₱0.00'}
+                  image={product.productImage ? { uri: product.productImage } : undefined}
+                  variant="horizontal"
+                  onAddPress={() => handleQuickAdd(product)}
+                  onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
+                  isAdding={addingProductId === product.id}
+                />
+              ))}
           </ScrollView>
         )}
 
@@ -794,9 +778,22 @@ export default function HomeScreen() {
             style={styles.productsSection}
             contentContainerStyle={styles.productsScrollContent}
           >
-            {freshFindsProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {freshFindsProducts
+              .filter(product => product && product.id) // Extra safety: remove any null/undefined
+              .map((product) => (
+                <ProductCard
+                  key={product.id}
+                  title={product.productName || 'Unnamed Product'}
+                  subtitle={product.storeName ? `(${product.storeName})` : ''}
+                  weight={product.productSize && product.unit ? `${product.productSize} ${product.unit}` : ''}
+                  price={product.price ? `₱${product.price.toFixed(2)}` : '₱0.00'}
+                  image={product.productImage ? { uri: product.productImage } : undefined}
+                  variant="horizontal"
+                  onAddPress={() => handleQuickAdd(product)}
+                  onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
+                  isAdding={addingProductId === product.id}
+                />
+              ))}
           </ScrollView>
         )}
 
@@ -1112,6 +1109,17 @@ const styles = StyleSheet.create({
   productsScrollContent: {
     paddingLeft: s(23),
     paddingRight: s(23),
+  },
+
+  // Products Grid - Same as see-more for synchronized design
+  productsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: s(22),
+    columnGap: s(18),
+    rowGap: vs(20),
+    justifyContent: "flex-start",
+    marginBottom: vs(20),
   },
 
   // Product Card - Figma: 903:222 Product0 (23, 341, 120x222)
@@ -1449,10 +1457,10 @@ const styles = StyleSheet.create({
   // Popular Pick Price - Figma: 759:526, fontSize:12
   popularPickPrice: {
     fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
+    fontWeight: "600",
     fontSize: ms(12),
     lineHeight: ms(12) * 1.5,
-    color: "#1E1E1E",
+    color: "#3BB77E",
   },
 
   // ============ END MESSAGE ============

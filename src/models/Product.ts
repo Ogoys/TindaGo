@@ -23,6 +23,7 @@ export interface Product {
   isFeatured: boolean;
   isBestSelling: boolean;
   isPopular: boolean;
+  status: 'available' | 'out_of_stock';  // Product availability status
   tags?: string[];            // ["fresh", "organic", "sale"]
   discount?: {
     percentage: number;

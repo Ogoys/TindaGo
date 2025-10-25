@@ -20,6 +20,7 @@ import { Colors } from '../../../src/constants/Colors';
 import { Fonts } from '../../../src/constants/Fonts';
 import { s, vs } from '../../../src/constants/responsive';
 import type { CartItem as CartItemType } from '../../../src/models/Cart';
+import { ProductRemovedModal } from '../../../src/components/ui';
 
 const CartScreen = () => {
   const router = useRouter();
@@ -28,6 +29,14 @@ const CartScreen = () => {
   const [cartItems, setCartItems] = useState<CartItemType[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingItem, setUpdatingItem] = useState<string | null>(null);
+
+  // Product removed modal state
+  const [removedProduct, setRemovedProduct] = useState<{
+    name: string;
+    image?: string;
+    reason: 'out_of_stock' | 'deleted';
+  } | null>(null);
+  const [showRemovedModal, setShowRemovedModal] = useState(false);
 
   // Fetch cart items from Firebase with real-time updates
   useEffect(() => {
@@ -53,6 +62,58 @@ const CartScreen = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Real-time product availability monitoring
+  useEffect(() => {
+    if (!user || cartItems.length === 0) return;
+
+    const productRefs: any[] = [];
+    const unsubscribes: (() => void)[] = [];
+
+    // Monitor each product's availability status
+    cartItems.forEach(item => {
+      const productRef = ref(database, `products/${item.productId}`);
+      productRefs.push(productRef);
+
+      const unsubscribe = onValue(productRef, async (snapshot) => {
+        if (snapshot.exists()) {
+          const product = snapshot.val();
+          // Check if product became unavailable
+          if (product.status === 'out_of_stock') {
+            console.log(`Product ${item.productName} is now out of stock, removing from cart...`);
+            await removeFromCart(user.id, item.productId);
+
+            // Show professional modal
+            setRemovedProduct({
+              name: item.productName,
+              image: item.productImage,
+              reason: 'out_of_stock',
+            });
+            setShowRemovedModal(true);
+          }
+        } else {
+          // Product was deleted from database
+          console.log(`Product ${item.productName} was deleted, removing from cart...`);
+          await removeFromCart(user.id, item.productId);
+
+          // Show professional modal
+          setRemovedProduct({
+            name: item.productName,
+            image: item.productImage,
+            reason: 'deleted',
+          });
+          setShowRemovedModal(true);
+        }
+      });
+
+      unsubscribes.push(unsubscribe);
+    });
+
+    // Cleanup all listeners
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [user, cartItems]);
 
   const removeItem = async (productId: string) => {
     if (!user) return;
@@ -283,6 +344,20 @@ const CartScreen = () => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Product Removed Modal */}
+      {removedProduct && (
+        <ProductRemovedModal
+          visible={showRemovedModal}
+          productName={removedProduct.name}
+          productImage={removedProduct.image}
+          reason={removedProduct.reason}
+          onClose={() => {
+            setShowRemovedModal(false);
+            setRemovedProduct(null);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };

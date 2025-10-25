@@ -35,36 +35,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <TouchableOpacity style={cardStyles} onPress={onPress} activeOpacity={0.8}>
       {/* Product Image Container */}
       <View style={imageStyles}>
-        <View style={styles.productImageBackground}>
-          {image && <Image source={image} style={styles.productImage} />}
-        </View>
+        {image && <Image source={image} style={styles.productImage} resizeMode="contain" />}
       </View>
-      
+
       {/* Product Labels */}
       <View style={labelStyles}>
-        <Text style={styles.productTitle} numberOfLines={1}>
+        <Text style={[styles.productTitle, variant === "grid" && styles.productTitleGrid]} numberOfLines={1}>
           {title}
         </Text>
         {subtitle && (
-          <Text style={styles.productSubtitle} numberOfLines={1}>
+          <Text style={[styles.productSubtitle, variant === "grid" && styles.productSubtitleGrid]} numberOfLines={1}>
             {subtitle}
           </Text>
         )}
         {weight && (
-          <Text style={styles.productWeight} numberOfLines={1}>
+          <Text style={[styles.productWeight, variant === "grid" && styles.productWeightGrid]} numberOfLines={1}>
             {weight}
           </Text>
         )}
         {price && (
-          <Text style={styles.productPrice} numberOfLines={1}>
+          <Text style={[styles.productPrice, variant === "grid" && styles.productPriceGrid]} numberOfLines={1}>
             {price}
           </Text>
         )}
       </View>
-      
+
       {/* Add Button */}
       <TouchableOpacity
-        style={[styles.addButton, variant === "horizontal" && styles.addButtonHorizontal]}
+        style={[
+          styles.addButton,
+          variant === "horizontal" && styles.addButtonHorizontal,
+          variant === "grid" && styles.addButtonGrid
+        ]}
         onPress={onAddPress}
         activeOpacity={0.7}
         disabled={isAdding}
@@ -83,161 +85,188 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Grid Card - FIXED 3 COLUMNS on ALL devices (like store owner side)
-  // Each card is 30% of screen width for consistent 3-column layout everywhere
+  // Grid Card - Exact Figma dimensions: 120px width × 222px height
+  // Better internal alignment with flexbox layout
   gridCard: {
-    width: "30%", // Fixed percentage for 3 columns on all devices
-    aspectRatio: 0.54, // Maintain height/width ratio (120/222)
+    width: s(120),
+    height: vs(222),
     backgroundColor: Colors.white,
     borderRadius: s(20),
-    marginBottom: vs(20), // Add bottom margin for vertical spacing
+    paddingTop: vs(10),
+    paddingBottom: vs(10),
+    paddingHorizontal: s(10),
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: s(10),
     elevation: 5,
+    justifyContent: "space-between", // Distribute content evenly
+    alignItems: "center",
   },
-  
-  // Horizontal Card - For regular home screen
+
+  // Horizontal Card - Same structure as grid card
   horizontalCard: {
     width: s(120),
     height: vs(222),
     backgroundColor: Colors.white,
-    borderRadius: s(15),
+    borderRadius: s(20),
+    paddingTop: vs(10),
+    paddingBottom: vs(10),
+    paddingHorizontal: s(10),
     marginRight: s(20),
-    padding: s(10),
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: vs(4) },
-    shadowOpacity: 0.1,
-    shadowRadius: s(8),
-    elevation: 3,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: s(10),
+    elevation: 5,
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  
-  // Grid Image Container - Figma: x:0, y:12, width:120, height:88
+
+  // Grid Image Container - Centered and properly sized
   gridImageContainer: {
-    width: "100%", // Fill card width
-    height: "40%", // Proportional to card height
-    marginTop: "5%",
-    paddingHorizontal: "8%",
-  },
-  
-  // Horizontal Image Container
-  horizontalImageContainer: {
-    flex: 1,
-    marginBottom: vs(8),
-  },
-  
-  productImageBackground: {
-    flex: 1,
-    backgroundColor: "#FFFFFF", // Pure white to match card background - NO visible box
-    borderRadius: s(10),
+    width: s(100),
+    height: vs(95),
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#F8F8F8", // Subtle background
+    borderRadius: s(12),
     overflow: "hidden",
-    // No shadow to ensure complete invisibility - images blend seamlessly
   },
-  
-  productImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: s(10),
-  },
-  
-  // Grid Labels - Figma: x:27, y:111, width:65, height:66
-  gridLabels: {
-    paddingHorizontal: "8%",
-    marginTop: "5%",
+
+  // Horizontal Image Container - Same as grid
+  horizontalImageContainer: {
+    width: s(100),
+    height: vs(95),
+    justifyContent: "center",
     alignItems: "center",
-    flex: 1, // Take remaining space
+    backgroundColor: "#F8F8F8",
+    borderRadius: s(12),
+    overflow: "hidden",
   },
-  
-  // Horizontal Labels
+
+  // Product Image - Centered and contained within image container
+  productImage: {
+    width: "90%",
+    height: "90%",
+  },
+
+  // Grid Labels - Centered with proper spacing
+  gridLabels: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingHorizontal: s(6),
+    paddingTop: vs(4),
+    paddingBottom: vs(2),
+    minHeight: vs(68), // Fixed height to prevent overlap with button
+  },
+
+  // Horizontal Labels - Same structure as grid labels
   horizontalLabels: {
-    paddingHorizontal: s(5),
-    marginBottom: vs(10),
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingHorizontal: s(6),
+    paddingTop: vs(4),
+    paddingBottom: vs(2),
+    minHeight: vs(68),
   },
   
+  // Product Title - Same for all variants
   productTitle: {
-    fontSize: 16,
+    fontSize: 12,
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-    color: Colors.darkGray,
+    fontWeight: "600",
+    color: "#1E1E1E",
     textAlign: "center",
-    lineHeight: 16 * 1.375,
     marginBottom: vs(2),
+    lineHeight: 15,
   },
-  
+
+  // Product Subtitle - Same for all variants
   productSubtitle: {
-    fontSize: 12,
+    fontSize: 9,
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-    color: Colors.darkGray,
+    fontWeight: "500",
+    color: "#666666",
     textAlign: "center",
-    lineHeight: 12 * 1.8333,
-    marginBottom: vs(2),
+    marginBottom: vs(1),
+    lineHeight: 12,
   },
-  
+
+  // Product Weight - Same for all variants
   productWeight: {
-    fontSize: 12,
+    fontSize: 9,
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
+    fontWeight: "500",
     color: "rgba(0, 0, 0, 0.5)",
     textAlign: "center",
-    lineHeight: 12 * 1.8333,
+    marginBottom: vs(1),
+    lineHeight: 12,
   },
-  
+
   productPrice: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: Fonts.primary,
     fontWeight: Fonts.weights.semiBold,
     color: Colors.primary,
     textAlign: "center",
-    marginTop: vs(4),
+    marginTop: vs(1),
+    lineHeight: 17,
   },
+
+  // Grid-specific text styles - no longer needed, same as base
+  productTitleGrid: {},
+  productSubtitleGrid: {},
+  productWeightGrid: {},
+  productPriceGrid: {},
   
-  // Add Button - Figma: x:10, y:179, width:100, height:30
+  // Add Button - Same for all variants
   addButton: {
-    position: "absolute",
-    left: "8%",
-    right: "8%",
-    bottom: "6%",
-    height: "14%",
-    backgroundColor: "#EBF3DA", // Figma button color
-    borderRadius: s(5),
+    width: s(100),
+    height: vs(32),
+    backgroundColor: "#EBF3DA", // Figma green color
+    borderRadius: s(8),
     justifyContent: "center",
     alignItems: "center",
+    marginTop: vs(2), // Space for better fit within card boundaries
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: s(5),
-    elevation: 3,
+    shadowOffset: { width: 0, height: vs(2) },
+    shadowOpacity: 0.15,
+    shadowRadius: s(4),
+    elevation: 2,
   },
-  
+
   addButtonHorizontal: {
-    backgroundColor: Colors.lightGreen,
+    // No differences - same as base
+  },
+
+  addButtonGrid: {
+    // No differences - same as base
   },
   
-  // Plus Icon
+  // Plus Icon - Larger and more visible
   plusIcon: {
-    width: s(10),
-    height: s(10),
+    width: s(14),
+    height: s(14),
     justifyContent: "center",
     alignItems: "center",
   },
-  
+
   plusHorizontal: {
     position: "absolute",
-    width: s(10),
-    height: s(2),
+    width: s(14),
+    height: s(2.5),
     backgroundColor: Colors.primary,
-    borderRadius: s(1),
+    borderRadius: s(1.5),
   },
-  
+
   plusVertical: {
     position: "absolute",
-    width: s(2),
-    height: s(10),
+    width: s(2.5),
+    height: s(14),
     backgroundColor: Colors.primary,
-    borderRadius: s(1),
+    borderRadius: s(1.5),
   },
 });

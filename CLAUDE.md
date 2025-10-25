@@ -40,8 +40,8 @@ The app uses file-based routing with nested route groups:
 - `app/(auth)/` - Authentication flow screens (onboarding, signin, register, verification)
   - `app/(auth)/(store-owner)/` - Store owner registration flow (StoreRegistration, StoreDetails, DocumentUpload, BankDetails, RegistrationComplete)
 - `app/(main)/` - Main app screens with role-based structure
-  - `app/(main)/(customer)/` - Customer-specific screens (home, cart, orders, category, see-more)
-  - `app/(main)/(store-owner)/` - Store owner-specific screens (home, orders, category, profile/*)
+  - `app/(main)/(customer)/` - Customer-specific screens (home, cart, orders, order-details, payment, category, see-more)
+  - `app/(main)/(store-owner)/` - Store owner-specific screens (home, orders, wallet, category, profile/*)
   - `app/(main)/shared/` - Shared screens (profile, product-details)
 - `app/_layout.tsx` - Root layout with UserProvider context wrapper
 - `app/(main)/_layout.tsx` - Main layout with auth/role validation and auto-routing
@@ -55,7 +55,16 @@ The app uses file-based routing with nested route groups:
 
 ### Key Architectural Patterns
 - **Component-first**: Reusable UI components in `src/components/ui/`
-- **Service layer**: Business logic in `src/services/` (PhoneVerificationService, StoreRegistrationService, NotificationService)
+- **Service layer**: Business logic in `src/services/` organized by domain:
+  - `src/services/auth/` - PhoneVerificationService for SMS verification
+  - `src/services/store/` - StoreRegistrationService for business registration
+  - `src/services/notifications/` - NotificationService for push notifications
+- **API layer**: Firebase operations in `src/api/` organized by resource:
+  - `cart/`, `orders/`, `products/`, `reviews/`, `stores/`, `users/`
+  - Centralizes database operations and data transformations
+- **Type models**: TypeScript interfaces in `src/models/` for data structures:
+  - `User.ts`, `Store.ts`, `Product.ts`, `Order.ts`, `Cart.ts`, `Review.ts`
+  - Ensures type safety across Firebase operations
 - **Context-based state**: UserContext (`src/contexts/UserContext.tsx`) manages global user state with AsyncStorage persistence
 - **Responsive design**: Figma baseline (440x956) with scaling functions
 - **Type safety**: Full TypeScript with strict mode and path aliases (@/* → src/*)
@@ -154,22 +163,46 @@ Firebase Realtime Database (JSON tree structure) with these main collections:
 - `PendingApprovalDetails.tsx` - Store owner approval status display
 - `StatusBar.tsx` - Custom status bar wrapper
 - `SignInGlassCard.tsx` - Signin screen glass card component
+- `OrderCompleteModal.tsx` - Order confirmation modal
+- `OrderErrorModal.tsx` - Order error handling modal
 
 ### Feature Components
 - `onboarding/` - Onboarding flow components (HeroImageStack, OnboardingContent, ActionButtons)
 - `phone-verification/` - SMS verification screens (PhoneVerificationScreen, PhoneVerificationCodeScreen)
 
 ### Services Layer (`src/services/`)
+Services are organized by domain in subdirectories:
+
+**Authentication Services** (`src/services/auth/`):
 - **PhoneVerificationService**: SMS verification system
   - Development mode: Logs verification codes to console
   - Production ready: Supports Twilio/AWS SNS integration
   - Philippine phone number validation with international fallback
   - 4-digit codes with 5-minute expiry and 3-attempt limit
+
+**Store Services** (`src/services/store/`):
 - **StoreRegistrationService**: Handles store owner registration workflow
   - Multi-step registration (personal info, business info, documents, bank details)
   - Document upload with base64 encoding
   - Firebase Realtime Database integration
+
+**Notification Services** (`src/services/notifications/`):
 - **NotificationService**: Push notification handling (Expo Notifications)
+  - Order status updates
+  - Store approval notifications
+  - Real-time event broadcasting
+
+### API Layer (`src/api/`)
+Firebase operations centralized by resource type for maintainability:
+
+- **cart/** - Cart operations (add, remove, update quantities, clear)
+- **orders/** - Order creation, status updates, history retrieval
+- **products/** - Product CRUD operations, inventory updates
+- **reviews/** - Customer feedback and ratings management
+- **stores/** - Store profile and business information
+- **users/** - User profile management and preferences
+
+**Pattern**: Each API module exports functions that handle Firebase database operations and data transformations, keeping components clean and focused on UI logic.
 
 ### Asset Organization
 - Assets stored in `src/assets/images/[screen-name]/` following Figma structure
@@ -217,12 +250,23 @@ Based on capstone project documentation, prioritize features in this order:
 - Low stock alerts and inventory logging
 - Product listing and customer ordering (pickup-only)
 - Sales tracking and transaction recording
+- **Customer Order Flow** (Implemented):
+  - Cart management with real-time Firebase sync
+  - Order creation and tracking (`src/api/orders/`)
+  - Payment method selection (GCash, PayMaya, Cash on Pickup)
+  - Order details view with status timeline and itemized breakdown
+  - Payment processing integration with modals for success/error states
 
 **Phase 3: Advanced Features**
 - Return goods and spoilage tracking
 - Damages and spoilage module for loss management
 - Customer feedback and rating system
 - Revenue tracking with percentage-based fees
+- **Wallet Management** (Planned):
+  - Store owner earnings dashboard
+  - Transaction history and payout management
+  - Revenue analytics and reporting
+  - Placeholder screen at `app/(main)/(store-owner)/wallet.tsx`
 
 ### Testing Requirements
 - **Jest** for backend/service testing
@@ -397,7 +441,9 @@ Projects/React Native Projects/
 **ALWAYS use these exact status values across all platforms**:
 - Registration status: `"pending"`, `"approved"`, `"rejected"` (never use `"pending_approval"` or other variants)
 - Store status: `"active"`, `"inactive"`, `"suspended"`
-- Order status: TBD (to be defined in Phase 2)
+- Order status: `"pending"`, `"confirmed"`, `"preparing"`, `"ready"`, `"completed"`, `"cancelled"`
+  - Orders are pickup-only (no delivery status needed)
+  - Payment methods: `"gcash"`, `"paymaya"`, `"cash"` (cash on pickup)
 
 ### Real-Time Sync Requirements
 - Mobile app must implement Firebase listeners for status changes

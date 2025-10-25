@@ -1,3 +1,17 @@
+/**
+ * CATEGORY DETAIL SCREEN - Dynamic Category Products View
+ *
+ * Figma File: 8I1Nr3vQZllDDknSevstvH
+ * Node: 1057-2352 (Fruits & Vegetables example)
+ * Baseline: 440x1242
+ *
+ * This ONE screen dynamically changes for ALL 10 categories:
+ * - Header color changes based on category
+ * - Category name updates
+ * - Products filtered by category
+ * - Same structure as see-more.tsx with improved ProductCard
+ */
+
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -9,7 +23,6 @@ import {
   TextInput,
   StatusBar,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -22,7 +35,7 @@ import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { ProductCard, Toast } from "../../../src/components/ui";
 
-// Product interface matching Firebase schema
+// Product interface
 interface Product {
   id: string;
   productName: string;
@@ -42,22 +55,59 @@ interface Product {
   status: 'available' | 'out_of_stock';
 }
 
-/**
- * SEE MORE SCREEN - PRODUCT GRID VIEW
- *
- * Baseline: 440x956 (standard TindaGo viewport)
- * Uses responsive scaling for all devices
- *
- * Features:
- * - Header with search and navigation
- * - Product grid layout (2-3 columns based on device width)
- * - Scrollable product list
- */
+// Category configuration - IDs must match home.tsx categoryData
+const CATEGORY_CONFIG: Record<string, { name: string; color: string }> = {
+  "fruits-vegetables": {
+    name: "Fruits & Vegetables",
+    color: "#3BB77E", // Primary green
+  },
+  "dairy-bakery": {
+    name: "Dairy & Bakery",
+    color: "#D39447", // Orange
+  },
+  "snacks-sweets": {
+    name: "Snacks & Sweets",
+    color: "#B34F2D", // Brown-red
+  },
+  "beverages": {
+    name: "Beverages",
+    color: "#646A8A", // Blue-gray
+  },
+  "personal-baby-care": {
+    name: "Personal & Baby Care",
+    color: "#945DA1", // Purple
+  },
+  "home-kitchen": {
+    name: "Home & Kitchen",
+    color: "#2788BB", // Blue
+  },
+  "staple-foods": {
+    name: "Staple Foods",
+    color: "#F15A8D", // Pink
+  },
+  "condiments-cooking": {
+    name: "Condiments & Cooking",
+    color: "#787161", // Gray-brown
+  },
+  "frozen-goods": {
+    name: "Frozen Goods",
+    color: "#A4E0E3", // Cyan
+  },
+  "miscellaneous": {
+    name: "Miscellaneous & Others",
+    color: "#765640", // Dark brown
+  },
+};
 
-export default function SeeMoreScreen() {
+export default function CategoryDetailScreen() {
   const params = useLocalSearchParams();
-  const section = (params.section as string) || 'all';
+  const categoryId = (params.category as string) || 'fruits-vegetables';
   const { user } = useUser();
+
+  // Get category configuration
+  const categoryConfig = CATEGORY_CONFIG[categoryId] || CATEGORY_CONFIG["fruits-vegetables"];
+  const categoryName = categoryConfig.name;
+  const headerColor = categoryConfig.color;
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -70,7 +120,7 @@ export default function SeeMoreScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
 
-  // Fetch all products from Firebase
+  // Fetch products from Firebase and filter by category
   useEffect(() => {
     const productsRef = ref(database, 'products');
     const unsubscribe = onValue(productsRef, (snapshot) => {
@@ -81,10 +131,13 @@ export default function SeeMoreScreen() {
             id: key,
             ...data[key],
           }))
-          .filter(product => product.status === 'available');
+          .filter(product =>
+            product.status === 'available' &&
+            product.category.toLowerCase() === categoryName.toLowerCase()
+          );
 
         setAllProducts(productsList);
-        setFilteredProducts(getSectionProducts(productsList, section));
+        setFilteredProducts(productsList);
       } else {
         setAllProducts([]);
         setFilteredProducts([]);
@@ -93,75 +146,21 @@ export default function SeeMoreScreen() {
     });
 
     return () => unsubscribe();
-  }, [section]);
+  }, [categoryName]);
 
   // Filter products based on search query
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      setFilteredProducts(getSectionProducts(allProducts, section));
+      setFilteredProducts(allProducts);
     } else {
       const query = searchQuery.toLowerCase();
-      const results = getSectionProducts(allProducts, section).filter(product =>
+      const results = allProducts.filter(product =>
         product.productName.toLowerCase().includes(query) ||
-        product.storeName.toLowerCase().includes(query) ||
-        product.category.toLowerCase().includes(query)
+        product.storeName.toLowerCase().includes(query)
       );
       setFilteredProducts(results);
     }
-  }, [searchQuery, allProducts, section]);
-
-  // Get products based on section type
-  const getSectionProducts = (products: Product[], sectionType: string): Product[] => {
-    if (products.length === 0) return [];
-
-    switch (sectionType) {
-      case 'bestSelling':
-        // Best Selling - Recently added products (newest first)
-        return [...products]
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      case 'mostPopular':
-        // Most Popular - Diverse products from different categories
-        const categoriesMap = new Map<string, Product[]>();
-        products.forEach(product => {
-          const prods = categoriesMap.get(product.category) || [];
-          prods.push(product);
-          categoriesMap.set(product.category, prods);
-        });
-
-        const diverse: Product[] = [];
-        categoriesMap.forEach(prods => {
-          if (prods.length > 0) {
-            diverse.push(...prods);
-          }
-        });
-
-        return diverse.sort(() => Math.random() - 0.5);
-
-      case 'freshFinds':
-        // Fresh Finds - Most recently updated products
-        return [...products]
-          .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
-
-      default:
-        // All products
-        return products;
-    }
-  };
-
-  // Get section title based on section type
-  const getSectionTitle = (): string => {
-    switch (section) {
-      case 'bestSelling':
-        return 'Best Selling';
-      case 'mostPopular':
-        return 'Most Popular Picks';
-      case 'freshFinds':
-        return 'Fresh Finds';
-      default:
-        return 'All Items';
-    }
-  };
+  }, [searchQuery, allProducts]);
 
   // Quick add product to cart
   const handleAddProduct = async (product: Product) => {
@@ -180,7 +179,6 @@ export default function SeeMoreScreen() {
     try {
       setAddingToCart(product.id);
 
-      // Create cart item object matching CartItem interface
       const cartItem = {
         productId: product.id,
         productName: product.productName,
@@ -224,39 +222,39 @@ export default function SeeMoreScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#02545F" />
-      
-      {/* Header Background - Figma: x:0, y:0, width:440, height:180 */}
-      <View style={styles.headerBackground}>
+      <StatusBar barStyle="light-content" backgroundColor={headerColor} />
+
+      {/* Header Background - Dynamic color - Figma: x:0, y:0, width:440, height:180 */}
+      <View style={[styles.headerBackground, { backgroundColor: headerColor }]}>
         {/* Back Button - Figma: x:20, y:79, width:30, height:30 */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Image 
-            source={require("../../../src/assets/images/see-more/chevron-left.png")} 
-            style={styles.chevronIcon} 
+          <Image
+            source={require("../../../src/assets/images/category-detail/chevron-left.png")}
+            style={styles.chevronIcon}
           />
         </TouchableOpacity>
 
-        {/* Title - Dynamic based on section */}
+        {/* Title - Dynamic category name - Figma: x:133, y:83, width:174, height:22 */}
         <Text style={styles.headerTitle} numberOfLines={1} allowFontScaling={false}>
-          {getSectionTitle()}
+          {categoryName}
         </Text>
 
         {/* Notification Button - Figma: x:375, y:74, width:40, height:40 */}
         <TouchableOpacity style={styles.notificationButton}>
-          <Image 
-            source={require("../../../src/assets/images/see-more/notification-icon.png")} 
-            style={styles.notificationIcon} 
+          <Image
+            source={require("../../../src/assets/images/category-detail/notification-icon.png")}
+            style={styles.notificationIcon}
           />
         </TouchableOpacity>
 
         {/* Search Bar - Figma: x:20, y:155, width:400, height:50 */}
         <View style={styles.searchContainer}>
-          <Image 
-            source={require("../../../src/assets/images/see-more/search-icon.png")} 
-            style={styles.searchIcon} 
+          <Image
+            source={require("../../../src/assets/images/category-detail/search-icon.png")}
+            style={styles.searchIcon}
           />
           <TextInput
             placeholder='Search for "Items"'
@@ -269,23 +267,23 @@ export default function SeeMoreScreen() {
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Section Label - Figma: x:23, y:225, width:80, height:22 */}
+        {/* Section Label - Figma: x:23, y:225, width:181, height:22 */}
         <View style={styles.sectionLabelContainer}>
           <Text style={styles.sectionLabel}>
-            {searchQuery ? `Search Results (${filteredProducts.length})` : getSectionTitle()}
+            {searchQuery ? `Search Results (${filteredProducts.length})` : categoryName}
           </Text>
         </View>
 
         {/* Products Grid - Starting from Figma: y:267 */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={headerColor} />
             <Text style={styles.loadingText}>Loading products...</Text>
           </View>
         ) : filteredProducts.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {searchQuery ? 'No products found for your search' : 'No products available'}
+              {searchQuery ? 'No products found for your search' : `No products available in ${categoryName}`}
             </Text>
           </View>
         ) : (
@@ -327,16 +325,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F4F6F6", // Figma background color
   },
-  
-  // Header Background - Adjusted height for better spacing
+
+  // Header Background - Dynamic color based on category
   headerBackground: {
-    backgroundColor: "#02545F",
-    height: vs(165), // Reduced height after removing status bar
+    height: vs(165),
     paddingTop: vs(20),
     paddingBottom: vs(20),
   },
 
-  // Back Button - Adjusted position
+  // Back Button - Figma: x:20, y:79, width:30, height:30
   backButton: {
     position: "absolute",
     left: s(20),
@@ -358,13 +355,12 @@ const styles = StyleSheet.create({
     height: s(15),
   },
 
-  // Header Title - Fixed to prevent text cropping
+  // Header Title - Dynamic category name
   headerTitle: {
     position: "absolute",
-    left: s(120), // Adjusted left position to center properly
+    left: s(80),
+    right: s(80),
     top: vs(32),
-    width: s(200), // Increased width to prevent horizontal cropping of "Daily"
-    height: vs(28), // Increased height to prevent vertical cropping
     color: Colors.white,
     fontSize: ms(20),
     fontFamily: Fonts.primary,
@@ -372,10 +368,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: vs(24),
     includeFontPadding: false,
-    overflow: "visible", // Ensure text doesn't get clipped
+    overflow: "visible",
   },
 
-  // Notification Button - Adjusted position
+  // Notification Button - Figma: x:375, y:74, width:40, height:40
   notificationButton: {
     position: "absolute",
     left: s(375),
@@ -397,13 +393,12 @@ const styles = StyleSheet.create({
     height: s(25),
   },
 
-  // Search Container - Adjusted position for better spacing
-  // Optimized for small devices: reduced to 390px for compatibility
+  // Search Container - Figma: x:20, y:155, width:400, height:50
   searchContainer: {
     position: "absolute",
     left: s(20),
     top: vs(95),
-    width: s(390), // Reduced from 400 to 390 for small device compatibility
+    width: s(390),
     height: vs(50),
     flexDirection: "row",
     alignItems: "center",
@@ -429,12 +424,12 @@ const styles = StyleSheet.create({
     color: "#7A7B7B",
     height: vs(50),
   },
-  
+
   scrollContainer: {
     flex: 1,
   },
-  
-  // Section Label Container - Better spacing
+
+  // Section Label Container
   sectionLabelContainer: {
     marginLeft: s(23),
     marginTop: vs(25),
@@ -443,27 +438,23 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: ms(20),
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.semiBold, // 600 from Figma
+    fontWeight: Fonts.weights.semiBold,
     color: Colors.darkGray,
-    lineHeight: ms(20) * 1.1, // Figma line height
+    lineHeight: ms(20) * 1.1,
   },
-  
-  // Products Grid - Exact Figma spacing from design
-  // Group boundingBox: x: 22, width: 396 (total container: 440px)
-  // Left margin: 22px, Right margin: 22px
-  // Product dimensions: 120px width x 222px height (defined in ProductCard component)
-  // Horizontal gaps: ~18-20px, Vertical gap: ~20px
+
+  // Products Grid - Exact Figma spacing
   productsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: s(22), // Exact Figma left/right margins
-    columnGap: s(18), // Horizontal gap between products
-    rowGap: vs(20), // Vertical gap between rows
+    paddingHorizontal: s(22),
+    columnGap: s(18),
+    rowGap: vs(20),
     justifyContent: "flex-start",
   },
 
   bottomPadding: {
-    height: vs(120), // Space for navigation
+    height: vs(120),
   },
 
   // Loading Container

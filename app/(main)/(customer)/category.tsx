@@ -131,9 +131,27 @@ export default function CategoryScreen() {
     router.back();
   };
 
+  // Map category names to IDs for routing (must match home.tsx categoryData)
+  const getCategoryId = (categoryName: string): string => {
+    const mapping: Record<string, string> = {
+      "Fruits & Vegetables": "fruits-vegetables",
+      "Dairy & Bakery": "dairy-bakery",
+      "Snacks & Sweets": "snacks-sweets",
+      "Beverages": "beverages",
+      "Personal & Baby Care": "personal-baby-care",
+      "Home & Kitchen": "home-kitchen",
+      "Staple Foods": "staple-foods",
+      "Condiments & Cooking": "condiments-cooking",
+      "Frozen Goods": "frozen-goods",
+      "Miscellaneous & Others": "miscellaneous",
+    };
+    return mapping[categoryName] || "fruits-vegetables";
+  };
+
   const handleCategoryPress = (category: Category) => {
-    // Navigate to category products screen (to be implemented)
-    console.log("Selected category:", category.name);
+    // Navigate to dynamic category detail screen with category parameter
+    const categoryId = getCategoryId(category.name);
+    router.push(`/(main)/(customer)/category-detail?category=${categoryId}` as any);
   };
 
   return (

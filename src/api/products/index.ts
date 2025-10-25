@@ -31,9 +31,9 @@ export async function fetchProductById(productId: string): Promise<Product | nul
 }
 
 /**
- * Fetch products by category
+ * Fetch products by category (only available products for customers)
  */
-export async function fetchProductsByCategory(categoryId: string): Promise<Product[]> {
+export async function fetchProductsByCategory(categoryId: string, includeOutOfStock: boolean = false): Promise<Product[]> {
   try {
     const productsRef = ref(database, 'products');
     const categoryQuery = query(productsRef, orderByChild('categoryId'), equalTo(categoryId));
@@ -41,7 +41,8 @@ export async function fetchProductsByCategory(categoryId: string): Promise<Produ
 
     if (snapshot.exists()) {
       const products = Object.values(snapshot.val()) as Product[];
-      return products;
+      // Filter out out-of-stock products unless explicitly requested
+      return includeOutOfStock ? products : products.filter(p => p.status === 'available');
     }
     return [];
   } catch (error) {
@@ -51,7 +52,7 @@ export async function fetchProductsByCategory(categoryId: string): Promise<Produ
 }
 
 /**
- * Fetch best selling products
+ * Fetch best selling products (only available products for customers)
  */
 export async function fetchBestSellingProducts(limit: number = 10): Promise<Product[]> {
   try {
@@ -60,7 +61,9 @@ export async function fetchBestSellingProducts(limit: number = 10): Promise<Prod
     const snapshot = await get(bestSellingQuery);
 
     if (snapshot.exists()) {
-      return Object.values(snapshot.val()) as Product[];
+      const allProducts = Object.values(snapshot.val()) as Product[];
+      // Filter to only show available products
+      return allProducts.filter(p => p.status === 'available');
     }
     return [];
   } catch (error) {
@@ -70,7 +73,7 @@ export async function fetchBestSellingProducts(limit: number = 10): Promise<Prod
 }
 
 /**
- * Fetch popular picks
+ * Fetch popular picks (only available products for customers)
  */
 export async function fetchPopularPicks(limit: number = 10): Promise<Product[]> {
   try {
@@ -79,7 +82,9 @@ export async function fetchPopularPicks(limit: number = 10): Promise<Product[]> 
     const snapshot = await get(popularQuery);
 
     if (snapshot.exists()) {
-      return Object.values(snapshot.val()) as Product[];
+      const allProducts = Object.values(snapshot.val()) as Product[];
+      // Filter to only show available products
+      return allProducts.filter(p => p.status === 'available');
     }
     return [];
   } catch (error) {
@@ -89,19 +94,21 @@ export async function fetchPopularPicks(limit: number = 10): Promise<Product[]> 
 }
 
 /**
- * Search products by name
+ * Search products by name (only available products for customers)
  */
-export async function searchProducts(searchQuery: string): Promise<Product[]> {
+export async function searchProducts(searchQuery: string, includeOutOfStock: boolean = false): Promise<Product[]> {
   try {
     const productsRef = ref(database, 'products');
     const snapshot = await get(productsRef);
 
     if (snapshot.exists()) {
       const allProducts = Object.values(snapshot.val()) as Product[];
-      const filtered = allProducts.filter(product =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const filtered = allProducts.filter(product => {
+        const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          product.description.toLowerCase().includes(searchQuery.toLowerCase());
+        const isAvailable = includeOutOfStock || product.status === 'available';
+        return matchesSearch && isAvailable;
+      });
       return filtered;
     }
     return [];
@@ -112,15 +119,17 @@ export async function searchProducts(searchQuery: string): Promise<Product[]> {
 }
 
 /**
- * Fetch all products with optional filtering
+ * Fetch all products with optional filtering (only available products for customers by default)
  */
-export async function fetchAllProducts(): Promise<Product[]> {
+export async function fetchAllProducts(includeOutOfStock: boolean = false): Promise<Product[]> {
   try {
     const productsRef = ref(database, 'products');
     const snapshot = await get(productsRef);
 
     if (snapshot.exists()) {
-      return Object.values(snapshot.val()) as Product[];
+      const allProducts = Object.values(snapshot.val()) as Product[];
+      // Filter to only show available products unless explicitly requested
+      return includeOutOfStock ? allProducts : allProducts.filter(p => p.status === 'available');
     }
     return [];
   } catch (error) {
@@ -130,9 +139,9 @@ export async function fetchAllProducts(): Promise<Product[]> {
 }
 
 /**
- * Fetch products by store ID
+ * Fetch products by store ID (only available products for customers by default)
  */
-export async function fetchProductsByStore(storeId: string): Promise<Product[]> {
+export async function fetchProductsByStore(storeId: string, includeOutOfStock: boolean = false): Promise<Product[]> {
   try {
     const productsRef = ref(database, 'products');
     const storeProductsQuery = query(productsRef, orderByChild('storeId'), equalTo(storeId));
@@ -141,10 +150,12 @@ export async function fetchProductsByStore(storeId: string): Promise<Product[]> 
     if (snapshot.exists()) {
       const data = snapshot.val();
       // Map products with their IDs
-      return Object.keys(data).map(productId => ({
+      const allProducts = Object.keys(data).map(productId => ({
         id: productId,
         ...data[productId]
       })) as Product[];
+      // Filter to only show available products unless explicitly requested
+      return includeOutOfStock ? allProducts : allProducts.filter(p => p.status === 'available');
     }
     return [];
   } catch (error) {
