@@ -20,7 +20,7 @@ import { Colors } from '../../../src/constants/Colors';
 import { Fonts } from '../../../src/constants/Fonts';
 import { s, vs } from '../../../src/constants/responsive';
 import type { CartItem as CartItemType } from '../../../src/models/Cart';
-import { ProductRemovedModal } from '../../../src/components/ui';
+import { ProductRemovedModal, Toast } from '../../../src/components/ui';
 
 const CartScreen = () => {
   const router = useRouter();
@@ -37,6 +37,11 @@ const CartScreen = () => {
     reason: 'out_of_stock' | 'deleted';
   } | null>(null);
   const [showRemovedModal, setShowRemovedModal] = useState(false);
+
+  // Toast notification state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
 
   // Fetch cart items from Firebase with real-time updates
   useEffect(() => {
@@ -121,11 +126,19 @@ const CartScreen = () => {
     try {
       const success = await removeFromCart(user.id, productId);
       if (!success) {
-        Alert.alert('Error', 'Failed to remove item from cart');
+        setToastMessage('Failed to remove item from cart');
+        setToastType('error');
+        setShowToast(true);
+      } else {
+        setToastMessage('Item removed from cart');
+        setToastType('success');
+        setShowToast(true);
       }
     } catch (error) {
       console.error('Error removing item:', error);
-      Alert.alert('Error', 'An error occurred while removing the item');
+      setToastMessage('An error occurred while removing the item');
+      setToastType('error');
+      setShowToast(true);
     }
   };
 
@@ -133,7 +146,9 @@ const CartScreen = () => {
     if (!user || newQuantity < 1) return;
 
     if (newQuantity > maxStock) {
-      Alert.alert('Stock Limit', `Only ${maxStock} items available`);
+      setToastMessage(`Only ${maxStock} items available`);
+      setToastType('error');
+      setShowToast(true);
       return;
     }
 
@@ -141,11 +156,15 @@ const CartScreen = () => {
       setUpdatingItem(productId);
       const success = await updateCartQuantity(user.id, productId, newQuantity);
       if (!success) {
-        Alert.alert('Error', 'Failed to update quantity');
+        setToastMessage('Failed to update quantity');
+        setToastType('error');
+        setShowToast(true);
       }
     } catch (error) {
       console.error('Error updating quantity:', error);
-      Alert.alert('Error', 'An error occurred while updating quantity');
+      setToastMessage('An error occurred while updating quantity');
+      setToastType('error');
+      setShowToast(true);
     } finally {
       setUpdatingItem(null);
     }
@@ -158,13 +177,19 @@ const CartScreen = () => {
 
   const handleProceedToPayment = () => {
     if (!user) {
-      Alert.alert('Error', 'Please sign in to place an order');
-      router.push('/(auth)/signin');
+      setToastMessage('Please sign in to place an order');
+      setToastType('info');
+      setShowToast(true);
+      setTimeout(() => {
+        router.push('/(auth)/signin');
+      }, 1500);
       return;
     }
 
     if (cartItems.length === 0) {
-      Alert.alert('Empty Cart', 'Please add items to your cart first');
+      setToastMessage('Please add items to your cart first');
+      setToastType('info');
+      setShowToast(true);
       return;
     }
 
@@ -232,7 +257,18 @@ const CartScreen = () => {
                 <View style={styles.productInfo}>
                   <Text style={styles.productName} numberOfLines={1}>{item.productName}</Text>
                   <Text style={styles.productWeight}>{item.weight} {item.unit}</Text>
-                  <Text style={styles.productPrice}>₱{item.price.toFixed(2)}</Text>
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.productPriceLabel}>₱{item.price.toFixed(2)} each</Text>
+                    <Text style={styles.productSubtotal}>₱{item.subtotal.toFixed(2)} total</Text>
+                  </View>
+                  {/* Low Stock Warning */}
+                  {item.stock > 0 && item.stock < 10 && (
+                    <Text style={styles.lowStockWarning}>Only {item.stock} left!</Text>
+                  )}
+                  {/* Max Stock Indicator */}
+                  {item.quantity >= item.stock && (
+                    <Text style={styles.maxStockIndicator}>Max quantity</Text>
+                  )}
                 </View>
 
                 {/* Quantity Controls */}
@@ -358,6 +394,14 @@ const CartScreen = () => {
           }}
         />
       )}
+
+      {/* Toast Notification */}
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setShowToast(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -459,6 +503,8 @@ const styles = StyleSheet.create({
   // Product info - Figma: x: 105, y: 184, width: 124, height: 44
   productInfo: {
     flex: 1,
+    justifyContent: 'flex-start',
+    paddingRight: s(5),
   },
   productName: {
     fontFamily: Fonts.primary,
@@ -469,19 +515,47 @@ const styles = StyleSheet.create({
   },
   productWeight: {
     fontFamily: Fonts.primary,
-    fontSize: s(14),
+    fontSize: s(12),
     fontWeight: Fonts.weights.medium,
     color: Colors.textSecondary,
-    lineHeight: s(22),
+    lineHeight: s(18),
+    marginBottom: vs(2),
   },
-  // Product price - Figma: x: 306, y: 195, width: 57, height: 22
-  productPrice: {
+  // Price Container
+  priceContainer: {
+    marginTop: vs(2),
+  },
+  // Product price label - Unit price
+  productPriceLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: s(11),
+    fontWeight: Fonts.weights.medium,
+    color: Colors.textSecondary,
+    lineHeight: s(16),
+  },
+  // Product subtotal - Total for quantity
+  productSubtotal: {
     fontFamily: Fonts.primary,
     fontSize: s(14),
+    fontWeight: Fonts.weights.semiBold,
+    color: Colors.primary, // Green color like ProductCard
+    lineHeight: s(20),
+  },
+  // Low stock warning
+  lowStockWarning: {
+    fontFamily: Fonts.primary,
+    fontSize: s(10),
+    fontWeight: Fonts.weights.semiBold,
+    color: '#FF9800', // Orange warning color
+    marginTop: vs(2),
+  },
+  // Max stock indicator
+  maxStockIndicator: {
+    fontFamily: Fonts.primary,
+    fontSize: s(10),
     fontWeight: Fonts.weights.medium,
-    color: '#02545F',
-    lineHeight: s(22),
-    marginRight: s(10),
+    color: '#E92B45', // Red color
+    marginTop: vs(2),
   },
   // Delete button - Figma: x: 373, y: 191, width: 30, height: 30
   deleteButton: {
