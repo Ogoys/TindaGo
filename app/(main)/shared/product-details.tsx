@@ -31,7 +31,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { ProductCard, StoreCard } from '../../../src/components/ui';
+import { ProductCard, StoreCard, Toast } from '../../../src/components/ui';
 import { Colors } from '../../../src/constants/Colors';
 import { s, vs, ms } from '../../../src/constants/responsive';
 import { useUser } from '../../../src/contexts/UserContext';
@@ -39,6 +39,8 @@ import { fetchProductById, fetchProductsByCategory } from '../../../src/api/prod
 import { fetchStoreById, fetchFeaturedStores } from '../../../src/api/stores';
 import { addToCart } from '../../../src/api/cart';
 import type { CartItem } from '../../../src/models/Cart';
+import { ref, get } from 'firebase/database';
+import { database } from '../../../FirebaseConfig';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -90,6 +92,12 @@ export default function ProductDetailsScreen() {
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [addingRelatedId, setAddingRelatedId] = useState<string | null>(null);
+
+  // Toast notification state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
 
   // Carousel animation
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -115,6 +123,7 @@ export default function ProductDetailsScreen() {
           router.back();
           return;
         }
+        console.log('📱 Current product:', productData.productName, '| Category:', productData.category);
         setProduct(productData as Product);
 
         // Fetch store information
@@ -135,30 +144,49 @@ export default function ProductDetailsScreen() {
         }
 
         // Fetch related products from same category
-        if (productData.categoryId) {
-          const related = await fetchProductsByCategory(productData.categoryId) as any[];
+        // Use category name for more reliable matching
+        if (productData.category) {
+          try {
+            // Fetch all products and filter by category name
+            const productsRef = ref(database, 'products');
+            const snapshot = await get(productsRef);
 
-          // Filter and sort related products for better recommendations
-          const filteredRelated = related
-            .filter(p => {
-              // Exclude current product
-              if (p.id === productData.id) return false;
+            let related: any[] = [];
+            if (snapshot.exists()) {
+              const allProducts = snapshot.val();
+              related = Object.keys(allProducts)
+                .map(key => ({
+                  id: key,
+                  ...allProducts[key]
+                }))
+                .filter(p => {
+                  // Match category name (case-insensitive)
+                  if (p.category?.toLowerCase() !== productData.category?.toLowerCase()) return false;
 
-              // Only show available products
-              if (p.status === 'out_of_stock' || p.quantity === 0) return false;
+                  // Exclude current product
+                  if (p.id === productData.id) return false;
 
-              return true;
-            })
-            // Sort by relevance: prioritize similar price range
-            .sort((a, b) => {
-              const aPriceDiff = Math.abs(a.price - productData.price);
-              const bPriceDiff = Math.abs(b.price - productData.price);
-              return aPriceDiff - bPriceDiff;
-            })
-            // Get top 8 most relevant items
-            .slice(0, 8);
+                  // Only show available products
+                  if (p.status === 'out_of_stock' || p.quantity === 0) return false;
 
-          setRelatedProducts(filteredRelated as Product[]);
+                  return true;
+                })
+                // Sort by relevance: prioritize similar price range
+                .sort((a, b) => {
+                  const aPriceDiff = Math.abs(a.price - productData.price);
+                  const bPriceDiff = Math.abs(b.price - productData.price);
+                  return aPriceDiff - bPriceDiff;
+                })
+                // Get top 8 most relevant items
+                .slice(0, 8);
+            }
+
+            console.log(`📦 Related products for "${productData.productName}" (${productData.category}):`, related.length);
+            setRelatedProducts(related as Product[]);
+          } catch (error) {
+            console.error('Error fetching related products:', error);
+            setRelatedProducts([]);
+          }
         }
 
         // Fetch other featured stores (limit to 4)
@@ -280,9 +308,84 @@ export default function ProductDetailsScreen() {
     }
   };
 
+  // Quick add related product to cart
+  const handleQuickAddRelated = async (relatedProduct: Product) => {
+    if (!user) {
+      setToastMessage('Please sign in to add items to cart');
+      setToastType('info');
+      setShowToast(true);
+      setTimeout(() => {
+        router.push('/(auth)/signin');
+      }, 1500);
+      return;
+    }
+
+    if (relatedProduct.quantity === 0) {
+      setToastMessage('Product is out of stock');
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
+
+    try {
+      setAddingRelatedId(relatedProduct.id);
+
+      const cartItem: CartItem = {
+        productId: relatedProduct.id,
+        productName: relatedProduct.productName,
+        productImage: relatedProduct.productImage,
+        storeId: relatedProduct.storeId,
+        storeName: relatedProduct.storeName,
+        quantity: 1,
+        price: relatedProduct.price,
+        weight: relatedProduct.productSize,
+        unit: relatedProduct.unit,
+        stock: relatedProduct.quantity,
+        subtotal: relatedProduct.price * 1,
+        isAvailable: relatedProduct.quantity > 0,
+      };
+
+      const success = await addToCart(user.id, cartItem);
+
+      if (success) {
+        setToastMessage(`${relatedProduct.productName} added to cart!`);
+        setToastType('success');
+        setShowToast(true);
+      } else {
+        setToastMessage('Failed to add product to cart');
+        setToastType('error');
+        setShowToast(true);
+      }
+    } catch (error) {
+      console.error('Error adding related product:', error);
+      setToastMessage('Failed to add to cart. Please try again.');
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setAddingRelatedId(null);
+    }
+  };
+
   // Navigate to store page
   const handleStorePress = (storeId: string) => {
     router.push(`/(main)/shared/store-details?id=${storeId}`);
+  };
+
+  // Convert category name to URL-safe format for navigation
+  const getCategorySlug = (categoryName: string): string => {
+    const categoryMap: Record<string, string> = {
+      'Fruits & Vegetables': 'fruits-vegetables',
+      'Dairy & Bakery': 'dairy-bakery',
+      'Snacks & Sweets': 'snacks-sweets',
+      'Beverages': 'beverages',
+      'Personal & Baby Care': 'personal-baby-care',
+      'Home & Kitchen': 'home-kitchen',
+      'Staple Foods': 'staple-foods',
+      'Condiments & Cooking': 'condiments-cooking',
+      'Frozen Goods': 'frozen-goods',
+      'Miscellaneous & Others': 'miscellaneous',
+    };
+    return categoryMap[categoryName] || 'fruits-vegetables';
   };
 
   // Carousel navigation
@@ -510,59 +613,36 @@ export default function ProductDetailsScreen() {
           </Text>
         </View>
 
-        {/* Recommended for You Section - Similar to customer home Best Selling */}
+        {/* Related Items Section - Products from same category */}
         {relatedProducts.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recommended for You</Text>
-              <TouchableOpacity onPress={() => router.push(`/(main)/(customer)/category?id=${product.categoryId}`)}>
+              <Text style={styles.sectionTitle}>Related Items</Text>
+              <TouchableOpacity onPress={() => router.push(`/(main)/(customer)/category-detail?category=${getCategorySlug(product.category)}`)}>
                 <Text style={styles.seeMoreText}>See more</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Related Products Horizontal Scroll - Same design as customer home */}
+            {/* Related Products Horizontal Scroll - Using ProductCard component */}
             <ScrollView
               horizontal
               style={styles.relatedProductsContainer}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.relatedProductsContent}
             >
-              {relatedProducts.map((relatedProduct, index) => (
-                <TouchableOpacity
-                  key={`related-${relatedProduct.id}-${index}`}
-                  style={styles.relatedProductCard}
+              {relatedProducts.map((relatedProduct) => (
+                <ProductCard
+                  key={relatedProduct.id}
+                  title={relatedProduct.productName || 'Unnamed Product'}
+                  subtitle={relatedProduct.storeName ? `(${relatedProduct.storeName})` : ''}
+                  weight={relatedProduct.productSize && relatedProduct.unit ? `${relatedProduct.productSize} ${relatedProduct.unit}` : ''}
+                  price={relatedProduct.price ? `₱${relatedProduct.price.toFixed(2)}` : '₱0.00'}
+                  image={relatedProduct.productImage ? { uri: relatedProduct.productImage } : undefined}
+                  variant="horizontal"
+                  onAddPress={() => handleQuickAddRelated(relatedProduct)}
                   onPress={() => router.push(`/(main)/shared/product-details?id=${relatedProduct.id}`)}
-                  activeOpacity={0.8}
-                >
-                  {/* Background */}
-                  <View style={styles.relatedProductCardBackground} />
-
-                  {/* Picture Container */}
-                  <View style={styles.relatedProductPictureContainer}>
-                    <View style={styles.relatedProductPictureBackground} />
-                    <Image
-                      source={{ uri: relatedProduct.productImage }}
-                      style={styles.relatedProductImage}
-                      resizeMode="contain"
-                    />
-                  </View>
-
-                  {/* Label Group */}
-                  <View style={styles.relatedProductLabelContainer}>
-                    <Text style={styles.relatedProductName} numberOfLines={2}>{relatedProduct.productName}</Text>
-                    <Text style={styles.relatedProductShop} numberOfLines={1}>({relatedProduct.storeName})</Text>
-                    <Text style={styles.relatedProductWeight}>{relatedProduct.productSize} {relatedProduct.unit}</Text>
-                  </View>
-
-                  {/* Add Button */}
-                  <TouchableOpacity style={styles.relatedProductAddButton}>
-                    <View style={styles.relatedProductAddButtonBackground} />
-                    <Image
-                      source={require('../../../src/assets/images/customer-home/products/plus-icon.png')}
-                      style={styles.relatedProductPlusIcon}
-                    />
-                  </TouchableOpacity>
-                </TouchableOpacity>
+                  isAdding={addingRelatedId === relatedProduct.id}
+                />
               ))}
             </ScrollView>
           </>
@@ -693,6 +773,14 @@ export default function ProductDetailsScreen() {
           <Text style={styles.scrollToTopText}>↑</Text>
         </TouchableOpacity>
       )}
+
+      {/* Toast Notification */}
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setShowToast(false)}
+      />
     </View>
   );
 }
@@ -856,7 +944,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
-  // Header - Fixed at top above everything
+  // Header - Fixed at top above everything with solid background
   header: {
     position: 'absolute',
     top: 0,
@@ -869,7 +957,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(20),
     paddingTop: vs(50),
     zIndex: 1000,
-    backgroundColor: 'rgba(244, 246, 246, 0.95)', // Semi-transparent background
+    backgroundColor: '#F4F6F6', // Solid background - prevents image bleed-through
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: vs(2) },
+    shadowOpacity: 0.1,
+    shadowRadius: s(4),
+    elevation: 3,
   },
 
   // Back Button - Figma: x:20, y:79, width:30, height:30
@@ -1086,148 +1179,14 @@ const styles = StyleSheet.create({
     lineHeight: vs(22),
   },
 
-  // Related Products Container - Same design as customer home
+  // Related Products Container - Uses ProductCard component
   relatedProductsContainer: {
-    height: vs(244),
     marginBottom: vs(10),
   },
 
   relatedProductsContent: {
     paddingLeft: s(23),
     paddingRight: s(23),
-  },
-
-  // Related Product Card - Same as customer home Product Card
-  relatedProductCard: {
-    width: s(120),
-    height: vs(222),
-    marginRight: s(20),
-    position: 'relative',
-  },
-
-  // Product Card Background
-  relatedProductCardBackground: {
-    position: 'absolute',
-    width: s(120),
-    height: vs(222),
-    backgroundColor: Colors.white,
-    borderRadius: s(20),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: s(10),
-    elevation: 10,
-  },
-
-  // Product Picture Container
-  relatedProductPictureContainer: {
-    position: 'absolute',
-    top: vs(12),
-    left: 0,
-    width: s(120),
-    height: vs(88),
-  },
-
-  // Product Picture Background
-  relatedProductPictureBackground: {
-    position: 'absolute',
-    left: s(10),
-    top: 0,
-    width: s(100),
-    height: vs(88),
-    backgroundColor: '#E9E9E9',
-    borderRadius: s(10),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: vs(4) },
-    shadowOpacity: 0.25,
-    shadowRadius: s(10),
-    elevation: 10,
-  },
-
-  // Product Image
-  relatedProductImage: {
-    position: 'absolute',
-    left: 0,
-    top: vs(4),
-    width: s(120),
-    height: vs(80),
-  },
-
-  // Product Label Container
-  relatedProductLabelContainer: {
-    position: 'absolute',
-    left: s(10),
-    top: vs(105),
-    width: s(100),
-    height: vs(74),
-    justifyContent: 'flex-start',
-    paddingHorizontal: s(4),
-  },
-
-  // Product Name
-  relatedProductName: {
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '600',
-    fontSize: ms(12),
-    lineHeight: ms(12) * 1.3,
-    color: Colors.black,
-    marginBottom: vs(3),
-    textAlign: 'center',
-    width: '100%',
-  },
-
-  // Product Shop
-  relatedProductShop: {
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '600',
-    fontSize: ms(10),
-    lineHeight: ms(10) * 1.4,
-    color: Colors.black,
-    marginBottom: vs(3),
-    textAlign: 'center',
-    width: '100%',
-  },
-
-  // Product Weight
-  relatedProductWeight: {
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '400',
-    fontSize: ms(10),
-    lineHeight: ms(10) * 1.4,
-    color: 'rgba(0, 0, 0, 0.5)',
-    textAlign: 'center',
-    width: '100%',
-  },
-
-  // Product Add Button
-  relatedProductAddButton: {
-    position: 'absolute',
-    left: s(10),
-    top: vs(179),
-    width: s(100),
-    height: vs(30),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Add Button Background
-  relatedProductAddButtonBackground: {
-    position: 'absolute',
-    width: s(100),
-    height: vs(30),
-    backgroundColor: '#EBF3DA',
-    borderRadius: s(5),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: s(5),
-    elevation: 5,
-  },
-
-  // Plus Icon
-  relatedProductPlusIcon: {
-    width: s(10),
-    height: s(10),
   },
 
   // Store Cards Container - Same as customer home
