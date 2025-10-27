@@ -257,6 +257,232 @@ Based on capstone project documentation, prioritize features in this order:
   - Order details view with status timeline and itemized breakdown
   - Payment processing integration with modals for success/error states
 
+## Order Management System
+
+The app implements a comprehensive order management system with real-time synchronization between customers and store owners using Firebase Realtime Database.
+
+### Order Status Flow
+
+Orders follow this lifecycle with pickup-only fulfillment:
+
+1. **pending** - Order placed by customer, awaiting store confirmation
+2. **confirmed** - Store accepted the order (same as "preparing" in some contexts)
+3. **preparing** - Store is actively preparing the order
+4. **ready** - Order ready for customer pickup (also called "out_for_pickup")
+5. **picked_up** - Customer has picked up the order
+6. **completed** - Order successfully completed
+7. **cancelled** - Order cancelled by either party
+
+**CRITICAL**: Use exact status values as defined in `src/models/Order.ts` for cross-platform consistency.
+
+### Customer-Side Order Screens
+
+**Main Orders Screen** (`app/(main)/(customer)/orders.tsx`):
+- **Current Status**: ✅ Implemented with real-time Firebase sync
+- **Features**:
+  - Displays all customer orders with expandable/collapsible cards
+  - Real-time order updates via Firebase listeners
+  - Shows order ID, date, items count, total price, pickup time
+  - Expandable progress timeline (Order Confirmed → Preparing → Ready for Pickup)
+  - Click card to navigate to full order details
+  - Empty state with "Start Shopping" CTA
+- **Figma**: Node 759-4131, Baseline 440x1219
+- **Design Pattern**: 400x150px collapsed, 400x250px expanded cards
+
+**Order Details Screen** (`app/(main)/(customer)/order-details.tsx`):
+- **Current Status**: ✅ Implemented with real-time Firebase sync
+- **Features**:
+  - Complete order status timeline with 4 stages:
+    1. Order Confirmed (checkmark icon)
+    2. Preparing your Order (process icon)
+    3. Ready to Pickup (pickup icon)
+    4. Pickup Order (completion)
+  - Itemized bill breakdown (items, subtotal, service fee, tax, grand total)
+  - Payment method display (Cash/GCash/PayMaya with icons)
+  - "View Invoice" link (placeholder)
+  - Real-time status updates with visual indicators (active/inactive states)
+- **Figma**: Node 759-4020, Baseline 440x956
+- **Navigation**: Accessed from orders list via `/(main)/(customer)/order-details?id=${orderId}`
+
+**Profile Order History** (`app/(main)/(customer)/profile/order-history.tsx`):
+- **Current Status**: ⚠️ Implemented with mock data - **NEEDS FIREBASE INTEGRATION**
+- **Features**:
+  - Simple list of completed orders (no expandable cards)
+  - Shows store name, date, address, total per order
+  - 400x80px compact cards
+  - Navigates to order-details-history screen
+- **Figma**: Node 903-5683, Baseline 440x956
+- **TODO**: Replace mock data with Firebase query filtered by customer ID and completed/cancelled status
+
+**Profile Order Details History** (`app/(main)/(customer)/profile/order-details-history.tsx`):
+- **Current Status**: ⚠️ Implemented with static mock data - **NEEDS FIREBASE INTEGRATION**
+- **Features**:
+  - Bill breakdown (items, subtotal, service fee, discount, grand total)
+  - Order details card (Order ID, Date, Shop, Buyer)
+  - Payment method display
+  - "Reorder" button (placeholder functionality)
+- **Figma**: Node 903-5770, Baseline 440x956
+- **TODO**: Connect to Firebase, implement reorder functionality (copy order items to cart)
+
+### Store Owner-Side Order Management
+
+**Store Home Screen** (`app/(main)/(store-owner)/home.tsx`):
+- **Current Status**: ⚠️ Partially implemented - **ORDER SECTIONS NEED FULL FUNCTIONALITY**
+- **Features**:
+  - Dashboard stats: Order count, Pending, Active, Completed
+  - Filter tabs: Pending, Preparing, Out for Pickup, Pickup, Reject
+  - Order cards showing: Order No, Customer Name, Phone, Price, Payment Method
+  - Real-time store open/close toggle with product visibility sync
+- **Current Limitation**: Order cards use mock data (#12345, static customer info)
+- **TODO**: Connect to Firebase orders collection, filter by store ID and status
+
+**Store Orders Screen** (`app/(main)/(store-owner)/orders.tsx`):
+- **Current Status**: ❌ Placeholder only - **REQUIRES COMPLETE IMPLEMENTATION**
+- **Required Features** (based on user requirements):
+  1. **Pending Section**:
+     - List of pending orders awaiting store confirmation
+     - Order cards showing customer info, items, total, payment method
+     - Navigate to "Pending Order Details" with "Accept" button
+  2. **Preparing Section**:
+     - List of accepted orders being prepared
+     - "Ready to Pickup" button to advance order to next stage
+  3. **Out for Pickup Section**:
+     - List of orders ready for customer pickup
+     - "Order Pickup" button to mark order as picked up
+  4. **Pickup Section** (Completed):
+     - List of picked up orders
+     - Navigate to "Pickup Order Details" for historical view
+     - Final state before completion
+  5. **Cancel Section**:
+     - List of cancelled orders with cancellation reasons
+     - Archive of rejected/cancelled orders
+- **Design Pattern**: Tab-based navigation or horizontal filter pills (like home screen)
+- **Required Screens**:
+  - `order-details-pending.tsx` - Pending order with Accept/Reject actions
+  - `order-details-preparing.tsx` - Preparing order with "Ready to Pickup" action
+  - `order-details-out-for-pickup.tsx` - Ready order with "Mark as Picked Up" action
+  - `order-details-pickup.tsx` - Completed order details (read-only)
+  - `order-details-cancelled.tsx` - Cancelled order details with reason
+
+### Order API Layer (`src/api/orders/`)
+
+**Current Implementation**:
+```typescript
+// Create a new order
+createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<string | null>
+
+// Fetch user orders (customer-side)
+fetchUserOrders(userId: string): Promise<Order[]>
+
+// Update order status
+updateOrderStatus(orderId: string, status: OrderStatus): Promise<boolean>
+```
+
+**Required Additions**:
+```typescript
+// Store-side order queries
+fetchStoreOrders(storeId: string): Promise<Order[]>
+fetchStoreOrdersByStatus(storeId: string, status: OrderStatus): Promise<Order[]>
+
+// Order actions
+acceptOrder(orderId: string): Promise<boolean> // pending → preparing
+markReadyForPickup(orderId: string): Promise<boolean> // preparing → ready
+markOrderPickedUp(orderId: string): Promise<boolean> // ready → picked_up
+completeOrder(orderId: string): Promise<boolean> // picked_up → completed
+cancelOrder(orderId: string, reason: string): Promise<boolean> // any → cancelled
+
+// Order notifications
+notifyCustomerOrderUpdate(orderId: string, status: OrderStatus): Promise<void>
+notifyStoreNewOrder(storeId: string, orderId: string): Promise<void>
+```
+
+### Firebase Database Structure for Orders
+
+**Orders Collection** (`orders/{orderId}`):
+```typescript
+{
+  id: string;                    // Auto-generated Firebase key
+  orderNumber: string;           // "ORD-2025-001" (display format)
+  customerId: string;            // User ID of customer
+  customerName: string;          // Customer display name
+  customerPhone: string;         // Contact number
+  storeId: string;               // Store owner's user ID
+  storeName: string;             // Store display name
+  items: OrderItem[];            // Array of products
+  subtotal: number;              // Pre-tax/fee total
+  tax: number;                   // Tax amount (if applicable)
+  serviceFee: number;            // Platform service fee
+  total: number;                 // Final total
+  status: OrderStatus;           // Current order status
+  pickupTime?: string;           // Scheduled pickup time (ISO string)
+  notes?: string;                // Customer notes
+  paymentMethod: 'cash' | 'online' | 'gcash' | 'paymaya';
+  paymentStatus: 'pending' | 'paid' | 'refunded';
+  createdAt: string;             // ISO timestamp
+  updatedAt: string;             // ISO timestamp
+  completedAt?: string;          // ISO timestamp (when picked_up)
+  cancelledAt?: string;          // ISO timestamp
+  cancellationReason?: string;   // Why order was cancelled
+}
+```
+
+**Real-Time Sync Pattern**:
+- Customer screens: `onValue(ref(database, 'orders'), callback)` filtered by `customerId`
+- Store screens: `onValue(ref(database, 'orders'), callback)` filtered by `storeId`
+- Status updates trigger automatic UI refresh on both sides
+- Expected sync latency: < 3 seconds
+
+### Implementation Recommendations
+
+**Priority 1: Store Order Management Screens**
+1. Implement tab-based navigation in `orders.tsx` (5 tabs: Pending, Preparing, Out for Pickup, Pickup, Cancel)
+2. Create order detail screens for each status with appropriate action buttons
+3. Connect to Firebase with real-time listeners for each order status
+4. Add order acceptance workflow with confirmation dialogs
+5. Implement status transition buttons with loading states
+
+**Priority 2: Firebase API Enhancements**
+1. Add store-side order query functions to `src/api/orders/`
+2. Implement order status transition functions with validation
+3. Add order history tracking for status changes
+4. Integrate with NotificationService for push notifications
+
+**Priority 3: Customer Order History Integration**
+1. Replace mock data in profile order history screens
+2. Connect to Firebase with proper filtering (completed/cancelled orders only)
+3. Implement reorder functionality (copy items to cart)
+4. Add order search/filter capabilities
+
+**Priority 4: Advanced Features**
+1. Order cancellation with reason selection (both customer and store)
+2. Order modification requests (before preparing status)
+3. Estimated pickup time calculator
+4. Order analytics dashboard for store owners
+5. Customer order rating/review system
+
+### Testing Checklist
+
+**Cross-Platform Order Sync**:
+- [ ] Customer places order → appears in store pending list within 3 seconds
+- [ ] Store accepts order → customer sees "Preparing" status update
+- [ ] Store marks ready → customer receives pickup notification
+- [ ] Customer order list updates automatically when store changes status
+- [ ] Store order counts update in real-time on home dashboard
+
+**Order Status Transitions**:
+- [ ] Pending → Preparing (Accept button)
+- [ ] Preparing → Ready (Ready to Pickup button)
+- [ ] Ready → Picked Up (Order Pickup button)
+- [ ] Picked Up → Completed (automatic or manual)
+- [ ] Any → Cancelled (Cancel button with reason)
+
+**Error Handling**:
+- [ ] Network errors during order creation
+- [ ] Duplicate order prevention
+- [ ] Concurrent status updates (optimistic locking)
+- [ ] Invalid status transitions blocked
+- [ ] Empty order list states (no orders yet)
+
 **Phase 3: Advanced Features**
 - Return goods and spoilage tracking
 - Damages and spoilage module for loss management

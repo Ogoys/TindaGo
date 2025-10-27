@@ -23,7 +23,8 @@
       "Bash(cd:*)",
       "Bash(git checkout HEAD@{4} -- \"app/(main)/shared/product-details.tsx\")",
       "Bash(ls:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []
