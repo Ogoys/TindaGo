@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,14 @@ import {
   Image,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
+import { ref, get } from 'firebase/database';
+import { database } from "../../../../FirebaseConfig";
+import { updateOrderStatus, cancelOrder } from "../../../../src/api/orders";
+import type { Order } from "../../../../src/models/Order";
 import { s, vs, ms } from "../../../../src/constants/responsive";
 import { Colors } from "../../../../src/constants/Colors";
 
@@ -29,62 +34,41 @@ import { Colors } from "../../../../src/constants/Colors";
  * - cancelled: Read-only, shows cancellation reason
  */
 
-type OrderStatus = 'pending' | 'preparing' | 'ready' | 'picked_up' | 'completed' | 'cancelled';
-
 export default function OrderDetailsScreen() {
   const params = useLocalSearchParams();
   const orderId = params.id as string;
 
-  // Mock data for visualization (will be replaced with Firebase data later)
-  // TODO: Fetch order data from Firebase using orderId
-  const mockOrderDetails = {
-    id: orderId || 'order-1',
-    orderNumber: '#12345',
-    customerName: 'Dotarot Maynard',
-    customerPhone: '+6398 032 4213',
-    customerAddress: 'Jacinto St. 32-D',
-    orderDate: '2025-10-27T10:30:00Z',
-    pickupTime: '2025-10-27T14:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        name: 'Order Number 1',
-        quantity: 1,
-        price: 23.24,
-      },
-      {
-        id: 'item-2',
-        name: 'Order Drink Number 2',
-        quantity: 1,
-        price: 321.00,
-      },
-      {
-        id: 'item-3',
-        name: 'Order Food Number 3',
-        quantity: 2,
-        price: 894.98,
-      },
-      {
-        id: 'item-4',
-        name: 'Order Number 1',
-        quantity: 2,
-        price: 123.30,
-      },
-      {
-        id: 'item-5',
-        name: 'Order Drink Number 2',
-        quantity: 2,
-        price: 23.43,
-      },
-    ],
-    subtotal: 539.00,
-    tax: 2.43,
-    total: 589.00,
-    paymentMethod: 'paymaya',
-    status: (params.status as OrderStatus) || 'pending', // Status determines which buttons to show
-    timeAgo: '1 min ago',
-    cancellationReason: 'Customer requested cancellation', // Only shown if status is cancelled
-  };
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch order data from Firebase
+  useEffect(() => {
+    const fetchOrderData = async () => {
+      if (!orderId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const orderRef = ref(database, `orders/${orderId}`);
+        const snapshot = await get(orderRef);
+
+        if (snapshot.exists()) {
+          setOrder({ ...snapshot.val(), id: orderId });
+        } else {
+          Alert.alert("Error", "Order not found");
+          router.back();
+        }
+      } catch (error) {
+        console.error("Error fetching order:", error);
+        Alert.alert("Error", "Failed to load order details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrderData();
+  }, [orderId]);
 
   // Format time ago
   const getTimeAgo = (dateString: string) => {
@@ -102,10 +86,12 @@ export default function OrderDetailsScreen() {
   };
 
   // PENDING STATUS: Accept order handler
-  const handleAcceptOrder = () => {
+  const handleAcceptOrder = async () => {
+    if (!order) return;
+
     Alert.alert(
       "Accept Order?",
-      `Order ${mockOrderDetails.orderNumber} will be marked as preparing. Customer will be notified.`,
+      `Order ${order.orderNumber} will be marked as preparing. Customer will be notified.`,
       [
         {
           text: "Cancel",
@@ -113,19 +99,22 @@ export default function OrderDetailsScreen() {
         },
         {
           text: "Accept",
-          onPress: () => {
-            // TODO: Update order status to "preparing" in Firebase
-            console.log("Order accepted:", orderId);
-            Alert.alert(
-              "Order Accepted",
-              "The order has been accepted and marked as preparing.",
-              [
-                {
-                  text: "OK",
-                  onPress: () => router.back()
-                }
-              ]
-            );
+          onPress: async () => {
+            const success = await updateOrderStatus(orderId, 'preparing');
+            if (success) {
+              Alert.alert(
+                "Order Accepted",
+                "The order has been accepted and marked as preparing.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => router.back()
+                  }
+                ]
+              );
+            } else {
+              Alert.alert("Error", "Failed to accept order. Please try again.");
+            }
           }
         }
       ]
@@ -134,9 +123,11 @@ export default function OrderDetailsScreen() {
 
   // PENDING STATUS: Reject order handler
   const handleRejectOrder = () => {
+    if (!order) return;
+
     Alert.alert(
       "Reject Order?",
-      "Are you sure you want to reject this order? This action cannot be undone.",
+      "Are you sure you want to reject this order? Please provide a reason.",
       [
         {
           text: "Cancel",
@@ -145,19 +136,24 @@ export default function OrderDetailsScreen() {
         {
           text: "Reject",
           style: "destructive",
-          onPress: () => {
-            // TODO: Update order status to "cancelled" in Firebase
-            console.log("Order rejected:", orderId);
-            Alert.alert(
-              "Order Rejected",
-              "The order has been rejected and the customer will be notified.",
-              [
-                {
-                  text: "OK",
-                  onPress: () => router.back()
-                }
-              ]
-            );
+          onPress: async () => {
+            // TODO: Add input field for rejection reason
+            const reason = "Store rejected the order"; // Default reason
+            const success = await cancelOrder(orderId, reason, 'store');
+            if (success) {
+              Alert.alert(
+                "Order Rejected",
+                "The order has been rejected and the customer will be notified.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => router.back()
+                  }
+                ]
+              );
+            } else {
+              Alert.alert("Error", "Failed to reject order. Please try again.");
+            }
           }
         }
       ]
@@ -165,10 +161,12 @@ export default function OrderDetailsScreen() {
   };
 
   // PREPARING STATUS: Mark as ready for pickup
-  const handleReadyForPickup = () => {
+  const handleReadyForPickup = async () => {
+    if (!order) return;
+
     Alert.alert(
       "Mark as Ready?",
-      `Order ${mockOrderDetails.orderNumber} will be marked as ready for pickup. Customer will be notified.`,
+      `Order ${order.orderNumber} will be marked as ready for pickup. Customer will be notified.`,
       [
         {
           text: "Cancel",
@@ -176,14 +174,17 @@ export default function OrderDetailsScreen() {
         },
         {
           text: "Confirm",
-          onPress: () => {
-            // TODO: Update order status to "ready" in Firebase
-            console.log("Order marked as ready for pickup:", orderId);
-            Alert.alert(
-              "Success",
-              "Order is now ready for pickup. Customer has been notified.",
-              [{ text: "OK", onPress: () => router.back() }]
-            );
+          onPress: async () => {
+            const success = await updateOrderStatus(orderId, 'ready');
+            if (success) {
+              Alert.alert(
+                "Success",
+                "Order is now ready for pickup. Customer has been notified.",
+                [{ text: "OK", onPress: () => router.back() }]
+              );
+            } else {
+              Alert.alert("Error", "Failed to update order status. Please try again.");
+            }
           }
         }
       ]
@@ -191,10 +192,12 @@ export default function OrderDetailsScreen() {
   };
 
   // READY STATUS: Mark as picked up/completed
-  const handleOrderPickup = () => {
+  const handleOrderPickup = async () => {
+    if (!order) return;
+
     Alert.alert(
       "Confirm Order Pickup?",
-      `Has the customer picked up order ${mockOrderDetails.orderNumber}?`,
+      `Has the customer picked up order ${order.orderNumber}?`,
       [
         {
           text: "Cancel",
@@ -202,14 +205,17 @@ export default function OrderDetailsScreen() {
         },
         {
           text: "Confirm Pickup",
-          onPress: () => {
-            // TODO: Update order status to "picked_up" or "completed" in Firebase
-            console.log("Order marked as picked up:", orderId);
-            Alert.alert(
-              "Order Completed",
-              "The order has been marked as completed.",
-              [{ text: "OK", onPress: () => router.back() }]
-            );
+          onPress: async () => {
+            const success = await updateOrderStatus(orderId, 'picked_up');
+            if (success) {
+              Alert.alert(
+                "Order Completed",
+                "The order has been marked as completed.",
+                [{ text: "OK", onPress: () => router.back() }]
+              );
+            } else {
+              Alert.alert("Error", "Failed to update order status. Please try again.");
+            }
           }
         }
       ]
@@ -218,7 +224,9 @@ export default function OrderDetailsScreen() {
 
   // Render action buttons based on order status
   const renderActionButtons = () => {
-    switch (mockOrderDetails.status) {
+    if (!order) return null;
+
+    switch (order.status) {
       case 'pending':
         return (
           <>
@@ -271,16 +279,33 @@ export default function OrderDetailsScreen() {
       case 'picked_up':
       case 'completed':
         return (
-          <View style={styles.completedBadge}>
-            <Text style={styles.completedText}>✓ Order Completed</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.completedButton}
+            activeOpacity={0.8}
+          >
+            <View style={styles.completedButtonBackground} />
+            <Text style={styles.completedButtonText}>Pickup</Text>
+          </TouchableOpacity>
         );
 
       case 'cancelled':
         return (
           <View style={styles.cancelledContainer}>
-            <Text style={styles.cancelledLabel}>Cancellation Reason:</Text>
-            <Text style={styles.cancelledReason}>{mockOrderDetails.cancellationReason}</Text>
+            <View style={styles.cancelledButton}>
+              <View style={styles.cancelledButtonBackground} />
+              <Text style={styles.cancelledButtonText}>Order Cancelled</Text>
+            </View>
+            {order.cancellationReason && (
+              <View style={styles.cancelReasonCard}>
+                <Text style={styles.cancelReasonLabel}>Cancellation Reason:</Text>
+                <Text style={styles.cancelReasonText}>{order.cancellationReason}</Text>
+                {order.cancelledBy && (
+                  <Text style={styles.cancelledByText}>
+                    Cancelled by: {order.cancelledBy === 'store' ? 'Store' : 'Customer'}
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
         );
 
@@ -288,6 +313,31 @@ export default function OrderDetailsScreen() {
         return null;
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading order details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error if no order
+  if (!order) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.emptyText}>Order not found</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -315,77 +365,85 @@ export default function OrderDetailsScreen() {
         {/* TITLE - Figma: 1057:4879, x:158, y:83, width:124, height:22 */}
         <Text style={styles.title}>Order Details</Text>
 
-        {/* ORDER INFO CARD - Figma: 1057:4880, x:20, y:145, width:400, height:200 */}
+        {/* ORDER INFO CARD - Using same design as order list cards */}
         <View style={styles.orderInfoCard}>
-          {/* Card Background - Figma: 1057:4881 */}
+          {/* Card Background */}
           <View style={styles.orderInfoBackground} />
 
-          {/* Logo/Icon - Figma: 1057:4883, x:40, y:165, width:40, height:40 */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logoBackground} />
+          {/* Logo Section */}
+          <View style={styles.orderLogo}>
+            <View style={styles.orderLogoBackground} />
             <Image
-              source={require("../../../../src/assets/images/store-order-details-pending/cheque-icon.png")}
-              style={styles.logoIcon}
+              source={require('../../../../src/assets/images/store-owner-dashboard/cheque-icon.png')}
+              style={styles.orderLogoIcon}
               resizeMode="contain"
             />
           </View>
 
-          {/* Order No Label - Figma: 1057:4886, x:95, y:167 */}
-          <Text style={styles.orderNoLabel}>Order No</Text>
-
-          {/* Time Ago - Figma: 1057:4887, x:343, y:167 */}
-          <Text style={styles.timeAgo}>{mockOrderDetails.timeAgo}</Text>
-
-          {/* Order Number - Figma: 1057:4888, x:95, y:189 */}
-          <Text style={styles.orderNumber}>{mockOrderDetails.orderNumber}</Text>
-
-          {/* Divider Line - Figma: 1057:4882, y:225 */}
-          <View style={styles.dividerLine1} />
-
-          {/* Customer Name - Figma: 1057:4889, x:61, y:243 */}
-          <View style={styles.customerNameContainer}>
-            <Image
-              source={require("../../../../src/assets/images/store-order-details-pending/person-icon.png")}
-              style={styles.personIcon}
-              resizeMode="contain"
-            />
-            <View style={styles.verticalDivider1} />
-            <Text style={styles.customerName}>{mockOrderDetails.customerName}</Text>
+          {/* Order Header */}
+          <View style={styles.orderHeader}>
+            <View style={styles.orderHeaderLeft}>
+              <Text style={styles.orderNoLabel}>Order No</Text>
+              <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+            </View>
+            <Text style={styles.timeAgo}>{getTimeAgo(order.createdAt)}</Text>
           </View>
 
-          {/* Customer Phone - Figma: 1057:4901, x:236, y:240 */}
-          <View style={styles.customerPhoneContainer}>
-            <Image
-              source={require("../../../../src/assets/images/store-order-details-pending/phone-icon.png")}
-              style={styles.phoneIcon}
-              resizeMode="contain"
-            />
-            <View style={styles.verticalDivider2} />
-            <Text style={styles.customerPhone}>{mockOrderDetails.customerPhone}</Text>
+          {/* Separator Line */}
+          <View style={styles.orderSeparator} />
+
+          {/* Order Details Row 1 - Customer Info */}
+          <View style={styles.orderDetailsRow1}>
+            {/* Customer Name */}
+            <View style={styles.orderDetailCustomer}>
+              <Image
+                source={require('../../../../src/assets/images/store-owner-dashboard/person-icon.png')}
+                style={styles.orderDetailIcon}
+                resizeMode="contain"
+              />
+              <View style={styles.orderDetailText}>
+                <Text style={styles.customerName}>{order.customerName}</Text>
+              </View>
+            </View>
+
+            {/* Phone Number */}
+            <View style={styles.orderDetailPhone}>
+              <Image
+                source={require('../../../../src/assets/images/store-owner-dashboard/phone-icon.png')}
+                style={styles.orderDetailIcon}
+                resizeMode="contain"
+              />
+              <View style={styles.orderDetailText}>
+                <Text style={styles.customerPhone}>{order.customerPhone || 'N/A'}</Text>
+              </View>
+            </View>
           </View>
 
-          {/* Total Price - Figma: 1057:4893, x:61, y:295 */}
-          <View style={styles.totalPriceContainer}>
-            <Image
-              source={require("../../../../src/assets/images/store-order-details-pending/coin-wallet-icon.png")}
-              style={styles.coinWalletIcon}
-              resizeMode="contain"
-            />
-            <View style={styles.verticalDivider3} />
-            <Text style={styles.totalPrice}>₱{mockOrderDetails.total.toFixed(2)}</Text>
-          </View>
+          {/* Order Details Row 2 - Payment Info */}
+          <View style={styles.orderDetailsRow2}>
+            {/* Price */}
+            <View style={styles.orderDetailPrice}>
+              <Image
+                source={require('../../../../src/assets/images/store-owner-dashboard/coin-wallet-icon.png')}
+                style={styles.orderDetailIcon}
+                resizeMode="contain"
+              />
+              <View style={styles.orderDetailText}>
+                <Text style={styles.orderPrice}>₱{order.total.toFixed(2)}</Text>
+              </View>
+            </View>
 
-          {/* Payment Method - Figma: 1057:4897, x:236, y:295 */}
-          <View style={styles.paymentMethodContainer}>
-            <Image
-              source={require("../../../../src/assets/images/store-order-details-pending/wallet-icon.png")}
-              style={styles.walletIcon}
-              resizeMode="contain"
-            />
-            <View style={styles.verticalDivider4} />
-            <Text style={styles.paymentMethod}>
-              {mockOrderDetails.paymentMethod.toUpperCase()}
-            </Text>
+            {/* Payment Method */}
+            <View style={styles.orderDetailPayment}>
+              <Image
+                source={require('../../../../src/assets/images/store-owner-dashboard/wallet-payment-icon.png')}
+                style={styles.orderDetailIcon}
+                resizeMode="contain"
+              />
+              <View style={styles.orderDetailText}>
+                <Text style={styles.paymentMethod}>{order.paymentMethod.toUpperCase()}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -405,17 +463,17 @@ export default function OrderDetailsScreen() {
           <View style={styles.dividerLine2} />
 
           {/* Order Items List */}
-          {mockOrderDetails.items.map((item, index) => (
+          {order.items.map((item, index) => (
             <View
-              key={item.id}
+              key={item.productId}
               style={[
                 styles.orderItemRow,
                 { top: vs(60 + (index * 40)) } // Dynamic positioning
               ]}
             >
-              <Text style={styles.itemName}>{item.name}</Text>
+              <Text style={styles.itemName}>{item.productName}</Text>
               <Text style={styles.itemQnt}>{item.quantity}</Text>
-              <Text style={styles.itemAmount}>₱{item.price.toFixed(2)}</Text>
+              <Text style={styles.itemAmount}>₱{item.subtotal.toFixed(2)}</Text>
             </View>
           ))}
 
@@ -426,7 +484,7 @@ export default function OrderDetailsScreen() {
         {/* TAX ROW - Figma: 1057:4930, x:40, y:725 */}
         <View style={styles.taxRow}>
           <Text style={styles.taxLabel}>Tax(10%)</Text>
-          <Text style={styles.taxValue}>₱{mockOrderDetails.tax.toFixed(2)}</Text>
+          <Text style={styles.taxValue}>₱{order.tax.toFixed(2)}</Text>
         </View>
 
         {/* Divider before subtotal - Figma: 1057:4933, y:765 */}
@@ -435,7 +493,7 @@ export default function OrderDetailsScreen() {
         {/* SUBTOTAL ROW - Figma: 1057:4934, x:40, y:785 */}
         <View style={styles.subtotalRow}>
           <Text style={styles.subtotalLabel}>Sub Total</Text>
-          <Text style={styles.subtotalValue}>₱{mockOrderDetails.subtotal.toFixed(2)}</Text>
+          <Text style={styles.subtotalValue}>₱{order.subtotal.toFixed(2)}</Text>
         </View>
 
         {/* DYNAMIC ACTION BUTTONS based on order status */}
@@ -511,7 +569,7 @@ const styles = StyleSheet.create({
     color: "#1E1E1E", // Figma: fill_3TK9OA
   },
 
-  // ORDER INFO CARD - Figma: 1057:4880, x:20, y:145, width:400, height:200
+  // ORDER INFO CARD - Using same design as order list cards
   orderInfoCard: {
     position: "absolute",
     left: s(20),
@@ -520,224 +578,180 @@ const styles = StyleSheet.create({
     height: vs(200),
   },
 
-  // Order Info Background - Figma: 1057:4881
   orderInfoBackground: {
-    position: "absolute",
-    width: s(400),
-    height: vs(200),
-    backgroundColor: "#FFFFFF",
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FFFFFF',
     borderRadius: s(16),
-    shadowColor: "rgba(0, 0, 0, 0.25)",
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
-    shadowRadius: s(5),
+    shadowRadius: 5,
     elevation: 5,
   },
 
-  // Logo Container - Figma: 1057:4883, x:40, y:165 (relative to card: x:20, y:20)
-  logoContainer: {
-    position: "absolute",
-    left: s(20),
+  // Order Logo - Same as list cards
+  orderLogo: {
+    position: 'absolute',
     top: vs(20),
+    left: s(20),
     width: s(40),
     height: s(40),
   },
 
-  // Logo Background - Figma: 1057:4884
-  logoBackground: {
-    position: "absolute",
-    width: s(40),
-    height: s(40),
-    backgroundColor: "#02545F", // Figma: fill_4E6249
+  orderLogoBackground: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#02545F',
     borderRadius: s(5),
   },
 
-  // Logo Icon - Figma: 1057:4885, 25x25
-  logoIcon: {
-    position: "absolute",
-    left: s(7),
-    top: s(8),
+  orderLogoIcon: {
+    position: 'absolute',
+    top: s(7),
+    left: s(7.5),
     width: s(25),
     height: s(25),
   },
 
-  // Order No Label - Figma: 1057:4886, x:95, y:167 (relative: x:75, y:22)
+  // Order Header - Same as list cards
+  orderHeader: {
+    position: 'absolute',
+    top: vs(20),
+    left: s(75),
+    right: s(20),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+
+  orderHeaderLeft: {
+    flexDirection: 'column',
+  },
+
   orderNoLabel: {
-    position: "absolute",
-    left: s(75),
-    top: vs(22),
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
     fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "rgba(30, 30, 30, 0.5)", // Figma: fill_7254A2
+    lineHeight: vs(17),
+    color: 'rgba(30, 30, 30, 0.5)',
+    marginBottom: vs(4),
   },
 
-  // Time Ago - Figma: 1057:4887, x:343, y:167 (relative: x:323, y:22)
-  timeAgo: {
-    position: "absolute",
-    left: s(323),
-    top: vs(22),
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    textAlign: "right",
-    color: "rgba(30, 30, 30, 0.5)", // Figma: fill_7254A2
-  },
-
-  // Order Number - Figma: 1057:4888, x:95, y:189 (relative: x:75, y:44)
   orderNumber: {
-    position: "absolute",
-    left: s(75),
-    top: vs(44),
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
     fontSize: ms(12),
-    lineHeight: ms(12) * 1.23,
-    color: "#000000", // Figma: fill_6DUZDG
+    lineHeight: vs(15),
+    color: '#000000',
   },
 
-  // Divider Line 1 - Figma: 1057:4882, y:225 (relative: y:80)
-  dividerLine1: {
-    position: "absolute",
-    left: s(10),
-    top: vs(80),
-    width: s(380),
-    height: 2,
-    backgroundColor: "#02545F", // Figma: stroke_QIPMYT
-  },
-
-  // Customer Name Container - Figma: 1057:4889, x:61, y:243 (relative: x:41, y:98)
-  customerNameContainer: {
-    position: "absolute",
-    left: s(41),
-    top: vs(98),
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  // Person Icon - Figma: 1057:4891, 30x30
-  personIcon: {
-    width: s(30),
-    height: s(30),
-  },
-
-  // Vertical Divider 1 - Figma: 1057:4890
-  verticalDivider1: {
-    width: 2,
-    height: vs(30),
-    backgroundColor: "#02545F",
-    marginLeft: s(20),
-  },
-
-  // Customer Name - Figma: 1057:4892
-  customerName: {
-    marginLeft: s(10),
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
+  timeAgo: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
     fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "#000000", // Figma: fill_6DUZDG
+    lineHeight: vs(17),
+    color: 'rgba(30, 30, 30, 0.5)',
+    textAlign: 'right',
   },
 
-  // Customer Phone Container - Figma: 1057:4901, x:236, y:240 (relative: x:216, y:95)
-  customerPhoneContainer: {
-    position: "absolute",
-    left: s(216),
-    top: vs(95),
-    flexDirection: "row",
-    alignItems: "center",
+  // Separator Line - Same as list cards
+  orderSeparator: {
+    position: 'absolute',
+    top: vs(80),
+    left: s(10),
+    right: s(10),
+    height: 2,
+    backgroundColor: '#02545F',
   },
 
-  // Phone Icon - Figma: 1057:4904, 30x30
-  phoneIcon: {
-    width: s(30),
-    height: s(30),
+  // Order Details Rows - Same as list cards
+  orderDetailsRow1: {
+    position: 'absolute',
+    top: vs(98),
+    left: s(20),
+    right: s(20),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
 
-  // Vertical Divider 2 - Figma: 1057:4902
-  verticalDivider2: {
-    width: 2,
-    height: vs(40),
-    backgroundColor: "#02545F",
-    marginLeft: s(20),
+  orderDetailsRow2: {
+    position: 'absolute',
+    top: vs(150),
+    left: s(20),
+    right: s(20),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 
-  // Customer Phone - Figma: 1057:4903
+  orderDetailCustomer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: s(160),
+  },
+
+  orderDetailPhone: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: s(160),
+  },
+
+  orderDetailPrice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: s(150),
+  },
+
+  orderDetailPayment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: s(160),
+  },
+
+  orderDetailIcon: {
+    width: s(24),
+    height: vs(24),
+    marginRight: s(12),
+    marginTop: vs(2),
+  },
+
+  orderDetailText: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+
+  customerName: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: ms(14),
+    lineHeight: vs(17),
+    color: '#000000',
+  },
+
   customerPhone: {
-    marginLeft: s(10),
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
     fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    color: "#1E1E1E", // Figma: fill_3TK9OA
+    lineHeight: vs(20),
+    color: '#1E1E1E',
   },
 
-  // Total Price Container - Figma: 1057:4893, x:61, y:295 (relative: x:41, y:150)
-  totalPriceContainer: {
-    position: "absolute",
-    left: s(41),
-    top: vs(150),
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  // Coin Wallet Icon - Figma: 1057:4895, 30x30
-  coinWalletIcon: {
-    width: s(30),
-    height: s(30),
-  },
-
-  // Vertical Divider 3 - Figma: 1057:4894
-  verticalDivider3: {
-    width: 2,
-    height: vs(20),
-    backgroundColor: "#02545F",
-    marginLeft: s(20),
-  },
-
-  // Total Price - Figma: 1057:4896
-  totalPrice: {
-    marginLeft: s(10),
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
+  orderPrice: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
     fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    color: "#1E1E1E", // Figma: fill_3TK9OA
+    lineHeight: vs(20),
+    color: '#1E1E1E',
   },
 
-  // Payment Method Container - Figma: 1057:4897, x:236, y:295 (relative: x:216, y:150)
-  paymentMethodContainer: {
-    position: "absolute",
-    left: s(216),
-    top: vs(150),
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  // Wallet Icon - Figma: 1057:4899, 30x30
-  walletIcon: {
-    width: s(30),
-    height: s(30),
-  },
-
-  // Vertical Divider 4 - Figma: 1057:4898
-  verticalDivider4: {
-    width: 2,
-    height: vs(20),
-    backgroundColor: "#02545F",
-    marginLeft: s(20),
-  },
-
-  // Payment Method - Figma: 1057:4900
   paymentMethod: {
-    marginLeft: s(10),
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
     fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    color: "#1E1E1E", // Figma: fill_3TK9OA
+    lineHeight: vs(20),
+    color: '#1E1E1E',
   },
 
   // ORDER LIST CARD - Figma: 1057:4905, x:20, y:365, width:400, height:470
@@ -1073,8 +1087,8 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
-  // COMPLETED BADGE (for completed/picked_up status)
-  completedBadge: {
+  // COMPLETED/PICKUP BUTTON (for picked_up status) - Light Green
+  completedButton: {
     position: "absolute",
     left: s(20),
     top: vs(875),
@@ -1082,19 +1096,28 @@ const styles = StyleSheet.create({
     height: vs(50),
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#E8F5E9",
-    borderRadius: s(20),
-    borderWidth: 2,
-    borderColor: "#4CAF50",
   },
 
-  completedText: {
+  completedButtonBackground: {
+    position: "absolute",
+    width: s(400),
+    height: vs(50),
+    backgroundColor: "#DCFCE7", // Light green background
+    borderRadius: s(20),
+    shadowColor: "rgba(0, 0, 0, 0.25)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: s(4),
+    elevation: 4,
+  },
+
+  completedButtonText: {
     fontFamily: "Clash Grotesk Variable",
-    fontWeight: "600",
+    fontWeight: "500",
     fontSize: ms(20),
     lineHeight: ms(20) * 1.1,
     textAlign: "center",
-    color: "#4CAF50",
+    color: "#3BB77E", // Green text
   },
 
   // CANCELLED CONTAINER (for cancelled status)
@@ -1103,28 +1126,93 @@ const styles = StyleSheet.create({
     left: s(20),
     top: vs(875),
     width: s(400),
-    backgroundColor: "#FFEBEE",
-    borderRadius: s(20),
-    borderWidth: 2,
-    borderColor: "#FF4444",
-    padding: s(20),
   },
 
-  cancelledLabel: {
+  // CANCELLED BUTTON (for cancelled status) - Light Red
+  cancelledButton: {
+    width: s(400),
+    height: vs(50),
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  cancelledButtonBackground: {
+    position: "absolute",
+    width: s(400),
+    height: vs(50),
+    backgroundColor: "#FECACA", // Light red background
+    borderRadius: s(20),
+    shadowColor: "rgba(0, 0, 0, 0.25)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: s(4),
+    elevation: 4,
+  },
+
+  cancelledButtonText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(20),
+    lineHeight: ms(20) * 1.1,
+    textAlign: "center",
+    color: "#DC2626", // Red text
+  },
+
+  // Cancellation Details Card
+  cancelReasonCard: {
+    marginTop: vs(20),
+    backgroundColor: "#FFF5F5",
+    padding: s(15),
+    borderRadius: s(10),
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+
+  cancelReasonLabel: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "600",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    color: "#FF4444",
-    marginBottom: vs(8),
+    fontSize: ms(14),
+    color: "#DC2626",
+    marginBottom: vs(5),
   },
 
-  cancelledReason: {
+  cancelReasonText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
     fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
     color: "#1E1E1E",
+    lineHeight: ms(14) * 1.5,
+  },
+
+  cancelledByText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(12),
+    color: "rgba(30, 30, 30, 0.6)",
+    marginTop: vs(5),
+  },
+
+  // Loading State
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: vs(100),
+  },
+
+  loadingText: {
+    marginTop: vs(15),
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(16),
+    color: "rgba(30, 30, 30, 0.5)",
+  },
+
+  emptyText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(18),
+    color: "rgba(30, 30, 30, 0.5)",
   },
 
   // Bottom Padding - Ensure all content is visible

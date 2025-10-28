@@ -1,0 +1,2498 @@
+{
+  "metadata": {
+    "name": "TindaGo Share",
+    "lastModified": "2025-10-28T09:45:31Z",
+    "thumbnailUrl": "https://s3-alpha.figma.com/thumbnails/cb71ed87-3386-4cfb-a613-304e7661dd8b?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQ4GOSFWCZDDNLKEH%2F20251026%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20251026T120000Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=182a1c96d7ae6cf88eafec659267c962dcc33c04768d35ba5728cf341039de7d"
+  },
+  "nodes": [
+    {
+      "id": "1057:5215",
+      "name": "Store Order/ Out For Pickup",
+      "type": "FRAME",
+      "boundingBox": {
+        "x": 0,
+        "y": 0,
+        "width": 440,
+        "height": 1440
+      },
+      "fills": "fill_1BGB02",
+      "layout": "layout_2YFXK2",
+      "children": [
+        {
+          "id": "1057:5216",
+          "name": "Back",
+          "type": "FRAME",
+          "fills": "fill_NYIGES",
+          "effects": "effect_PACJ5I",
+          "layout": "layout_NM7J3J",
+          "borderRadius": "20px",
+          "children": [
+            {
+              "id": "1057:5217",
+              "name": "Chevron Left",
+              "type": "RECTANGLE",
+              "fills": "fill_T4S1M1",
+              "layout": "layout_5YY2TH"
+            }
+          ]
+        },
+        {
+          "id": "1057:5218",
+          "name": "Pickup",
+          "type": "TEXT",
+          "boundingBox": {
+            "x": 189,
+            "y": 83,
+            "width": 63,
+            "height": 22
+          },
+          "textStyle": "style_2Q393Q",
+          "fills": "fill_PZESUT",
+          "layout": "layout_HUK8N6",
+          "text": "Pickup"
+        },
+        {
+          "id": "1057:5219",
+          "name": "Label for update",
+          "type": "FRAME",
+          "boundingBox": {
+            "x": -23,
+            "y": 145,
+            "width": 463,
+            "height": 30
+          },
+          "layout": "layout_I9YF9T",
+          "children": [
+            {
+              "id": "1057:5220",
+              "name": "Pending",
+              "type": "FRAME",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_FPM1EA",
+              "borderRadius": "8px",
+              "children": [
+                {
+                  "id": "1057:5221",
+                  "name": "Pending",
+                  "type": "TEXT",
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_NYIGES",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Pending"
+                }
+              ]
+            },
+            {
+              "id": "1057:5222",
+              "name": "Preparing",
+              "type": "FRAME",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_2A3HG1",
+              "borderRadius": "8px",
+              "children": [
+                {
+                  "id": "1057:5223",
+                  "name": "Preparing",
+                  "type": "TEXT",
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_NYIGES",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Preparing"
+                }
+              ]
+            },
+            {
+              "id": "1057:5224",
+              "name": "OFP",
+              "type": "FRAME",
+              "fills": "fill_BCWHWO",
+              "layout": "layout_855LWO",
+              "borderRadius": "8px",
+              "children": [
+                {
+                  "id": "1057:5225",
+                  "name": "Out for Pickup",
+                  "type": "TEXT",
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_NYIGES",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Out for Pickup"
+                }
+              ]
+            },
+            {
+              "id": "1057:5226",
+              "name": "Pickup",
+              "type": "FRAME",
+              "fills": "fill_X9GK8T",
+              "layout": "layout_2AKSL5",
+              "borderRadius": "8px",
+              "children": [
+                {
+                  "id": "1057:5227",
+                  "name": "Pickup",
+                  "type": "TEXT",
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_NYIGES",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Pickup"
+                }
+              ]
+            },
+            {
+              "id": "1057:5228",
+              "name": "Reject",
+              "type": "FRAME",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_O8IAV1",
+              "borderRadius": "8px",
+              "children": [
+                {
+                  "id": "1057:5229",
+                  "name": "Cancel",
+                  "type": "TEXT",
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_NYIGES",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Cancel"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "1057:5230",
+          "name": "Order List",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 195,
+            "width": 400,
+            "height": 260
+          },
+          "layout": "layout_ADSA71",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "1057:5231",
+              "name": "Rectangle 64",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 195,
+                "width": 400,
+                "height": 260
+              },
+              "fills": "fill_NYIGES",
+              "effects": "effect_4G4F55",
+              "layout": "layout_152PEF",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "1057:5232",
+              "name": "Vector 43",
+              "type": "IMAGE-SVG",
+              "boundingBox": {
+                "x": 30,
+                "y": 275,
+                "width": 380,
+                "height": 0
+              },
+              "strokes": "stroke_XIW6N9",
+              "layout": "layout_1HGJ3U"
+            },
+            {
+              "id": "1057:5233",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 40,
+                "y": 215,
+                "width": 40,
+                "height": 40
+              },
+              "layout": "layout_OVHJCH",
+              "borderRadius": "0px 0px 0px 0px",
+              "children": [
+                {
+                  "id": "1057:5234",
+                  "name": "Rectangle 65",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 40,
+                    "y": 215,
+                    "width": 40,
+                    "height": 40
+                  },
+                  "fills": "fill_X9GK8T",
+                  "layout": "layout_ARX14F",
+                  "borderRadius": "5px"
+                },
+                {
+                  "id": "1057:5235",
+                  "name": "Cheque",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 47,
+                    "y": 223,
+                    "width": 25,
+                    "height": 25
+                  },
+                  "fills": "fill_SB3B7A",
+                  "layout": "layout_QUWRA4"
+                }
+              ]
+            },
+            {
+              "id": "1057:5236",
+              "name": "Order No",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 95,
+                "y": 217,
+                "width": 58,
+                "height": 17
+              },
+              "textStyle": "style_FPY55F",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_WZPXXO",
+              "text": "Order No"
+            },
+            {
+              "id": "1057:5237",
+              "name": "1 min ago",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 343,
+                "y": 217,
+                "width": 57,
+                "height": 17
+              },
+              "textStyle": "style_7KBMZX",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_9PW4SU",
+              "text": "1 min ago"
+            },
+            {
+              "id": "1057:5238",
+              "name": "#12345",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 95,
+                "y": 239,
+                "width": 44,
+                "height": 15
+              },
+              "textStyle": "style_9LEYTV",
+              "fills": "fill_I3VF5J",
+              "layout": "layout_DTQNPM",
+              "text": "#12345"
+            },
+            {
+              "id": "1057:5239",
+              "name": "Name",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 61,
+                "y": 293,
+                "width": 116,
+                "height": 34
+              },
+              "layout": "layout_42OJNN",
+              "children": [
+                {
+                  "id": "1057:5240",
+                  "name": "Vector 44",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 111,
+                    "y": 295,
+                    "width": 0,
+                    "height": 30
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_0HM86O"
+                },
+                {
+                  "id": "1057:5241",
+                  "name": "Person",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 61,
+                    "y": 295,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_34Q3W5",
+                  "layout": "layout_WXJKW0"
+                },
+                {
+                  "id": "1057:5242",
+                  "name": "Dotarot Maynard",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 121,
+                    "y": 293,
+                    "width": 56,
+                    "height": 34
+                  },
+                  "textStyle": "style_FPY55F",
+                  "fills": "fill_I3VF5J",
+                  "layout": "layout_BIIEK6",
+                  "text": "Dotarot\nMaynard"
+                }
+              ]
+            },
+            {
+              "id": "1057:5243",
+              "name": "Price",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 61,
+                "y": 345,
+                "width": 125,
+                "height": 30
+              },
+              "layout": "layout_IBERA3",
+              "children": [
+                {
+                  "id": "1057:5244",
+                  "name": "Vector 46",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 111,
+                    "y": 350,
+                    "width": 0,
+                    "height": 20
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_YUFRIC"
+                },
+                {
+                  "id": "1057:5245",
+                  "name": "Coin Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 61,
+                    "y": 345,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_IYMH08",
+                  "layout": "layout_74YDGS"
+                },
+                {
+                  "id": "1057:5246",
+                  "name": "₱589.00",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 121,
+                    "y": 350,
+                    "width": 65,
+                    "height": 20
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_TYU0OI",
+                  "text": "₱589.00"
+                }
+              ]
+            },
+            {
+              "id": "1057:5247",
+              "name": "Mode of payment",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 236,
+                "y": 345,
+                "width": 130,
+                "height": 30
+              },
+              "layout": "layout_CO5K3O",
+              "children": [
+                {
+                  "id": "1057:5248",
+                  "name": "Vector 46",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 286,
+                    "y": 350,
+                    "width": 0,
+                    "height": 20
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_YUFRIC"
+                },
+                {
+                  "id": "1057:5249",
+                  "name": "Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 236,
+                    "y": 345,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_HMOMHY",
+                  "layout": "layout_74YDGS"
+                },
+                {
+                  "id": "1057:5250",
+                  "name": "PAYMAYA",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 296,
+                    "y": 350,
+                    "width": 70,
+                    "height": 20
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_F6J643",
+                  "text": "PAYMAYA"
+                }
+              ]
+            },
+            {
+              "id": "1057:5251",
+              "name": "Call",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 236,
+                "y": 290,
+                "width": 142,
+                "height": 40
+              },
+              "layout": "layout_HJLAMH",
+              "children": [
+                {
+                  "id": "1057:5252",
+                  "name": "Vector 45",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 286,
+                    "y": 290,
+                    "width": 0,
+                    "height": 40
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_K6JC4X"
+                },
+                {
+                  "id": "1057:5253",
+                  "name": "+6398 032 4213",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 296,
+                    "y": 290,
+                    "width": 82,
+                    "height": 40
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_NRHE6R",
+                  "text": "+6398 032\n4213"
+                },
+                {
+                  "id": "1057:5254",
+                  "name": "Phone",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 236,
+                    "y": 294,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_PKGWLF",
+                  "layout": "layout_G55M40"
+                }
+              ]
+            },
+            {
+              "id": "1057:5255",
+              "name": "Continue",
+              "type": "FRAME",
+              "fills": "fill_JU5LXT",
+              "effects": "effect_PACJ5I",
+              "layout": "layout_ETK583",
+              "borderRadius": "10px",
+              "children": [
+                {
+                  "id": "1057:5256",
+                  "name": "Pickup",
+                  "type": "TEXT",
+                  "textStyle": "style_EKBJ0E",
+                  "fills": "fill_PE0YZA",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Pickup"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "1057:5257",
+          "name": "Order List",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 475,
+            "width": 400,
+            "height": 260
+          },
+          "layout": "layout_4FUH4V",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "1057:5258",
+              "name": "Rectangle 64",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 475,
+                "width": 400,
+                "height": 260
+              },
+              "fills": "fill_NYIGES",
+              "effects": "effect_4G4F55",
+              "layout": "layout_152PEF",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "1057:5259",
+              "name": "Vector 43",
+              "type": "IMAGE-SVG",
+              "boundingBox": {
+                "x": 30,
+                "y": 555,
+                "width": 380,
+                "height": 0
+              },
+              "strokes": "stroke_XIW6N9",
+              "layout": "layout_1HGJ3U"
+            },
+            {
+              "id": "1057:5260",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 40,
+                "y": 495,
+                "width": 40,
+                "height": 40
+              },
+              "layout": "layout_OVHJCH",
+              "borderRadius": "0px 0px 0px 0px",
+              "children": [
+                {
+                  "id": "1057:5261",
+                  "name": "Rectangle 65",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 40,
+                    "y": 495,
+                    "width": 40,
+                    "height": 40
+                  },
+                  "fills": "fill_X9GK8T",
+                  "layout": "layout_ARX14F",
+                  "borderRadius": "5px"
+                },
+                {
+                  "id": "1057:5262",
+                  "name": "Cheque",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 47,
+                    "y": 503,
+                    "width": 25,
+                    "height": 25
+                  },
+                  "fills": "fill_SB3B7A",
+                  "layout": "layout_QUWRA4"
+                }
+              ]
+            },
+            {
+              "id": "1057:5263",
+              "name": "Order No",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 95,
+                "y": 497,
+                "width": 58,
+                "height": 17
+              },
+              "textStyle": "style_FPY55F",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_WZPXXO",
+              "text": "Order No"
+            },
+            {
+              "id": "1057:5264",
+              "name": "1 min ago",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 343,
+                "y": 497,
+                "width": 57,
+                "height": 17
+              },
+              "textStyle": "style_7KBMZX",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_9PW4SU",
+              "text": "1 min ago"
+            },
+            {
+              "id": "1057:5265",
+              "name": "#12345",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 95,
+                "y": 519,
+                "width": 44,
+                "height": 15
+              },
+              "textStyle": "style_9LEYTV",
+              "fills": "fill_I3VF5J",
+              "layout": "layout_DTQNPM",
+              "text": "#12345"
+            },
+            {
+              "id": "1057:5266",
+              "name": "Name",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 61,
+                "y": 573,
+                "width": 116,
+                "height": 34
+              },
+              "layout": "layout_42OJNN",
+              "children": [
+                {
+                  "id": "1057:5267",
+                  "name": "Vector 44",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 111,
+                    "y": 575,
+                    "width": 0,
+                    "height": 30
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_0HM86O"
+                },
+                {
+                  "id": "1057:5268",
+                  "name": "Person",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 61,
+                    "y": 575,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_34Q3W5",
+                  "layout": "layout_WXJKW0"
+                },
+                {
+                  "id": "1057:5269",
+                  "name": "Dotarot Maynard",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 121,
+                    "y": 573,
+                    "width": 56,
+                    "height": 34
+                  },
+                  "textStyle": "style_FPY55F",
+                  "fills": "fill_I3VF5J",
+                  "layout": "layout_BIIEK6",
+                  "text": "Dotarot\nMaynard"
+                }
+              ]
+            },
+            {
+              "id": "1057:5270",
+              "name": "Price",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 61,
+                "y": 625,
+                "width": 125,
+                "height": 30
+              },
+              "layout": "layout_IBERA3",
+              "children": [
+                {
+                  "id": "1057:5271",
+                  "name": "Vector 46",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 111,
+                    "y": 630,
+                    "width": 0,
+                    "height": 20
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_YUFRIC"
+                },
+                {
+                  "id": "1057:5272",
+                  "name": "Coin Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 61,
+                    "y": 625,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_IYMH08",
+                  "layout": "layout_74YDGS"
+                },
+                {
+                  "id": "1057:5273",
+                  "name": "₱589.00",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 121,
+                    "y": 630,
+                    "width": 65,
+                    "height": 20
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_TYU0OI",
+                  "text": "₱589.00"
+                }
+              ]
+            },
+            {
+              "id": "1057:5274",
+              "name": "Mode of payment",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 236,
+                "y": 625,
+                "width": 130,
+                "height": 30
+              },
+              "layout": "layout_CO5K3O",
+              "children": [
+                {
+                  "id": "1057:5275",
+                  "name": "Vector 46",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 286,
+                    "y": 630,
+                    "width": 0,
+                    "height": 20
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_YUFRIC"
+                },
+                {
+                  "id": "1057:5276",
+                  "name": "Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 236,
+                    "y": 625,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_HMOMHY",
+                  "layout": "layout_74YDGS"
+                },
+                {
+                  "id": "1057:5277",
+                  "name": "PAYMAYA",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 296,
+                    "y": 630,
+                    "width": 70,
+                    "height": 20
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_F6J643",
+                  "text": "PAYMAYA"
+                }
+              ]
+            },
+            {
+              "id": "1057:5278",
+              "name": "Call",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 236,
+                "y": 570,
+                "width": 142,
+                "height": 40
+              },
+              "layout": "layout_HJLAMH",
+              "children": [
+                {
+                  "id": "1057:5279",
+                  "name": "Vector 45",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 286,
+                    "y": 570,
+                    "width": 0,
+                    "height": 40
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_K6JC4X"
+                },
+                {
+                  "id": "1057:5280",
+                  "name": "+6398 032 4213",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 296,
+                    "y": 570,
+                    "width": 82,
+                    "height": 40
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_NRHE6R",
+                  "text": "+6398 032\n4213"
+                },
+                {
+                  "id": "1057:5281",
+                  "name": "Phone",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 236,
+                    "y": 574,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_PKGWLF",
+                  "layout": "layout_G55M40"
+                }
+              ]
+            },
+            {
+              "id": "1057:5282",
+              "name": "Continue",
+              "type": "FRAME",
+              "fills": "fill_JU5LXT",
+              "effects": "effect_PACJ5I",
+              "layout": "layout_ETK583",
+              "borderRadius": "10px",
+              "children": [
+                {
+                  "id": "1057:5283",
+                  "name": "Pickup",
+                  "type": "TEXT",
+                  "textStyle": "style_EKBJ0E",
+                  "fills": "fill_PE0YZA",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Pickup"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "1057:5284",
+          "name": "Order List",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 755,
+            "width": 400,
+            "height": 260
+          },
+          "layout": "layout_EPY3KG",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "1057:5285",
+              "name": "Rectangle 64",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 755,
+                "width": 400,
+                "height": 260
+              },
+              "fills": "fill_NYIGES",
+              "effects": "effect_4G4F55",
+              "layout": "layout_152PEF",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "1057:5286",
+              "name": "Vector 43",
+              "type": "IMAGE-SVG",
+              "boundingBox": {
+                "x": 30,
+                "y": 835,
+                "width": 380,
+                "height": 0
+              },
+              "strokes": "stroke_XIW6N9",
+              "layout": "layout_1HGJ3U"
+            },
+            {
+              "id": "1057:5287",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 40,
+                "y": 775,
+                "width": 40,
+                "height": 40
+              },
+              "layout": "layout_OVHJCH",
+              "borderRadius": "0px 0px 0px 0px",
+              "children": [
+                {
+                  "id": "1057:5288",
+                  "name": "Rectangle 65",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 40,
+                    "y": 775,
+                    "width": 40,
+                    "height": 40
+                  },
+                  "fills": "fill_X9GK8T",
+                  "layout": "layout_ARX14F",
+                  "borderRadius": "5px"
+                },
+                {
+                  "id": "1057:5289",
+                  "name": "Cheque",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 47,
+                    "y": 783,
+                    "width": 25,
+                    "height": 25
+                  },
+                  "fills": "fill_SB3B7A",
+                  "layout": "layout_QUWRA4"
+                }
+              ]
+            },
+            {
+              "id": "1057:5290",
+              "name": "Order No",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 95,
+                "y": 777,
+                "width": 58,
+                "height": 17
+              },
+              "textStyle": "style_FPY55F",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_WZPXXO",
+              "text": "Order No"
+            },
+            {
+              "id": "1057:5291",
+              "name": "1 min ago",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 343,
+                "y": 777,
+                "width": 57,
+                "height": 17
+              },
+              "textStyle": "style_7KBMZX",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_9PW4SU",
+              "text": "1 min ago"
+            },
+            {
+              "id": "1057:5292",
+              "name": "#12345",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 95,
+                "y": 799,
+                "width": 44,
+                "height": 15
+              },
+              "textStyle": "style_9LEYTV",
+              "fills": "fill_I3VF5J",
+              "layout": "layout_DTQNPM",
+              "text": "#12345"
+            },
+            {
+              "id": "1057:5293",
+              "name": "Name",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 61,
+                "y": 853,
+                "width": 116,
+                "height": 34
+              },
+              "layout": "layout_42OJNN",
+              "children": [
+                {
+                  "id": "1057:5294",
+                  "name": "Vector 44",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 111,
+                    "y": 855,
+                    "width": 0,
+                    "height": 30
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_0HM86O"
+                },
+                {
+                  "id": "1057:5295",
+                  "name": "Person",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 61,
+                    "y": 855,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_34Q3W5",
+                  "layout": "layout_WXJKW0"
+                },
+                {
+                  "id": "1057:5296",
+                  "name": "Dotarot Maynard",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 121,
+                    "y": 853,
+                    "width": 56,
+                    "height": 34
+                  },
+                  "textStyle": "style_FPY55F",
+                  "fills": "fill_I3VF5J",
+                  "layout": "layout_BIIEK6",
+                  "text": "Dotarot\nMaynard"
+                }
+              ]
+            },
+            {
+              "id": "1057:5297",
+              "name": "Price",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 61,
+                "y": 905,
+                "width": 125,
+                "height": 30
+              },
+              "layout": "layout_IBERA3",
+              "children": [
+                {
+                  "id": "1057:5298",
+                  "name": "Vector 46",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 111,
+                    "y": 910,
+                    "width": 0,
+                    "height": 20
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_YUFRIC"
+                },
+                {
+                  "id": "1057:5299",
+                  "name": "Coin Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 61,
+                    "y": 905,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_IYMH08",
+                  "layout": "layout_74YDGS"
+                },
+                {
+                  "id": "1057:5300",
+                  "name": "₱589.00",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 121,
+                    "y": 910,
+                    "width": 65,
+                    "height": 20
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_TYU0OI",
+                  "text": "₱589.00"
+                }
+              ]
+            },
+            {
+              "id": "1057:5301",
+              "name": "Mode of payment",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 236,
+                "y": 905,
+                "width": 130,
+                "height": 30
+              },
+              "layout": "layout_CO5K3O",
+              "children": [
+                {
+                  "id": "1057:5302",
+                  "name": "Vector 46",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 286,
+                    "y": 910,
+                    "width": 0,
+                    "height": 20
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_YUFRIC"
+                },
+                {
+                  "id": "1057:5303",
+                  "name": "Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 236,
+                    "y": 905,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_HMOMHY",
+                  "layout": "layout_74YDGS"
+                },
+                {
+                  "id": "1057:5304",
+                  "name": "PAYMAYA",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 296,
+                    "y": 910,
+                    "width": 70,
+                    "height": 20
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_F6J643",
+                  "text": "PAYMAYA"
+                }
+              ]
+            },
+            {
+              "id": "1057:5305",
+              "name": "Call",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 236,
+                "y": 850,
+                "width": 142,
+                "height": 40
+              },
+              "layout": "layout_HJLAMH",
+              "children": [
+                {
+                  "id": "1057:5306",
+                  "name": "Vector 45",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 286,
+                    "y": 850,
+                    "width": 0,
+                    "height": 40
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_K6JC4X"
+                },
+                {
+                  "id": "1057:5307",
+                  "name": "+6398 032 4213",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 296,
+                    "y": 850,
+                    "width": 82,
+                    "height": 40
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_NRHE6R",
+                  "text": "+6398 032\n4213"
+                },
+                {
+                  "id": "1057:5308",
+                  "name": "Phone",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 236,
+                    "y": 854,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_PKGWLF",
+                  "layout": "layout_G55M40"
+                }
+              ]
+            },
+            {
+              "id": "1057:5309",
+              "name": "Continue",
+              "type": "FRAME",
+              "fills": "fill_JU5LXT",
+              "effects": "effect_PACJ5I",
+              "layout": "layout_ETK583",
+              "borderRadius": "10px",
+              "children": [
+                {
+                  "id": "1057:5310",
+                  "name": "Pickup",
+                  "type": "TEXT",
+                  "textStyle": "style_EKBJ0E",
+                  "fills": "fill_PE0YZA",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Pickup"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "1057:5311",
+          "name": "Order List",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 20,
+            "y": 1035,
+            "width": 400,
+            "height": 260
+          },
+          "layout": "layout_DRXV2P",
+          "borderRadius": "0px 0px 0px 0px",
+          "children": [
+            {
+              "id": "1057:5312",
+              "name": "Rectangle 64",
+              "type": "RECTANGLE",
+              "boundingBox": {
+                "x": 20,
+                "y": 1035,
+                "width": 400,
+                "height": 260
+              },
+              "fills": "fill_NYIGES",
+              "effects": "effect_4G4F55",
+              "layout": "layout_152PEF",
+              "borderRadius": "16px"
+            },
+            {
+              "id": "1057:5313",
+              "name": "Vector 43",
+              "type": "IMAGE-SVG",
+              "boundingBox": {
+                "x": 30,
+                "y": 1115,
+                "width": 380,
+                "height": 0
+              },
+              "strokes": "stroke_XIW6N9",
+              "layout": "layout_1HGJ3U"
+            },
+            {
+              "id": "1057:5314",
+              "name": "Logo",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 40,
+                "y": 1055,
+                "width": 40,
+                "height": 40
+              },
+              "layout": "layout_OVHJCH",
+              "borderRadius": "0px 0px 0px 0px",
+              "children": [
+                {
+                  "id": "1057:5315",
+                  "name": "Rectangle 65",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 40,
+                    "y": 1055,
+                    "width": 40,
+                    "height": 40
+                  },
+                  "fills": "fill_X9GK8T",
+                  "layout": "layout_ARX14F",
+                  "borderRadius": "5px"
+                },
+                {
+                  "id": "1057:5316",
+                  "name": "Cheque",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 47,
+                    "y": 1063,
+                    "width": 25,
+                    "height": 25
+                  },
+                  "fills": "fill_SB3B7A",
+                  "layout": "layout_QUWRA4"
+                }
+              ]
+            },
+            {
+              "id": "1057:5317",
+              "name": "Order No",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 95,
+                "y": 1057,
+                "width": 58,
+                "height": 17
+              },
+              "textStyle": "style_FPY55F",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_WZPXXO",
+              "text": "Order No"
+            },
+            {
+              "id": "1057:5318",
+              "name": "1 min ago",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 343,
+                "y": 1057,
+                "width": 57,
+                "height": 17
+              },
+              "textStyle": "style_7KBMZX",
+              "fills": "fill_6MIB2E",
+              "layout": "layout_9PW4SU",
+              "text": "1 min ago"
+            },
+            {
+              "id": "1057:5319",
+              "name": "#12345",
+              "type": "TEXT",
+              "boundingBox": {
+                "x": 95,
+                "y": 1079,
+                "width": 44,
+                "height": 15
+              },
+              "textStyle": "style_9LEYTV",
+              "fills": "fill_I3VF5J",
+              "layout": "layout_DTQNPM",
+              "text": "#12345"
+            },
+            {
+              "id": "1057:5320",
+              "name": "Name",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 61,
+                "y": 1133,
+                "width": 116,
+                "height": 34
+              },
+              "layout": "layout_42OJNN",
+              "children": [
+                {
+                  "id": "1057:5321",
+                  "name": "Vector 44",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 111,
+                    "y": 1135,
+                    "width": 0,
+                    "height": 30
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_0HM86O"
+                },
+                {
+                  "id": "1057:5322",
+                  "name": "Person",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 61,
+                    "y": 1135,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_34Q3W5",
+                  "layout": "layout_WXJKW0"
+                },
+                {
+                  "id": "1057:5323",
+                  "name": "Dotarot Maynard",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 121,
+                    "y": 1133,
+                    "width": 56,
+                    "height": 34
+                  },
+                  "textStyle": "style_FPY55F",
+                  "fills": "fill_I3VF5J",
+                  "layout": "layout_BIIEK6",
+                  "text": "Dotarot\nMaynard"
+                }
+              ]
+            },
+            {
+              "id": "1057:5324",
+              "name": "Price",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 61,
+                "y": 1185,
+                "width": 125,
+                "height": 30
+              },
+              "layout": "layout_IBERA3",
+              "children": [
+                {
+                  "id": "1057:5325",
+                  "name": "Vector 46",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 111,
+                    "y": 1190,
+                    "width": 0,
+                    "height": 20
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_YUFRIC"
+                },
+                {
+                  "id": "1057:5326",
+                  "name": "Coin Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 61,
+                    "y": 1185,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_IYMH08",
+                  "layout": "layout_74YDGS"
+                },
+                {
+                  "id": "1057:5327",
+                  "name": "₱589.00",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 121,
+                    "y": 1190,
+                    "width": 65,
+                    "height": 20
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_TYU0OI",
+                  "text": "₱589.00"
+                }
+              ]
+            },
+            {
+              "id": "1057:5328",
+              "name": "Mode of payment",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 236,
+                "y": 1185,
+                "width": 130,
+                "height": 30
+              },
+              "layout": "layout_CO5K3O",
+              "children": [
+                {
+                  "id": "1057:5329",
+                  "name": "Vector 46",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 286,
+                    "y": 1190,
+                    "width": 0,
+                    "height": 20
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_YUFRIC"
+                },
+                {
+                  "id": "1057:5330",
+                  "name": "Wallet",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 236,
+                    "y": 1185,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_HMOMHY",
+                  "layout": "layout_74YDGS"
+                },
+                {
+                  "id": "1057:5331",
+                  "name": "PAYMAYA",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 296,
+                    "y": 1190,
+                    "width": 70,
+                    "height": 20
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_F6J643",
+                  "text": "PAYMAYA"
+                }
+              ]
+            },
+            {
+              "id": "1057:5332",
+              "name": "Call",
+              "type": "GROUP",
+              "boundingBox": {
+                "x": 236,
+                "y": 1130,
+                "width": 142,
+                "height": 40
+              },
+              "layout": "layout_HJLAMH",
+              "children": [
+                {
+                  "id": "1057:5333",
+                  "name": "Vector 45",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 286,
+                    "y": 1130,
+                    "width": 0,
+                    "height": 40
+                  },
+                  "strokes": "stroke_XIW6N9",
+                  "layout": "layout_K6JC4X"
+                },
+                {
+                  "id": "1057:5334",
+                  "name": "+6398 032 4213",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 296,
+                    "y": 1130,
+                    "width": 82,
+                    "height": 40
+                  },
+                  "textStyle": "style_XVNTLA",
+                  "fills": "fill_PZESUT",
+                  "layout": "layout_NRHE6R",
+                  "text": "+6398 032\n4213"
+                },
+                {
+                  "id": "1057:5335",
+                  "name": "Phone",
+                  "type": "RECTANGLE",
+                  "boundingBox": {
+                    "x": 236,
+                    "y": 1134,
+                    "width": 30,
+                    "height": 30
+                  },
+                  "fills": "fill_PKGWLF",
+                  "layout": "layout_G55M40"
+                }
+              ]
+            },
+            {
+              "id": "1057:5336",
+              "name": "Continue",
+              "type": "FRAME",
+              "fills": "fill_JU5LXT",
+              "effects": "effect_PACJ5I",
+              "layout": "layout_ETK583",
+              "borderRadius": "10px",
+              "children": [
+                {
+                  "id": "1057:5337",
+                  "name": "Pickup",
+                  "type": "TEXT",
+                  "textStyle": "style_EKBJ0E",
+                  "fills": "fill_PE0YZA",
+                  "layout": "layout_H4DCZJ",
+                  "text": "Pickup"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "1057:5338",
+          "name": "Status Bar",
+          "type": "GROUP",
+          "boundingBox": {
+            "x": 0,
+            "y": 0,
+            "width": 439.5,
+            "height": 54
+          },
+          "layout": "layout_C6CIBK",
+          "children": [
+            {
+              "id": "1057:5339",
+              "name": "Time",
+              "type": "FRAME",
+              "boundingBox": {
+                "x": 0,
+                "y": 0,
+                "width": 140.5,
+                "height": 54
+              },
+              "layout": "layout_SWR6RV",
+              "children": [
+                {
+                  "id": "1057:5340",
+                  "name": "Time",
+                  "type": "TEXT",
+                  "boundingBox": {
+                    "x": 51.923828125,
+                    "y": 18.339599609375,
+                    "width": 36,
+                    "height": 22
+                  },
+                  "textStyle": "style_GEMJ7F",
+                  "fills": "fill_I3VF5J",
+                  "layout": "layout_991URW",
+                  "text": "9:41"
+                }
+              ]
+            },
+            {
+              "id": "1057:5341",
+              "name": "Levels",
+              "type": "FRAME",
+              "boundingBox": {
+                "x": 299,
+                "y": 0,
+                "width": 140.5,
+                "height": 54
+              },
+              "layout": "layout_XN8409",
+              "children": [
+                {
+                  "id": "1057:5342",
+                  "name": "Battery",
+                  "type": "GROUP",
+                  "boundingBox": {
+                    "x": 380,
+                    "y": 23,
+                    "width": 27.32803726196289,
+                    "height": 13
+                  },
+                  "fills": "fill_NYIGES",
+                  "layout": "layout_UYKW3L",
+                  "borderRadius": "0px 0px 0px 0px",
+                  "children": [
+                    {
+                      "id": "1057:5343",
+                      "name": "Border",
+                      "type": "RECTANGLE",
+                      "boundingBox": {
+                        "x": 380,
+                        "y": 23,
+                        "width": 25,
+                        "height": 13
+                      },
+                      "strokes": "stroke_WDZU7N",
+                      "layout": "layout_UNAAAD",
+                      "opacity": 0.3499999940395355,
+                      "borderRadius": "4.300000190734863px"
+                    },
+                    {
+                      "id": "1057:5344",
+                      "name": "Cap",
+                      "type": "IMAGE-SVG",
+                      "boundingBox": {
+                        "x": 406,
+                        "y": 27.78125,
+                        "width": 1.328037977218628,
+                        "height": 4.075471878051758
+                      },
+                      "fills": "fill_I3VF5J",
+                      "layout": "layout_87DLB2",
+                      "opacity": 0.4000000059604645
+                    },
+                    {
+                      "id": "1057:5345",
+                      "name": "Capacity",
+                      "type": "RECTANGLE",
+                      "boundingBox": {
+                        "x": 382,
+                        "y": 25,
+                        "width": 21,
+                        "height": 9
+                      },
+                      "fills": "fill_I3VF5J",
+                      "layout": "layout_5HFFDD",
+                      "borderRadius": "2.5px"
+                    }
+                  ]
+                },
+                {
+                  "id": "1057:5346",
+                  "name": "Wifi",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 355.69921875,
+                    "y": 23.6376953125,
+                    "width": 17.141666412353516,
+                    "height": 12.328306198120117
+                  },
+                  "fills": "fill_I3VF5J",
+                  "layout": "layout_42L8F6"
+                },
+                {
+                  "id": "1057:5347",
+                  "name": "Cellular Connection",
+                  "type": "IMAGE-SVG",
+                  "boundingBox": {
+                    "x": 329,
+                    "y": 23.535888671875,
+                    "width": 19.200000762939453,
+                    "height": 12.226415634155273
+                  },
+                  "fills": "fill_I3VF5J",
+                  "layout": "layout_EVK4B2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "globalVars": {
+    "styles": {
+      "fill_1BGB02": [
+        "#F4F6F6"
+      ],
+      "layout_2YFXK2": {
+        "mode": "none",
+        "clipsContent": true,
+        "dimensions": {
+          "width": 440,
+          "height": 1440
+        }
+      },
+      "fill_NYIGES": [
+        "#FFFFFF"
+      ],
+      "effect_PACJ5I": {
+        "boxShadow": "0px 0px 4px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_NM7J3J": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "10px",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 79
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "fill_T4S1M1": [
+        {
+          "type": "IMAGE",
+          "imageRef": "948e36170b4e3f8527469d0bf252daa59b1d6861",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_5YY2TH": {
+        "mode": "none",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "dimensions": {
+          "width": 15,
+          "height": 15
+        }
+      },
+      "style_2Q393Q": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 600,
+        "fontSize": 20,
+        "lineHeight": "1.1em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_PZESUT": [
+        "#1E1E1E"
+      ],
+      "layout_HUK8N6": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 189,
+          "y": 83
+        },
+        "dimensions": {
+          "width": 63,
+          "height": 22
+        }
+      },
+      "layout_I9YF9T": {
+        "mode": "none",
+        "overflowScroll": [
+          "x"
+        ],
+        "clipsContent": true,
+        "locationRelativeToParent": {
+          "x": -23,
+          "y": 145
+        },
+        "dimensions": {
+          "width": 463,
+          "height": 30
+        }
+      },
+      "fill_6MIB2E": [
+        "rgba(30, 30, 30, 0.5)"
+      ],
+      "layout_FPM1EA": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "5px 15px",
+        "sizing": {
+          "horizontal": "hug",
+          "vertical": "hug"
+        },
+        "locationRelativeToParent": {
+          "x": 43,
+          "y": 0
+        }
+      },
+      "style_XVNTLA": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 16,
+        "lineHeight": "1.2300000190734863em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_H4DCZJ": {
+        "mode": "none",
+        "sizing": {
+          "horizontal": "hug",
+          "vertical": "hug"
+        }
+      },
+      "layout_2A3HG1": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "5px 15px",
+        "sizing": {
+          "horizontal": "hug",
+          "vertical": "hug"
+        },
+        "locationRelativeToParent": {
+          "x": 147,
+          "y": 0
+        }
+      },
+      "fill_BCWHWO": [
+        "rgba(0, 0, 0, 0.5)"
+      ],
+      "layout_855LWO": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "5px 15px",
+        "sizing": {
+          "horizontal": "hug",
+          "vertical": "hug"
+        },
+        "locationRelativeToParent": {
+          "x": 265,
+          "y": 0
+        }
+      },
+      "fill_X9GK8T": [
+        "#02545F"
+      ],
+      "layout_2AKSL5": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "5px 15px",
+        "sizing": {
+          "horizontal": "hug",
+          "vertical": "hug"
+        },
+        "locationRelativeToParent": {
+          "x": 413,
+          "y": 0
+        }
+      },
+      "layout_O8IAV1": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "5px 15px",
+        "sizing": {
+          "horizontal": "hug",
+          "vertical": "hug"
+        },
+        "locationRelativeToParent": {
+          "x": 507,
+          "y": 0
+        }
+      },
+      "layout_ADSA71": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 195
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 260
+        }
+      },
+      "effect_4G4F55": {
+        "boxShadow": "0px 0px 5px 0px rgba(0, 0, 0, 0.25)"
+      },
+      "layout_152PEF": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 260
+        }
+      },
+      "stroke_XIW6N9": {
+        "colors": [
+          "#02545F"
+        ],
+        "strokeWeight": "2px",
+        "strokeAlign": "CENTER"
+      },
+      "layout_1HGJ3U": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 10,
+          "y": 80
+        },
+        "dimensions": {
+          "width": 380,
+          "height": 0
+        }
+      },
+      "layout_OVHJCH": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 20
+        },
+        "dimensions": {
+          "width": 40,
+          "height": 40
+        }
+      },
+      "layout_ARX14F": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 40,
+          "height": 40
+        }
+      },
+      "fill_SB3B7A": [
+        {
+          "type": "IMAGE",
+          "imageRef": "a24643a7046310cb85625e2f290010b5e7350425",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_QUWRA4": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 7,
+          "y": 8
+        },
+        "dimensions": {
+          "width": 25,
+          "height": 25
+        }
+      },
+      "style_FPY55F": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 14,
+        "lineHeight": "1.2300000871930803em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_WZPXXO": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 75,
+          "y": 22
+        },
+        "dimensions": {
+          "width": 58,
+          "height": 17
+        }
+      },
+      "style_7KBMZX": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 14,
+        "lineHeight": "1.2300000871930803em",
+        "textAlignHorizontal": "RIGHT",
+        "textAlignVertical": "TOP"
+      },
+      "layout_9PW4SU": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 323,
+          "y": 22
+        },
+        "dimensions": {
+          "width": 57,
+          "height": 17
+        }
+      },
+      "style_9LEYTV": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 12,
+        "lineHeight": "1.2300000190734863em",
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP"
+      },
+      "fill_I3VF5J": [
+        "#000000"
+      ],
+      "layout_DTQNPM": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 75,
+          "y": 44
+        },
+        "dimensions": {
+          "width": 44,
+          "height": 15
+        }
+      },
+      "layout_42OJNN": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 41,
+          "y": 98
+        },
+        "dimensions": {
+          "width": 116,
+          "height": 34
+        }
+      },
+      "layout_0HM86O": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 50,
+          "y": 2
+        },
+        "dimensions": {
+          "width": 0,
+          "height": 30
+        }
+      },
+      "fill_34Q3W5": [
+        {
+          "type": "IMAGE",
+          "imageRef": "5d662e8d2c68c952b615778ae7343595aefa8506",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_WXJKW0": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 2
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "layout_BIIEK6": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 60,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 56,
+          "height": 34
+        }
+      },
+      "layout_IBERA3": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 41,
+          "y": 150
+        },
+        "dimensions": {
+          "width": 125,
+          "height": 30
+        }
+      },
+      "layout_YUFRIC": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 50,
+          "y": 5
+        },
+        "dimensions": {
+          "width": 0,
+          "height": 20
+        }
+      },
+      "fill_IYMH08": [
+        {
+          "type": "IMAGE",
+          "imageRef": "e2fd7bcafd4990be7d5ccfe469b8233e6d571929",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_74YDGS": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "layout_TYU0OI": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 60,
+          "y": 5
+        },
+        "dimensions": {
+          "width": 65,
+          "height": 20
+        }
+      },
+      "layout_CO5K3O": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 216,
+          "y": 150
+        },
+        "dimensions": {
+          "width": 130,
+          "height": 30
+        }
+      },
+      "fill_HMOMHY": [
+        {
+          "type": "IMAGE",
+          "imageRef": "86b87455f93b55ab3b329f04f4a279180084cd9f",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_F6J643": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 60,
+          "y": 5
+        },
+        "dimensions": {
+          "width": 70,
+          "height": 20
+        }
+      },
+      "layout_HJLAMH": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 216,
+          "y": 95
+        },
+        "dimensions": {
+          "width": 142,
+          "height": 40
+        }
+      },
+      "layout_K6JC4X": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 50,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 0,
+          "height": 40
+        }
+      },
+      "layout_NRHE6R": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 60,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 82,
+          "height": 40
+        }
+      },
+      "fill_PKGWLF": [
+        {
+          "type": "IMAGE",
+          "imageRef": "4620bae43777f0433054df35918ca0a6284d48a8",
+          "scaleMode": "FIT"
+        }
+      ],
+      "layout_G55M40": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 4
+        },
+        "dimensions": {
+          "width": 30,
+          "height": 30
+        }
+      },
+      "fill_JU5LXT": [
+        "#DCFCE7"
+      ],
+      "layout_ETK583": {
+        "mode": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "gap": "10px",
+        "padding": "10px",
+        "sizing": {
+          "horizontal": "fixed",
+          "vertical": "fixed"
+        },
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 200
+        },
+        "dimensions": {
+          "width": 360,
+          "height": 40
+        }
+      },
+      "style_EKBJ0E": {
+        "fontFamily": "Clash Grotesk Variable",
+        "fontWeight": 500,
+        "fontSize": 18,
+        "lineHeight": "1.2222222222222223em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "fill_PE0YZA": [
+        "#3BB77E"
+      ],
+      "layout_4FUH4V": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 475
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 260
+        }
+      },
+      "layout_EPY3KG": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 755
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 260
+        }
+      },
+      "layout_DRXV2P": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 20,
+          "y": 1035
+        },
+        "dimensions": {
+          "width": 400,
+          "height": 260
+        }
+      },
+      "layout_C6CIBK": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 439.5,
+          "height": 54
+        }
+      },
+      "layout_SWR6RV": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 140.5,
+          "height": 54
+        }
+      },
+      "style_GEMJ7F": {
+        "fontFamily": "ABeeZee",
+        "fontWeight": 400,
+        "fontSize": 17,
+        "lineHeight": "1.2941176470588236em",
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP"
+      },
+      "layout_991URW": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 51.92,
+          "y": 18.34
+        },
+        "dimensions": {
+          "width": 36,
+          "height": 22
+        }
+      },
+      "layout_XN8409": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 299,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 140.5,
+          "height": 54
+        }
+      },
+      "layout_UYKW3L": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 81,
+          "y": 23
+        },
+        "dimensions": {
+          "width": 27.33,
+          "height": 13
+        }
+      },
+      "stroke_WDZU7N": {
+        "colors": [
+          "#000000"
+        ],
+        "strokeWeight": "1px",
+        "strokeAlign": "INSIDE"
+      },
+      "layout_UNAAAD": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 0,
+          "y": 0
+        },
+        "dimensions": {
+          "width": 25,
+          "height": 13
+        }
+      },
+      "layout_87DLB2": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 26,
+          "y": 4.78
+        },
+        "dimensions": {
+          "width": 1.33,
+          "height": 4.08
+        }
+      },
+      "layout_5HFFDD": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 2,
+          "y": 2
+        },
+        "dimensions": {
+          "width": 21,
+          "height": 9
+        }
+      },
+      "layout_42L8F6": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 56.7,
+          "y": 23.64
+        },
+        "dimensions": {
+          "width": 17.14,
+          "height": 12.33
+        }
+      },
+      "layout_EVK4B2": {
+        "mode": "none",
+        "locationRelativeToParent": {
+          "x": 30,
+          "y": 23.54
+        },
+        "dimensions": {
+          "width": 19.2,
+          "height": 12.23
+        }
+      }
+    }
+  }
+}

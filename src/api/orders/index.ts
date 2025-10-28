@@ -55,18 +55,66 @@ export async function fetchUserOrders(userId: string): Promise<Order[]> {
 }
 
 /**
+ * Fetch store orders (for store owner)
+ */
+export async function fetchStoreOrders(storeId: string): Promise<Order[]> {
+  try {
+    const ordersRef = ref(database, 'orders');
+    const storeOrdersQuery = query(ordersRef, orderByChild('storeId'), equalTo(storeId));
+    const snapshot = await get(storeOrdersQuery);
+
+    if (snapshot.exists()) {
+      return Object.values(snapshot.val()) as Order[];
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching store orders:', error);
+    return [];
+  }
+}
+
+/**
  * Update order status
  */
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<boolean> {
   try {
     const orderRef = ref(database, `orders/${orderId}`);
-    await update(orderRef, {
+    const updates: any = {
       status,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Add timestamp for specific status changes
+    if (status === 'picked_up' || status === 'completed') {
+      updates.completedAt = new Date().toISOString();
+    } else if (status === 'cancelled') {
+      updates.cancelledAt = new Date().toISOString();
+    }
+
+    await update(orderRef, updates);
+    return true;
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    return false;
+  }
+}
+
+/**
+ * Cancel order with reason
+ */
+export async function cancelOrder(orderId: string, reason: string, cancelledBy: 'customer' | 'store'): Promise<boolean> {
+  try {
+    const orderRef = ref(database, `orders/${orderId}`);
+    await update(orderRef, {
+      status: 'cancelled',
+      cancellationReason: reason,
+      cancelledBy,
+      cancelledAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
     return true;
   } catch (error) {
-    console.error('Error updating order status:', error);
+    console.error('Error cancelling order:', error);
     return false;
   }
 }

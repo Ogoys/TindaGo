@@ -49,16 +49,48 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// MOCK DATA - 1 sample order for visualization
+const MOCK_ORDERS: Partial<Order>[] = [
+  {
+    id: 'mock-customer-order-1',
+    orderNumber: '#DEMO-2024-001',
+    customerId: 'demo',
+    customerName: 'Demo Customer',
+    customerPhone: '+63 912 345 6789',
+    storeId: 'demo-store',
+    storeName: 'Sample Sari-Sari Store',
+    items: [
+      {
+        productId: 'demo-1',
+        productName: 'Sample Product',
+        productImage: '',
+        quantity: 2,
+        price: 50,
+        subtotal: 100,
+      },
+    ],
+    subtotal: 100,
+    tax: 0,
+    serviceFee: 5,
+    total: 105,
+    status: 'preparing',
+    paymentMethod: 'cash',
+    paymentStatus: 'pending',
+    createdAt: new Date(Date.now() - 30 * 60000).toISOString(), // 30 min ago
+    updatedAt: new Date(Date.now() - 30 * 60000).toISOString(),
+  },
+];
+
 export default function OrdersScreen() {
   const { user } = useUser();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [realOrders, setRealOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   // Get cart count for badge
   const cartCount = useCartCount(user?.id);
 
-  // Fetch user orders from Firebase
+  // Fetch user orders from Firebase with REAL-TIME updates
   useEffect(() => {
     if (!user) {
       setLoading(false);
@@ -80,15 +112,18 @@ export default function OrdersScreen() {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
 
-        setOrders(userOrders as Order[]);
+        setRealOrders(userOrders as Order[]);
       } else {
-        setOrders([]);
+        setRealOrders([]);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [user]);
+
+  // Merge mock orders with real orders
+  const orders = [...(MOCK_ORDERS as Order[]), ...realOrders];
 
   const toggleOrder = (orderId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -170,6 +205,75 @@ export default function OrdersScreen() {
     </SafeAreaView>
   );
 }
+
+// Render dynamic progress timeline based on order status
+const renderProgressTimeline = (order: Order) => {
+  // Define progress steps
+  const steps = [
+    { status: 'pending', label: 'Order Placed', icon: '📋' },
+    { status: 'preparing', label: 'Preparing Your Order', icon: '👨‍🍳' },
+    { status: 'ready', label: 'Ready for Pickup', icon: '✅' },
+    { status: 'picked_up', label: 'Order Completed', icon: '📦' },
+  ];
+
+  // Determine which steps are completed
+  const statusOrder = ['pending', 'preparing', 'ready', 'picked_up'];
+  const currentStatusIndex = statusOrder.indexOf(order.status);
+
+  // Format time
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return steps.map((step, index) => {
+    const isCompleted = index <= currentStatusIndex;
+    const isActive = index === currentStatusIndex;
+    const isCancelled = order.status === 'cancelled';
+
+    // Get timestamp for this step
+    let timestamp = 'Pending';
+    if (isCompleted) {
+      if (index === 0) timestamp = formatTime(order.createdAt);
+      else if (step.status === order.status) timestamp = formatTime(order.updatedAt);
+      else if (step.status === 'picked_up' && order.completedAt) timestamp = formatTime(order.completedAt);
+      else timestamp = formatTime(order.updatedAt);
+    }
+
+    return (
+      <View key={step.status} style={styles.progressItem}>
+        <View style={styles.progressIconContainer}>
+          {isCompleted ? (
+            <View style={[styles.progressDot, isActive && styles.progressDotActive]} />
+          ) : (
+            <View style={[styles.progressDot, styles.progressDotInactive]} />
+          )}
+          {index < steps.length - 1 && (
+            <View style={[
+              styles.progressLine,
+              isCompleted ? styles.progressLineActive : styles.progressLineInactive
+            ]} />
+          )}
+        </View>
+        <View style={styles.progressContent}>
+          <Text style={[
+            styles.progressText,
+            !isCompleted && styles.progressTextInactive,
+            isActive && styles.progressTextActive
+          ]}>
+            {step.icon} {step.label}
+          </Text>
+          <Text style={[
+            styles.progressTime,
+            !isCompleted && styles.progressTextInactive
+          ]}>
+            {timestamp}
+          </Text>
+        </View>
+      </View>
+    );
+  });
+};
 
 interface OrderCardProps {
   order: Order;
@@ -258,62 +362,65 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
         </TouchableOpacity>
       </View>
 
-      {/* Expanded Content - Order Progress/Status */}
+      {/* Expanded Content - REAL-TIME Order Progress/Status */}
       {isExpanded && (
         <View style={styles.expandedContent}>
-          {/* Order Progress Timeline - Figma: After variant shows status progress */}
+          {/* Dynamic Order Progress Timeline */}
           <View style={styles.progressContainer}>
-            {/* Progress Item 1: Order Confirmed */}
-            <View style={styles.progressItem}>
-              <View style={styles.progressIconContainer}>
-                <View style={styles.progressDot} />
-              </View>
-              <Text style={styles.progressText}>Order Confirmed</Text>
-              <Text style={styles.progressTime}>12:30 PM</Text>
-            </View>
-
-            {/* Progress Item 2: Preparing Order */}
-            <View style={styles.progressItem}>
-              <View style={styles.progressIconContainer}>
-                <View style={styles.progressDot} />
-              </View>
-              <Text style={styles.progressText}>Preparing Order</Text>
-              <Text style={styles.progressTime}>12:35 PM</Text>
-            </View>
-
-            {/* Progress Item 3: Ready for Pickup */}
-            <View style={styles.progressItem}>
-              <View style={styles.progressIconContainer}>
-                <View style={[styles.progressDot, styles.progressDotInactive]} />
-              </View>
-              <Text style={[styles.progressText, styles.progressTextInactive]}>Ready for Pickup</Text>
-              <Text style={[styles.progressTime, styles.progressTextInactive]}>Pending</Text>
-            </View>
+            {renderProgressTimeline(order)}
           </View>
         </View>
       )}
 
-      {/* Lower Section - Figma: y:100 (relative to card) */}
+      {/* Lower Section - Dynamic Status Display */}
       <View style={styles.lowerSection}>
-        <View style={styles.statusIndicator} />
-        <Text style={styles.pickupText}>Pickup Order</Text>
-        <Text style={styles.pickupDate}>{order.pickupTime ? formatDate(order.pickupTime) : 'To be scheduled'}</Text>
+        <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(order.status) }]} />
+        <Text style={styles.pickupText}>{getStatusText(order.status)}</Text>
+        <Text style={styles.pickupDate}>
+          {order.status === 'picked_up' && order.completedAt
+            ? `Completed ${formatDate(order.completedAt)}`
+            : order.status === 'cancelled'
+            ? `Cancelled ${formatDate(order.cancelledAt || order.updatedAt)}`
+            : order.pickupTime
+            ? `Pickup: ${formatDate(order.pickupTime)}`
+            : `Placed ${formatDate(order.createdAt)}`}
+        </Text>
       </View>
     </TouchableOpacity>
   );
 };
 
-// Helper function to get status color (for future use)
+// Get dynamic status text
+const getStatusText = (status: string): string => {
+  switch (status) {
+    case 'pending':
+      return 'Waiting for Confirmation';
+    case 'preparing':
+      return 'Preparing Your Order';
+    case 'ready':
+      return 'Ready for Pickup!';
+    case 'picked_up':
+      return 'Order Completed';
+    case 'cancelled':
+      return 'Order Cancelled';
+    default:
+      return 'Processing Order';
+  }
+};
+
+// Get status color with real-time updates
 const getStatusColor = (status: string): string => {
   switch (status) {
     case 'pending':
-      return '#FFA500';
+      return '#FFA500'; // Orange - waiting
+    case 'preparing':
+      return '#3BB77E'; // Green - active
     case 'ready':
-      return Colors.primary;
-    case 'completed':
-      return '#4CAF50';
+      return '#00C853'; // Bright green - ready
+    case 'picked_up':
+      return '#4CAF50'; // Success green
     case 'cancelled':
-      return '#E92B45';
+      return '#DC2626'; // Red
     default:
       return Colors.darkGray;
   }
@@ -553,35 +660,69 @@ const styles = StyleSheet.create({
   // Progress Item - Each status step
   progressItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: vs(12),
+    alignItems: 'flex-start',
+    marginBottom: vs(15),
   },
   progressIconContainer: {
-    width: s(20),
-    height: s(20),
-    justifyContent: 'center',
+    width: s(30),
     alignItems: 'center',
     marginRight: s(15),
+    position: 'relative',
   },
   // Progress Dot - Active status indicator
   progressDot: {
-    width: s(10),
-    height: s(10),
-    borderRadius: s(5),
+    width: s(12),
+    height: s(12),
+    borderRadius: s(6),
     backgroundColor: Colors.primary,
+    zIndex: 2,
+  },
+  // Progress Dot Active - Currently active step
+  progressDotActive: {
+    width: s(16),
+    height: s(16),
+    borderRadius: s(8),
+    backgroundColor: Colors.primary,
+    borderWidth: 3,
+    borderColor: '#E8F5E9',
   },
   // Progress Dot Inactive - Pending status indicator
   progressDotInactive: {
     backgroundColor: '#D9D9D9',
   },
+  // Progress Line - Connects dots
+  progressLine: {
+    position: 'absolute',
+    width: 2,
+    height: vs(40),
+    top: vs(12),
+    left: s(13),
+    zIndex: 1,
+  },
+  progressLineActive: {
+    backgroundColor: Colors.primary,
+  },
+  progressLineInactive: {
+    backgroundColor: '#D9D9D9',
+  },
+  // Progress Content - Text container
+  progressContent: {
+    flex: 1,
+    paddingTop: vs(0),
+  },
   // Progress Text - Status label
   progressText: {
-    flex: 1,
     fontSize: ms(14),
     fontFamily: Fonts.primary,
     fontWeight: '500',
     color: Colors.primary,
-    lineHeight: ms(22),
+    lineHeight: ms(20),
+    marginBottom: vs(2),
+  },
+  // Progress Text Active - Current step
+  progressTextActive: {
+    fontWeight: '600',
+    color: Colors.primary,
   },
   // Progress Text Inactive - Pending status label
   progressTextInactive: {
@@ -591,9 +732,9 @@ const styles = StyleSheet.create({
   progressTime: {
     fontSize: ms(12),
     fontFamily: Fonts.primary,
-    fontWeight: '500',
-    color: Colors.primary,
-    lineHeight: ms(22),
+    fontWeight: '400',
+    color: 'rgba(30, 30, 30, 0.6)',
+    lineHeight: ms(18),
   },
   // Loading Container
   loadingContainer: {

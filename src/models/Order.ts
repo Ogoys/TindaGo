@@ -27,6 +27,7 @@ export interface Order {
   completedAt?: string;       // ISO string
   cancelledAt?: string;       // ISO string
   cancellationReason?: string;
+  cancelledBy?: 'customer' | 'store'; // Who cancelled the order
 }
 
 export interface OrderItem {

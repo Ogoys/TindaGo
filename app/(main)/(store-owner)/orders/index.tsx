@@ -16,7 +16,7 @@
  * **CURRENT VERSION: HARDCODED DATA FOR DESIGN VISUALIZATION**
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -24,9 +24,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { ref, onValue } from 'firebase/database';
+import { database } from "../../../../FirebaseConfig";
+import { useUser } from "../../../../src/contexts/UserContext";
+import { updateOrderStatus, cancelOrder } from "../../../../src/api/orders";
+import type { Order } from "../../../../src/models/Order";
 import { Typography } from "../../../../src/components/ui/Typography";
 import { Colors } from "../../../../src/constants/Colors";
 import { Fonts } from "../../../../src/constants/Fonts";
@@ -39,17 +46,6 @@ interface FilterTab {
   status: FilterStatus;
 }
 
-interface MockOrder {
-  id: string;
-  orderNumber: string;
-  customerName: string;
-  customerPhone: string;
-  total: number;
-  paymentMethod: string;
-  timeAgo: string;
-  status: FilterStatus;
-}
-
 const FILTER_TABS: FilterTab[] = [
   { label: 'Pending', status: 'pending' },
   { label: 'Preparing', status: 'preparing' },
@@ -58,121 +54,225 @@ const FILTER_TABS: FilterTab[] = [
   { label: 'Cancel', status: 'cancelled' },
 ];
 
-// MOCK DATA - Matches Store Home page design
-const MOCK_ORDERS: MockOrder[] = [
-  // Pending orders
+// MOCK DATA - 1 sample per status for visualization/testing
+const MOCK_ORDERS: Partial<Order>[] = [
   {
-    id: 'order-1',
-    orderNumber: '#12345',
-    customerName: 'Dotarot\nMaynard',
-    customerPhone: '+6398 032\n4213',
+    id: 'mock-pending-1',
+    orderNumber: '#SAMPLE-001',
+    customerName: 'Sample Customer',
+    customerPhone: '+63 912 345 6789',
     total: 589.00,
-    paymentMethod: 'PAYMAYA',
-    timeAgo: '1 min ago',
+    paymentMethod: 'cash',
     status: 'pending',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
-    id: 'order-2',
-    orderNumber: '#12346',
-    customerName: 'Juan Dela\nCruz',
-    customerPhone: '+6391 234\n5678',
-    total: 800.00,
-    paymentMethod: 'GCASH',
-    timeAgo: '5 min ago',
-    status: 'pending',
-  },
-  // Preparing orders
-  {
-    id: 'order-3',
-    orderNumber: '#12347',
-    customerName: 'Maria\nSantos',
-    customerPhone: '+6392 345\n6789',
-    total: 500.00,
-    paymentMethod: 'CASH',
-    timeAgo: '15 min ago',
+    id: 'mock-preparing-1',
+    orderNumber: '#SAMPLE-002',
+    customerName: 'Test User',
+    customerPhone: '+63 923 456 7890',
+    total: 750.00,
+    paymentMethod: 'gcash',
     status: 'preparing',
+    createdAt: new Date(Date.now() - 15 * 60000).toISOString(), // 15 min ago
+    updatedAt: new Date(Date.now() - 15 * 60000).toISOString(),
   },
   {
-    id: 'order-4',
-    orderNumber: '#12348',
-    customerName: 'Pedro\nGarcia',
-    customerPhone: '+6393 456\n7890',
-    total: 1250.00,
-    paymentMethod: 'GCASH',
-    timeAgo: '20 min ago',
-    status: 'preparing',
-  },
-  // Ready for pickup orders
-  {
-    id: 'order-5',
-    orderNumber: '#12349',
-    customerName: 'Ana\nReyes',
-    customerPhone: '+6394 567\n8901',
-    total: 700.00,
-    paymentMethod: 'PAYMAYA',
-    timeAgo: '1 hour ago',
+    id: 'mock-ready-1',
+    orderNumber: '#SAMPLE-003',
+    customerName: 'Demo Customer',
+    customerPhone: '+63 934 567 8901',
+    total: 1200.00,
+    paymentMethod: 'paymaya',
     status: 'ready',
-  },
-  // Picked up orders
-  {
-    id: 'order-6',
-    orderNumber: '#12350',
-    customerName: 'Carlos\nLopez',
-    customerPhone: '+6395 678\n9012',
-    total: 900.00,
-    paymentMethod: 'CASH',
-    timeAgo: '2 hours ago',
-    status: 'picked_up',
+    createdAt: new Date(Date.now() - 60 * 60000).toISOString(), // 1 hour ago
+    updatedAt: new Date(Date.now() - 60 * 60000).toISOString(),
   },
   {
-    id: 'order-7',
-    orderNumber: '#12351',
-    customerName: 'Lisa\nFernandez',
-    customerPhone: '+6396 789\n0123',
-    total: 600.00,
-    paymentMethod: 'GCASH',
-    timeAgo: '3 hours ago',
-    status: 'picked_up',
-  },
-  // Cancelled orders
-  {
-    id: 'order-8',
-    orderNumber: '#12352',
-    customerName: 'Ramon\nCruz',
-    customerPhone: '+6397 890\n1234',
+    id: 'mock-pickedup-1',
+    orderNumber: '#SAMPLE-004',
+    customerName: 'Completed Order',
+    customerPhone: '+63 945 678 9012',
     total: 450.00,
-    paymentMethod: 'PAYMAYA',
-    timeAgo: '1 day ago',
+    paymentMethod: 'cash',
+    status: 'picked_up',
+    createdAt: new Date(Date.now() - 120 * 60000).toISOString(), // 2 hours ago
+    updatedAt: new Date(Date.now() - 120 * 60000).toISOString(),
+    completedAt: new Date(Date.now() - 120 * 60000).toISOString(),
+  },
+  {
+    id: 'mock-cancelled-1',
+    orderNumber: '#SAMPLE-005',
+    customerName: 'Cancelled Test',
+    customerPhone: '+63 956 789 0123',
+    total: 350.00,
+    paymentMethod: 'gcash',
     status: 'cancelled',
+    cancellationReason: 'Customer requested cancellation',
+    cancelledBy: 'customer',
+    createdAt: new Date(Date.now() - 24 * 60 * 60000).toISOString(), // 1 day ago
+    updatedAt: new Date(Date.now() - 24 * 60 * 60000).toISOString(),
+    cancelledAt: new Date(Date.now() - 24 * 60 * 60000).toISOString(),
   },
 ];
 
 export default function StoreOrdersScreen() {
+  const { user } = useUser();
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('pending');
+  const [realOrders, setRealOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Filter mock orders based on selected status
-  const filteredOrders = MOCK_ORDERS.filter(order => order.status === selectedFilter);
+  // Fetch store orders from Firebase in real-time
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    // TODO: Replace 'user.id' with actual storeId from user profile
+    // For now, using user.id as storeId (assumes store owner's user.id = their storeId)
+    const storeId = user.id;
+
+    const ordersRef = ref(database, 'orders');
+    const unsubscribe = onValue(ordersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Filter orders for current store and map to array
+        const storeOrders = Object.keys(data)
+          .map(orderId => ({
+            ...data[orderId],
+            id: orderId,
+          }))
+          .filter((order: Order) => order.storeId === storeId)
+          .sort((a: Order, b: Order) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+        setRealOrders(storeOrders as Order[]);
+      } else {
+        setRealOrders([]);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Merge mock data with real orders for visualization
+  const allOrders = [...(MOCK_ORDERS as Order[]), ...realOrders];
+
+  // Filter orders based on selected status
+  const filteredOrders = allOrders.filter(order => order.status === selectedFilter);
 
   const handleBack = () => {
     router.back();
   };
 
   const handleOrderPress = (orderId: string, status: FilterStatus) => {
-    // Map status to detail screen route - UPDATED PATHS
-    const detailScreenMap: Record<FilterStatus, string> = {
-      'pending': '/(main)/(store-owner)/orders/pending',
-      'preparing': '/(main)/(store-owner)/orders/preparing',
-      'ready': '/(main)/(store-owner)/orders/ready',
-      'picked_up': '/(main)/(store-owner)/orders/pickup',
-      'cancelled': '/(main)/(store-owner)/orders/cancelled'
-    };
-    router.push(`${detailScreenMap[status]}?id=${orderId}` as any);
+    // Navigate to dynamic details screen with status parameter
+    router.push(`/(main)/(store-owner)/orders/details?id=${orderId}&status=${status}` as any);
+  };
+
+  // PREPARING STATUS: Mark order as ready for pickup
+  const handleReadyForPickup = async (orderId: string, orderNumber: string) => {
+    // Don't update mock data
+    if (orderId.startsWith('mock-')) {
+      Alert.alert("Demo Order", "This is a sample order for visualization. Real orders will update Firebase.");
+      return;
+    }
+
+    Alert.alert(
+      "Mark as Ready?",
+      `Order ${orderNumber} will be marked as ready for pickup. Customer will be notified.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Confirm",
+          onPress: async () => {
+            const success = await updateOrderStatus(orderId, 'ready');
+            if (success) {
+              Alert.alert(
+                "Success",
+                "Order is now ready for pickup. Customer has been notified."
+              );
+            } else {
+              Alert.alert("Error", "Failed to update order status. Please try again.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // READY STATUS: Confirm customer picked up the order
+  const handleOrderPickup = async (orderId: string, orderNumber: string) => {
+    // Don't update mock data
+    if (orderId.startsWith('mock-')) {
+      Alert.alert("Demo Order", "This is a sample order for visualization. Real orders will update Firebase.");
+      return;
+    }
+
+    Alert.alert(
+      "Confirm Order Pickup?",
+      `Has the customer picked up order ${orderNumber}?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Confirm Pickup",
+          onPress: async () => {
+            const success = await updateOrderStatus(orderId, 'picked_up');
+            if (success) {
+              Alert.alert(
+                "Order Completed",
+                "The order has been marked as completed."
+              );
+            } else {
+              Alert.alert("Error", "Failed to update order status. Please try again.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // PICKED_UP STATUS: View order details (button for consistency)
+  const handlePickupComplete = (orderId: string, orderNumber: string) => {
+    // Navigate to details to view completed order
+    handleOrderPress(orderId, 'picked_up');
+  };
+
+  // CANCELLED STATUS: View cancellation details
+  const handleViewCancellation = (orderId: string, orderNumber: string) => {
+    // Navigate to details to view cancellation reason
+    handleOrderPress(orderId, 'cancelled');
   };
 
   // Get title based on selected filter
   const getTitle = () => {
     const tab = FILTER_TABS.find(t => t.status === selectedFilter);
     return tab ? tab.label : 'Orders';
+  };
+
+  // Format time ago
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const orderDate = new Date(dateString);
+    const diffMs = now.getTime() - orderDate.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
   };
 
   return (
@@ -230,7 +330,12 @@ export default function StoreOrdersScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Loading orders...</Text>
+          </View>
+        ) : filteredOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No {getTitle().toLowerCase()} orders</Text>
             <Text style={styles.emptySubtext}>Orders will appear here when customers place them</Text>
@@ -240,12 +345,18 @@ export default function StoreOrdersScreen() {
             {filteredOrders.map((order) => (
               <TouchableOpacity
                 key={order.id}
-                style={styles.orderCard}
+                style={[
+                  styles.orderCard,
+                  (order.status === 'preparing' || order.status === 'ready' || order.status === 'picked_up' || order.status === 'cancelled') && styles.orderCardWithButton
+                ]}
                 onPress={() => handleOrderPress(order.id, selectedFilter)}
                 activeOpacity={0.8}
               >
-                {/* Order Card Background - Figma: Rectangle 64 400x200 with 16px radius */}
-                <View style={styles.orderCardBackground} />
+                {/* Order Card Background - Figma: Rectangle 64 400x200 with 16px radius (260px with button) */}
+                <View style={[
+                  styles.orderCardBackground,
+                  (order.status === 'preparing' || order.status === 'ready' || order.status === 'picked_up' || order.status === 'cancelled') && styles.orderCardBackgroundWithButton
+                ]} />
 
                 {/* Logo Section - Figma: Logo Group at 40,984 40x40 (relative to card) */}
                 <View style={styles.orderLogo}>
@@ -263,7 +374,7 @@ export default function StoreOrdersScreen() {
                     <Typography style={styles.orderNoLabel}>Order No</Typography>
                     <Typography style={styles.orderNoValue}>{order.orderNumber}</Typography>
                   </View>
-                  <Typography style={styles.orderTime}>{order.timeAgo}</Typography>
+                  <Typography style={styles.orderTime}>{getTimeAgo(order.createdAt)}</Typography>
                 </View>
 
                 {/* Separator Line - Figma: Vector 43 at 30,1044 */}
@@ -291,7 +402,7 @@ export default function StoreOrdersScreen() {
                       resizeMode="contain"
                     />
                     <View style={styles.orderDetailText}>
-                      <Typography style={styles.phoneNumber}>{order.customerPhone}</Typography>
+                      <Typography style={styles.phoneNumber}>{order.customerPhone || 'N/A'}</Typography>
                     </View>
                   </View>
                 </View>
@@ -318,10 +429,64 @@ export default function StoreOrdersScreen() {
                       resizeMode="contain"
                     />
                     <View style={styles.orderDetailText}>
-                      <Typography style={styles.paymentMethod}>{order.paymentMethod}</Typography>
+                      <Typography style={styles.paymentMethod}>{order.paymentMethod.toUpperCase()}</Typography>
                     </View>
                   </View>
                 </View>
+
+                {/* Action Buttons - Figma: Continue button at 20,200 360x40 */}
+                {order.status === 'preparing' && (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={(e) => {
+                      e.stopPropagation(); // Prevent card press
+                      handleReadyForPickup(order.id, order.orderNumber);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.actionButtonBackground} />
+                    <Text style={styles.actionButtonText}>Ready to Pickup</Text>
+                  </TouchableOpacity>
+                )}
+                {order.status === 'ready' && (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={(e) => {
+                      e.stopPropagation(); // Prevent card press
+                      handleOrderPickup(order.id, order.orderNumber);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.actionButtonBackground} />
+                    <Text style={styles.actionButtonText}>Order Pickup</Text>
+                  </TouchableOpacity>
+                )}
+                {order.status === 'picked_up' && (
+                  <TouchableOpacity
+                    style={styles.pickupActionButton}
+                    onPress={(e) => {
+                      e.stopPropagation(); // Prevent card press
+                      handlePickupComplete(order.id, order.orderNumber);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.pickupActionButtonBackground} />
+                    <Text style={styles.pickupActionButtonText}>Pickup</Text>
+                  </TouchableOpacity>
+                )}
+                {order.status === 'cancelled' && (
+                  <TouchableOpacity
+                    style={styles.cancelActionButton}
+                    onPress={(e) => {
+                      e.stopPropagation(); // Prevent card press
+                      handleViewCancellation(order.id, order.orderNumber);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.cancelActionButtonBackground} />
+                    <Text style={styles.cancelActionButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -451,6 +616,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 5,
     elevation: 5,
+  },
+
+  // Order card with button (preparing/ready) - Figma: height:260 (increased from 200 for button)
+  orderCardWithButton: {
+    height: vs(260),
+  },
+
+  orderCardBackgroundWithButton: {
+    height: vs(260),
   },
 
   // Order Logo - Figma: Logo Group at 40,984 40x40 (relative to card)
@@ -625,6 +799,20 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
   },
 
+  // Loading State
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: vs(100),
+  },
+
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+
   // Empty State
   emptyContainer: {
     alignItems: 'center',
@@ -647,5 +835,104 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(30, 30, 30, 0.4)',
     textAlign: 'center',
+  },
+
+  // Action Button (Ready to Pickup / Order Pickup) - Figma: Continue button at 20,200 360x40
+  actionButton: {
+    position: 'absolute',
+    left: s(20),
+    top: vs(200),
+    width: s(360),
+    height: vs(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  actionButtonBackground: {
+    position: 'absolute',
+    width: s(360),
+    height: vs(40),
+    backgroundColor: '#3BB77E', // Figma: fill_879QBJ
+    borderRadius: s(10),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: s(4),
+    elevation: 4,
+  },
+
+  actionButtonText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: ms(18),
+    lineHeight: ms(18) * 1.22,
+    textAlign: 'center',
+    color: '#FFFFFF',
+  },
+
+  // Pickup Button (Light Green) - Figma: pickup card node 1057-5215
+  pickupActionButton: {
+    position: 'absolute',
+    left: s(20),
+    top: vs(200),
+    width: s(360),
+    height: vs(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  pickupActionButtonBackground: {
+    position: 'absolute',
+    width: s(360),
+    height: vs(40),
+    backgroundColor: '#DCFCE7', // Light green background
+    borderRadius: s(10),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: s(4),
+    elevation: 4,
+  },
+
+  pickupActionButtonText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: ms(18),
+    lineHeight: ms(18) * 1.22,
+    textAlign: 'center',
+    color: '#3BB77E', // Green text
+  },
+
+  // Cancel Button (Light Red) - Figma: cancel card node 1057-5348
+  cancelActionButton: {
+    position: 'absolute',
+    left: s(20),
+    top: vs(200),
+    width: s(360),
+    height: vs(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  cancelActionButtonBackground: {
+    position: 'absolute',
+    width: s(360),
+    height: vs(40),
+    backgroundColor: '#FECACA', // Light red background
+    borderRadius: s(10),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: s(4),
+    elevation: 4,
+  },
+
+  cancelActionButtonText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: ms(18),
+    lineHeight: ms(18) * 1.22,
+    textAlign: 'center',
+    color: '#DC2626', // Red text
   },
 });
