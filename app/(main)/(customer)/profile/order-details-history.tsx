@@ -10,7 +10,7 @@
  * Different from the main order-details.tsx which is for active orders.
  */
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,14 +19,196 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { ref, get } from 'firebase/database';
+import { database } from '../../../../FirebaseConfig';
+import type { Order } from '../../../../src/models/Order';
 import { s, vs, ms } from "../../../../src/constants/responsive";
 import { Colors } from "../../../../src/constants/Colors";
 import { Fonts } from "../../../../src/constants/Fonts";
+import { useUser } from '../../../../src/contexts/UserContext';
+import { addToCart } from '../../../../src/api/cart';
 
 export default function OrderDetailsHistoryScreen() {
+  const params = useLocalSearchParams();
+  const orderId = params.id as string;
+  const { user } = useUser();
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [reordering, setReordering] = useState(false);
+
+  // Fetch order data from Firebase
+  useEffect(() => {
+    const fetchOrderData = async () => {
+      if (!orderId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const orderRef = ref(database, `orders/${orderId}`);
+        const snapshot = await get(orderRef);
+
+        if (snapshot.exists()) {
+          setOrder({ ...snapshot.val(), id: orderId });
+        } else {
+          Alert.alert("Error", "Order not found");
+          router.back();
+        }
+      } catch (error) {
+        console.error("Error fetching order:", error);
+        Alert.alert("Error", "Failed to load order details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrderData();
+  }, [orderId]);
+
+  // Format date
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+    } catch (error) {
+      return 'N/A';
+    }
+  };
+
+  // Get payment method display name
+  const getPaymentMethodName = (method: string) => {
+    switch (method?.toLowerCase()) {
+      case 'cash':
+        return 'Cash on Pickup';
+      case 'gcash':
+        return 'GCash';
+      case 'paymaya':
+        return 'PayMaya';
+      case 'online':
+        return 'Online Payment';
+      default:
+        return method || 'Cash on Pickup';
+    }
+  };
+
+  // Safe number formatter
+  const formatCurrency = (value: number | undefined): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return '0.00';
+    }
+    return value.toFixed(2);
+  };
+
+  // Handle reorder - add all items back to cart
+  const handleReorder = async () => {
+    if (!user || !order) {
+      Alert.alert("Error", "Unable to reorder at this time");
+      return;
+    }
+
+    setReordering(true);
+
+    try {
+      // Add all items from the order back to the cart
+      let successCount = 0;
+
+      for (const item of order.items) {
+        const cartItem = {
+          productId: item.productId,
+          productName: item.productName,
+          productImage: item.productImage,
+          price: item.price,
+          quantity: item.quantity,
+          weight: item.weight || '',
+          unit: item.unit || '',
+          subtotal: item.subtotal,
+          notes: item.notes || '',
+        };
+
+        const success = await addToCart(user.id, cartItem);
+        if (success) {
+          successCount++;
+        }
+      }
+
+      if (successCount === order.items.length) {
+        Alert.alert(
+          "Success",
+          `${successCount} item${successCount > 1 ? 's' : ''} added to cart!`,
+          [
+            {
+              text: "Go to Cart",
+              onPress: () => router.push("/(main)/(customer)/cart")
+            },
+            {
+              text: "Continue Shopping",
+              style: "cancel"
+            }
+          ]
+        );
+      } else if (successCount > 0) {
+        Alert.alert(
+          "Partial Success",
+          `${successCount} of ${order.items.length} items added to cart. Some items may be unavailable.`,
+          [{ text: "OK", onPress: () => router.push("/(main)/(customer)/cart") }]
+        );
+      } else {
+        Alert.alert("Error", "Failed to add items to cart. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error reordering:", error);
+      Alert.alert("Error", "An error occurred while reordering. Please try again.");
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading order details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!order) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Order not found</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Additional safety check for order data integrity
+  const safeOrder = {
+    ...order,
+    items: order.items || [],
+    subtotal: order.subtotal ?? 0,
+    serviceFee: order.serviceFee ?? 0,
+    tax: order.tax ?? 0,
+    total: order.total ?? 0,
+    orderNumber: order.orderNumber || 'N/A',
+    storeName: order.storeName || 'N/A',
+    customerName: order.customerName || 'N/A',
+    paymentMethod: order.paymentMethod || 'cash',
+    completedAt: order.completedAt || order.updatedAt || order.createdAt || new Date().toISOString(),
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
@@ -62,31 +244,28 @@ export default function OrderDetailsHistoryScreen() {
           {/* Item Count - Figma: 903:5802 & 903:5803, y:189 */}
           <View style={styles.billRow1}>
             <Text style={styles.billLabel}>Item</Text>
-            <Text style={styles.billValue}>12</Text>
+            <Text style={styles.billValue}>{safeOrder.items.length}</Text>
           </View>
 
           {/* Sub Total - Figma: 903:5793 & 903:5801, y:226 */}
           <View style={styles.billRow2}>
             <Text style={styles.billLabel}>Sub Total</Text>
-            <Text style={styles.billValue}>₱ 500.25</Text>
+            <Text style={styles.billValue}>₱ {formatCurrency(safeOrder.subtotal)}</Text>
           </View>
 
           {/* Service Fee - Figma: 903:5794 & 903:5800, y:263 */}
           <View style={styles.billRow3}>
             <Text style={styles.billLabel}>Service Fee</Text>
-            <Text style={styles.billValue}>₱ 50.25</Text>
+            <Text style={styles.billValue}>₱ {formatCurrency(safeOrder.serviceFee)}</Text>
           </View>
 
-          {/* Discount - Figma: 903:5795 & 903:5797, y:300 */}
-          <View style={styles.billRow4}>
-            <Text style={styles.billLabel}>Discount (20%)</Text>
-            <Text style={styles.billValue}>₱ 50.25</Text>
-          </View>
-
-          {/* Discount Note - Figma: 903:5796, y:322 */}
-          <Text style={styles.discountNote}>
-            Discount depend on what you are{"\n"}senior of pwd.
-          </Text>
+          {/* Tax - Only show if exists */}
+          {safeOrder.tax > 0 && (
+            <View style={styles.billRow4}>
+              <Text style={styles.billLabel}>Tax</Text>
+              <Text style={styles.billValue}>₱ {formatCurrency(safeOrder.tax)}</Text>
+            </View>
+          )}
 
           {/* Dashed Divider Line - Figma: 903:5804, y:372 */}
           <View style={styles.dashedDivider}>
@@ -98,7 +277,7 @@ export default function OrderDetailsHistoryScreen() {
           {/* Grand Total - Figma: 903:5798 & 903:5799, y:394 */}
           <View style={styles.billRowGrandTotal}>
             <Text style={styles.grandTotalLabel}>Grand Total</Text>
-            <Text style={styles.grandTotalValue}>₱ 50.25</Text>
+            <Text style={styles.grandTotalValue}>₱ {formatCurrency(safeOrder.total)}</Text>
           </View>
         </View>
 
@@ -111,28 +290,30 @@ export default function OrderDetailsHistoryScreen() {
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Order ID</Text>
             <Text style={styles.detailColon}>:</Text>
-            <Text style={styles.detailValue}>213322RW23FSAWW</Text>
+            <Text style={styles.detailValue}>{safeOrder.orderNumber}</Text>
           </View>
 
           {/* Date Row - Figma: 903:5838, y:539 */}
           <View style={styles.detailRow2}>
             <Text style={styles.detailLabel}>Date</Text>
             <Text style={styles.detailColon}>:</Text>
-            <Text style={styles.detailValueRight}>08 August, 2025</Text>
+            <Text style={styles.detailValueRight}>
+              {formatDate(safeOrder.completedAt)}
+            </Text>
           </View>
 
           {/* Shop Row - Figma: 903:5834, y:566 */}
           <View style={styles.detailRow3}>
             <Text style={styles.detailLabel}>Shop</Text>
             <Text style={styles.detailColon}>:</Text>
-            <Text style={styles.detailValueRight}>Golis sari-sari store</Text>
+            <Text style={styles.detailValueRight}>{safeOrder.storeName}</Text>
           </View>
 
           {/* Buyer Row - Figma: 903:5842, y:593 */}
           <View style={styles.detailRow4}>
             <Text style={styles.detailLabel}>Buyer</Text>
             <Text style={styles.detailColon}>:</Text>
-            <Text style={styles.detailValueRight}>Daniel Oppa</Text>
+            <Text style={styles.detailValueRight}>{safeOrder.customerName}</Text>
           </View>
         </View>
 
@@ -143,25 +324,41 @@ export default function OrderDetailsHistoryScreen() {
         <View style={styles.paymentCard}>
           <View style={styles.paymentCardBackground} />
           <View style={styles.paymentContent}>
-            <Image
-              source={require("../../../../src/assets/images/customer-order-details-history/paypal-icon.png")}
-              style={styles.paypalIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.paymentText}>Pay Pal</Text>
+            {safeOrder.paymentMethod === 'cash' ? (
+              <View style={styles.cashIconCircle}>
+                <Text style={styles.cashIconText}>₱</Text>
+              </View>
+            ) : safeOrder.paymentMethod === 'gcash' ? (
+              <Image
+                source={require("../../../../src/assets/images/payment/gcash-icon.png")}
+                style={styles.paymentIcon}
+                resizeMode="contain"
+              />
+            ) : (
+              <Image
+                source={require("../../../../src/assets/images/payment/paypal-icon.png")}
+                style={styles.paymentIcon}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={styles.paymentText}>
+              {getPaymentMethodName(safeOrder.paymentMethod)}
+            </Text>
           </View>
         </View>
 
         {/* REORDER BUTTON - Figma: 903:5855, x:20, y:839, width:400, height:50 */}
         <TouchableOpacity
-          style={styles.reorderButton}
+          style={[styles.reorderButton, reordering && styles.reorderButtonDisabled]}
           activeOpacity={0.7}
-          onPress={() => {
-            // TODO: Implement reorder functionality
-            console.log("Reorder pressed");
-          }}
+          onPress={handleReorder}
+          disabled={reordering}
         >
-          <Text style={styles.reorderButtonText}>Reorder</Text>
+          {reordering ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.reorderButtonText}>Reorder</Text>
+          )}
         </TouchableOpacity>
 
         {/* Bottom Padding */}
@@ -522,12 +719,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // PayPal Icon - Figma: 903:5853, 30x30
-  paypalIcon: {
-    width: s(30),
-    height: s(30),
-  },
-
   // Payment Text - Figma: 903:5854
   paymentText: {
     marginLeft: s(20),
@@ -556,6 +747,12 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
+  // Reorder Button Disabled State
+  reorderButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+    opacity: 0.6,
+  },
+
   // Reorder Button Text - Figma: 903:5856
   reorderButtonText: {
     fontFamily: Fonts.primary,
@@ -569,5 +766,54 @@ const styles = StyleSheet.create({
   // Bottom Padding
   bottomPadding: {
     height: vs(950), // Ensure all absolutely positioned content is visible
+  },
+
+  // Loading Container
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: vs(100),
+  },
+
+  // Loading Text
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+
+  // Error Text
+  errorText: {
+    fontSize: ms(18),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: 'rgba(30, 30, 30, 0.5)',
+    textAlign: 'center',
+  },
+
+  // Cash Icon Circle - Custom style for cash payment
+  cashIconCircle: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: "#3BB77E",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Cash Icon Text
+  cashIconText: {
+    fontSize: ms(18),
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+
+  // Payment Icon - For GCash and PayMaya icons
+  paymentIcon: {
+    width: s(30),
+    height: s(30),
   },
 });

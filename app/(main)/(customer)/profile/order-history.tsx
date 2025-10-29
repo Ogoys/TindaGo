@@ -10,7 +10,7 @@
  * This is different from the main Orders screen which has expandable cards.
  */
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -18,89 +18,63 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { ref, onValue } from 'firebase/database';
+import { database } from '../../../../FirebaseConfig';
+import { useUser } from '../../../../src/contexts/UserContext';
+import type { Order } from '../../../../src/models/Order';
 import { Colors } from "../../../../src/constants/Colors";
 import { Fonts } from "../../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../../src/constants/responsive";
 
-interface HistoryOrder {
-  id: string;
-  storeName: string;
-  date: string;
-  address: string;
-  total: string;
-}
-
-// Mock data - Replace with actual data from Firebase
-const mockHistoryOrders: HistoryOrder[] = [
-  {
-    id: '1',
-    storeName: 'Golis Sari-Sari Store',
-    date: '02/08/2025',
-    address: 'Jacinto St. 32-D',
-    total: '589.00',
-  },
-  {
-    id: '2',
-    storeName: 'Golis Sari-Sari Store',
-    date: '02/08/2025',
-    address: 'Jacinto St. 32-D',
-    total: '589.00',
-  },
-  {
-    id: '3',
-    storeName: 'Golis Sari-Sari Store',
-    date: '02/08/2025',
-    address: 'Jacinto St. 32-D',
-    total: '589.00',
-  },
-  {
-    id: '4',
-    storeName: 'Golis Sari-Sari Store',
-    date: '02/08/2025',
-    address: 'Jacinto St. 32-D',
-    total: '589.00',
-  },
-  {
-    id: '5',
-    storeName: 'Golis Sari-Sari Store',
-    date: '02/08/2025',
-    address: 'Jacinto St. 32-D',
-    total: '589.00',
-  },
-  {
-    id: '6',
-    storeName: 'Golis Sari-Sari Store',
-    date: '02/08/2025',
-    address: 'Jacinto St. 32-D',
-    total: '589.00',
-  },
-  {
-    id: '7',
-    storeName: 'Golis Sari-Sari Store',
-    date: '02/08/2025',
-    address: 'Jacinto St. 32-D',
-    total: '589.00',
-  },
-  {
-    id: '8',
-    storeName: 'Golis Sari-Sari Store',
-    date: '02/08/2025',
-    address: 'Jacinto St. 32-D',
-    total: '589.00',
-  },
-];
-
 export default function OrderHistoryScreen() {
+  const { user } = useUser();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch completed orders from Firebase
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const ordersRef = ref(database, 'orders');
+    const unsubscribe = onValue(ordersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Filter for completed/picked_up orders for current user
+        const completedOrders = Object.keys(data)
+          .map(orderId => ({ ...data[orderId], id: orderId }))
+          .filter((order: Order) =>
+            order.customerId === user.id &&
+            (order.status === 'picked_up' || order.status === 'completed')
+          )
+          .sort((a: Order, b: Order) =>
+            new Date(b.completedAt || b.updatedAt).getTime() -
+            new Date(a.completedAt || a.updatedAt).getTime()
+          );
+
+        setOrders(completedOrders as Order[]);
+      } else {
+        setOrders([]);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const handleBack = () => {
     router.back();
   };
 
   const handleOrderPress = (orderId: string) => {
-    // Navigate to order details screen (profile flow)
-    router.push("/(main)/(customer)/profile/order-details-history");
+    // Navigate to order details screen with order ID
+    router.push(`/(main)/(customer)/profile/order-details-history?id=${orderId}`);
   };
 
   return (
@@ -128,26 +102,58 @@ export default function OrderHistoryScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {mockHistoryOrders.map((order, index) => (
-          <OrderHistoryCard
-            key={order.id}
-            order={order}
-            onPress={() => handleOrderPress(order.id)}
-            isFirst={index === 0}
-          />
-        ))}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Loading order history...</Text>
+          </View>
+        ) : orders.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No completed orders yet</Text>
+            <Text style={styles.emptySubtext}>Your order history will appear here once you complete orders</Text>
+          </View>
+        ) : (
+          orders.map((order, index) => (
+            <OrderHistoryCard
+              key={order.id}
+              order={order}
+              onPress={() => handleOrderPress(order.id)}
+              isFirst={index === 0}
+            />
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 interface OrderHistoryCardProps {
-  order: HistoryOrder;
+  order: Order;
   onPress: () => void;
   isFirst: boolean;
 }
 
 const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({ order, onPress, isFirst }) => {
+  // Format date
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    } catch (error) {
+      return 'N/A';
+    }
+  };
+
+  // Safe currency formatter
+  const formatCurrency = (value: number | undefined): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return '0.00';
+    }
+    return value.toFixed(2);
+  };
+
   return (
     <TouchableOpacity
       style={[
@@ -172,19 +178,21 @@ const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({ order, onPress, isF
       {/* Store Info - Figma: x:75, y:22 (relative to card) */}
       <View style={styles.storeInfo}>
         {/* Store Name - Figma: width:126, height:17 */}
-        <Text style={styles.storeName}>{order.storeName}</Text>
+        <Text style={styles.storeName}>{order.storeName || 'N/A'}</Text>
 
-        {/* Address - Figma: y:44 (relative to card) */}
-        <Text style={styles.address}>{order.address}</Text>
+        {/* Order Number - Figma: y:44 (relative to card) */}
+        <Text style={styles.address}>{order.orderNumber || 'N/A'}</Text>
       </View>
 
       {/* Right Section */}
       <View style={styles.rightSection}>
         {/* Date - Figma: x:296, y:22 (relative to card) */}
-        <Text style={styles.date}>{order.date}</Text>
+        <Text style={styles.date}>
+          {formatDate(order.completedAt || order.updatedAt || order.createdAt)}
+        </Text>
 
         {/* Total - Figma: x:315, y:45 (relative to card) */}
-        <Text style={styles.total}>₱{order.total}</Text>
+        <Text style={styles.total}>₱{formatCurrency(order.total)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -323,5 +331,41 @@ const styles = StyleSheet.create({
     color: Colors.darkGray, // #1E1E1E
     lineHeight: ms(19.68), // 1.23em
     textAlign: 'right',
+  },
+  // Loading State
+  loadingContainer: {
+    paddingVertical: vs(80),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+  // Empty State
+  emptyContainer: {
+    paddingVertical: vs(80),
+    paddingHorizontal: s(40),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: ms(18),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: 'rgba(30, 30, 30, 0.5)',
+    marginBottom: vs(10),
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: ms(14),
+    fontFamily: Fonts.primary,
+    fontWeight: '400',
+    color: 'rgba(30, 30, 30, 0.4)',
+    textAlign: 'center',
+    lineHeight: ms(14) * 1.5,
   },
 });

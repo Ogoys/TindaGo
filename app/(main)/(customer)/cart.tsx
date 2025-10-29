@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ref, onValue } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
-import { removeFromCart, updateCartQuantity } from '../../../src/api/cart';
+import { removeFromCart, updateCartQuantity, cleanupMixedStoreCart } from '../../../src/api/cart';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from '../../../src/constants/Colors';
 import { Fonts } from '../../../src/constants/Fonts';
@@ -67,6 +67,32 @@ const CartScreen = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Automatic mixed-store cart cleanup on mount
+  useEffect(() => {
+    if (!user || cartItems.length === 0) return;
+
+    const performCleanup = async () => {
+      // Check if cart has mixed stores
+      const storeIds = [...new Set(cartItems.map(item => item.storeId))];
+
+      if (storeIds.length > 1) {
+        console.log('Mixed-store cart detected, performing automatic cleanup...');
+
+        const result = await cleanupMixedStoreCart(user.id);
+
+        if (result.success && result.hadMixedStores && result.keptStore) {
+          setToastMessage(
+            `Cart cleaned up: Kept ${result.itemsRemoved} item(s) from ${result.keptStore.storeName}. Items from other stores were removed.`
+          );
+          setToastType('info');
+          setShowToast(true);
+        }
+      }
+    };
+
+    performCleanup();
+  }, [user, cartItems.length]); // Run when cart items count changes
 
   // Real-time product availability monitoring
   useEffect(() => {
@@ -206,6 +232,17 @@ const CartScreen = () => {
       return;
     }
 
+    // IMPORTANT: Validate all items are from the same store
+    const storeIds = [...new Set(cartItems.map(item => item.storeId))];
+    if (storeIds.length > 1) {
+      Alert.alert(
+        'Mixed Store Items',
+        'Your cart contains items from multiple stores. Please remove items to order from only one store at a time.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     // Navigate to payment screen
     router.push('/(main)/(customer)/payment');
   };
@@ -230,9 +267,9 @@ const CartScreen = () => {
               style={styles.chevronIcon}
             />
           </TouchableOpacity>
-          
+
           <Text style={styles.headerTitle}>Shopping Cart</Text>
-          
+
           <TouchableOpacity style={styles.notificationButton}>
             <Image
               source={require('../../../src/assets/images/product-chart/notification-icon.png')}
@@ -240,6 +277,19 @@ const CartScreen = () => {
             />
           </TouchableOpacity>
         </View>
+
+        {/* Store Info - Display which store items are from */}
+        {!loading && cartItems.length > 0 && (
+          <View style={styles.storeInfoSection}>
+            <View style={styles.storeIconCircle}>
+              <Text style={styles.storeIconText}>🏪</Text>
+            </View>
+            <View style={styles.storeInfoContent}>
+              <Text style={styles.storeInfoLabel}>Items from</Text>
+              <Text style={styles.storeInfoName}>{cartItems[0].storeName}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Product Items */}
         <View style={styles.ordersContainer}>
@@ -496,6 +546,51 @@ const styles = StyleSheet.create({
   notificationIcon: {
     width: s(25),
     height: vs(25),
+  },
+  // Store Info Section
+  storeInfoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: s(15),
+    paddingVertical: vs(12),
+    paddingHorizontal: s(15),
+    marginHorizontal: s(20),
+    marginBottom: vs(15),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  storeIconCircle: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: '#FFF3E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(12),
+  },
+  storeIconText: {
+    fontSize: s(20),
+  },
+  storeInfoContent: {
+    flex: 1,
+  },
+  storeInfoLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: s(11),
+    fontWeight: Fonts.weights.medium,
+    color: Colors.textSecondary,
+    lineHeight: s(14),
+  },
+  storeInfoName: {
+    fontFamily: Fonts.primary,
+    fontSize: s(15),
+    fontWeight: Fonts.weights.semiBold,
+    color: Colors.darkGray,
+    lineHeight: s(20),
   },
   // Orders container - Figma: x: 20, y: 166, width: 400, height: 480
   ordersContainer: {

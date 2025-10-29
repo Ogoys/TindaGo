@@ -85,6 +85,68 @@ export default function OrderDetailsScreen() {
     }
   };
 
+  // Render dynamic progress timeline based on order status
+  const renderProgressTimeline = (order: Order) => {
+    // Define progress steps
+    const steps = [
+      { status: 'pending', label: 'Order Placed', icon: '📋' },
+      { status: 'preparing', label: 'Preparing Your Order', icon: '🛍️' },
+      { status: 'ready', label: 'Ready for Pickup', icon: '✅' },
+      { status: 'picked_up', label: 'Order Completed', icon: '📦' },
+    ];
+
+    // Determine which steps are completed
+    const statusOrder = ['pending', 'preparing', 'ready', 'picked_up'];
+    const currentStatusIndex = statusOrder.indexOf(order.status);
+
+    return steps.map((step, index) => {
+      const isCompleted = index <= currentStatusIndex;
+      const isActive = index === currentStatusIndex;
+
+      // Get timestamp for this step
+      let timestamp = 'Pending';
+      if (isCompleted) {
+        if (index === 0) timestamp = formatTime(order.createdAt);
+        else if (step.status === order.status) timestamp = formatTime(order.updatedAt);
+        else if (step.status === 'picked_up' && order.completedAt) timestamp = formatTime(order.completedAt);
+        else timestamp = formatTime(order.updatedAt);
+      }
+
+      return (
+        <View key={step.status} style={styles.progressItem}>
+          <View style={styles.progressIconContainer}>
+            {isCompleted ? (
+              <View style={[styles.progressDot, isActive && styles.progressDotActive]} />
+            ) : (
+              <View style={[styles.progressDot, styles.progressDotInactive]} />
+            )}
+            {index < steps.length - 1 && (
+              <View style={[
+                styles.progressLine,
+                isCompleted ? styles.progressLineActive : styles.progressLineInactive
+              ]} />
+            )}
+          </View>
+          <View style={styles.progressContent}>
+            <Text style={[
+              styles.progressText,
+              !isCompleted && styles.progressTextInactive,
+              isActive && styles.progressTextActive
+            ]}>
+              {step.icon} {step.label}
+            </Text>
+            <Text style={[
+              styles.progressTime,
+              !isCompleted && styles.progressTimeInactive
+            ]}>
+              {timestamp}
+            </Text>
+          </View>
+        </View>
+      );
+    });
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -162,116 +224,9 @@ export default function OrderDetailsScreen() {
           {/* Card Background - Figma: 759:4030 */}
           <View style={styles.statusCardBackground} />
 
-          {/* STATUS TIMELINE */}
-          {/* Lines connecting status items - Figma: 759:4031 */}
-          <View style={styles.linesContainer}>
-            <View style={styles.statusLine} />
-            <View style={styles.statusLine} />
-            <View style={styles.statusLine} />
-          </View>
-
-          {/* STATUS ITEM 1: ORDER CONFIRMED - Figma: 759:4035, x:36, y:206 */}
-          <View style={styles.statusItem1}>
-            <View style={styles.statusIconContainer}>
-              {/* Check Icon Background - Figma: 759:4036 */}
-              <View style={styles.checkCircle} />
-              {/* Check Icon - Figma: 759:4037 */}
-              <View style={styles.checkIcon}>
-                <View style={styles.checkMark} />
-              </View>
-            </View>
-            <Text style={styles.statusTextConfirmed}>Order Confirmed</Text>
-            <Text style={styles.statusTime1}>{formatTime(order.createdAt)}</Text>
-          </View>
-
-          {/* STATUS ITEM 2: PREPARING ORDER - Figma: 759:4039, x:36, y:256 */}
-          <View style={styles.statusItem2}>
-            <View style={styles.statusIconContainer}>
-              {/* Process Circle - Figma: 759:4040 */}
-              <View style={[
-                styles.processCircle,
-                order.status === 'pending' && styles.inactiveCircle
-              ]} />
-              {/* Process Icon - Figma: 759:4041 */}
-              <Image
-                source={require("../../../src/assets/images/customer-order-details/process-icon.png")}
-                style={[
-                  styles.processIcon,
-                  order.status === 'pending' && styles.inactiveIcon
-                ]}
-                resizeMode="cover"
-              />
-            </View>
-            <Text style={[
-              styles.statusText,
-              order.status === 'pending' && styles.inactiveText
-            ]}>Preparing your Order</Text>
-            <Text style={[
-              styles.statusTime2,
-              order.status === 'pending' && styles.inactiveText
-            ]}>
-              {order.status === 'pending' ? 'Pending' : formatTime(order.updatedAt)}
-            </Text>
-          </View>
-
-          {/* STATUS ITEM 3: READY TO PICKUP - Figma: 759:4042, x:36, y:306 */}
-          <View style={styles.statusItem3}>
-            <View style={styles.statusIconContainer}>
-              {/* Pickup Circle - Figma: 759:4043 */}
-              <View style={[
-                styles.pickupCircle,
-                (order.status === 'pending' || order.status === 'preparing') && styles.inactiveCircle
-              ]} />
-              {/* Pickup Icon - Figma: 759:4044 */}
-              <Image
-                source={require("../../../src/assets/images/customer-order-details/pickup-icon.png")}
-                style={[
-                  styles.pickupIcon,
-                  (order.status === 'pending' || order.status === 'preparing') && styles.inactiveIcon
-                ]}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={[
-              styles.statusText,
-              (order.status === 'pending' || order.status === 'preparing') && styles.inactiveText
-            ]}>Your Order is Ready to Pickup</Text>
-            <Text style={[
-              styles.statusTime3,
-              (order.status === 'pending' || order.status === 'preparing') && styles.inactiveText
-            ]}>
-              {(order.status === 'pending' || order.status === 'preparing') ? 'Pending' : formatTime(order.updatedAt)}
-            </Text>
-          </View>
-
-          {/* STATUS ITEM 4: PICKUP ORDER - Figma: 759:4051, x:36, y:356 */}
-          <View style={styles.statusItem4}>
-            <View style={styles.statusIconContainer}>
-              {/* Pickup Circle - Figma: 759:4052 */}
-              <View style={[
-                styles.pickupCircle,
-                order.status !== 'completed' && styles.inactiveCircle
-              ]} />
-              {/* Pickup Icon - Figma: 759:4053 */}
-              <Image
-                source={require("../../../src/assets/images/customer-order-details/pickup-icon.png")}
-                style={[
-                  styles.pickupIcon,
-                  order.status !== 'completed' && styles.inactiveIcon
-                ]}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={[
-              styles.statusText,
-              order.status !== 'completed' && styles.inactiveText
-            ]}>Pickup Order</Text>
-            <Text style={[
-              styles.statusTime4,
-              order.status !== 'completed' && styles.inactiveText
-            ]}>
-              {order.status !== 'completed' ? 'Pending' : formatTime(order.updatedAt)}
-            </Text>
+          {/* DYNAMIC REAL-TIME STATUS TIMELINE */}
+          <View style={styles.timelineContainer}>
+            {renderProgressTimeline(order)}
           </View>
         </View>
 
@@ -489,20 +444,20 @@ const styles = StyleSheet.create({
     color: "rgba(30, 30, 30, 0.5)", // Figma: fill_X1Q1GT
   },
 
-  // STATUS ORDER CARD - Figma: 759:4029, x:20, y:191, width:400, height:200
+  // STATUS ORDER CARD - Figma: 759:4029, x:20, y:191, width:400, height:260 (increased)
   statusOrderCard: {
     position: "absolute",
     left: s(20),
     top: vs(191),
     width: s(400),
-    height: vs(200),
+    height: vs(260), // Increased from 240 to 260 for better spacing
   },
 
   // Status Card Background - Figma: 759:4030, white rectangle with shadow
   statusCardBackground: {
     position: "absolute",
     width: s(400),
-    height: vs(200),
+    height: vs(260), // Increased from 240 to 260
     backgroundColor: "#FFFFFF",
     borderRadius: s(20),
     shadowColor: "rgba(0, 0, 0, 0.25)",
@@ -694,11 +649,11 @@ const styles = StyleSheet.create({
     color: "#3BB77E",
   },
 
-  // BILL CARD - Figma: 759:4056, x:20, y:411, width:400, height:320
+  // BILL CARD - Figma: 759:4056, x:20, y:471 (adjusted), width:400, height:320
   billCard: {
     position: "absolute",
     left: s(20),
-    top: vs(411),
+    top: vs(471), // Adjusted from 451 to 471 (191 + 260 + 20 margin)
     width: s(400),
     height: vs(320),
   },
@@ -855,11 +810,11 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 
-  // PAYMENT METHOD LABEL - Figma: 759:4112, x:20, y:751
+  // PAYMENT METHOD LABEL - Figma: 759:4112, x:20, y:811 (adjusted)
   paymentMethodLabel: {
     position: "absolute",
     left: s(20),
-    top: vs(751),
+    top: vs(811), // Adjusted from 791 to 811 (471 + 320 + 20 margin)
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
     fontSize: ms(20),
@@ -867,11 +822,11 @@ const styles = StyleSheet.create({
     color: "#1E1E1E",
   },
 
-  // PAYMENT CARD - Figma: 759:4114, x:20, y:793, width:400, height:60
+  // PAYMENT CARD - Figma: 759:4114, x:20, y:853 (adjusted), width:400, height:60
   paymentCard: {
     position: "absolute",
     left: s(20),
-    top: vs(793),
+    top: vs(853), // Adjusted from 833 to 853 (811 + 42 spacing)
     width: s(400),
     height: vs(60),
   },
@@ -934,7 +889,7 @@ const styles = StyleSheet.create({
 
   // Bottom Padding
   bottomPadding: {
-    height: vs(900), // Ensure all absolutely positioned content is visible
+    height: vs(960), // Adjusted from 940 to 960 to accommodate taller status card
   },
 
   // Loading Container
@@ -993,5 +948,112 @@ const styles = StyleSheet.create({
   // Inactive Text - For pending status items
   inactiveText: {
     color: "rgba(30, 30, 30, 0.5)",
+  },
+
+  // DYNAMIC PROGRESS TIMELINE STYLES
+  // Timeline Container - Wrapper for progress items
+  timelineContainer: {
+    paddingHorizontal: s(20),
+    paddingVertical: vs(20), // Increased from 15 to 20 for better spacing
+  },
+
+  // Progress Item - Each status step
+  progressItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: vs(22), // Increased from 18 to 22 for more breathing room
+  },
+
+  // Progress Icon Container - Dot and line wrapper
+  progressIconContainer: {
+    width: s(30),
+    alignItems: 'center',
+    marginRight: s(15),
+    position: 'relative',
+  },
+
+  // Progress Dot - Active status indicator
+  progressDot: {
+    width: s(12),
+    height: s(12),
+    borderRadius: s(6),
+    backgroundColor: Colors.primary,
+    zIndex: 2,
+  },
+
+  // Progress Dot Active - Currently active step with pulsing effect
+  progressDotActive: {
+    width: s(16),
+    height: s(16),
+    borderRadius: s(8),
+    backgroundColor: Colors.primary,
+    borderWidth: 3,
+    borderColor: '#E8F5E9',
+  },
+
+  // Progress Dot Inactive - Pending status indicator
+  progressDotInactive: {
+    backgroundColor: '#D9D9D9',
+  },
+
+  // Progress Line - Connects dots
+  progressLine: {
+    position: 'absolute',
+    width: 2,
+    height: vs(48), // Increased from 40 to 48 for more spacing
+    top: vs(12),
+    left: s(13),
+    zIndex: 1,
+  },
+
+  // Progress Line Active - Completed connection
+  progressLineActive: {
+    backgroundColor: Colors.primary,
+  },
+
+  // Progress Line Inactive - Pending connection
+  progressLineInactive: {
+    backgroundColor: '#D9D9D9',
+  },
+
+  // Progress Content - Text container
+  progressContent: {
+    flex: 1,
+    paddingTop: vs(0),
+  },
+
+  // Progress Text - Status label with icon
+  progressText: {
+    fontSize: ms(16),
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: '500',
+    color: Colors.primary,
+    lineHeight: ms(20),
+    marginBottom: vs(2),
+  },
+
+  // Progress Text Active - Current step emphasis
+  progressTextActive: {
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+
+  // Progress Text Inactive - Pending status label
+  progressTextInactive: {
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+
+  // Progress Time - Status timestamp
+  progressTime: {
+    fontSize: ms(14),
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: '400',
+    color: Colors.primary,
+    lineHeight: ms(18),
+  },
+
+  // Progress Time Inactive - Pending timestamp
+  progressTimeInactive: {
+    color: 'rgba(30, 30, 30, 0.5)',
   },
 });

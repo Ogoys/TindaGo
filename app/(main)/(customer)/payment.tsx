@@ -2,14 +2,15 @@
  * PAYMENT SCREEN - Payment method selection
  *
  * Figma File: 8I1Nr3vQZllDDknSevstvH
- * Node: 903-1375 (Payment)
+ * Node: 1196-1375 (Payment)
  * Baseline: 440x956
  *
  * Features:
- * - Display order summary bill
- * - Payment method selection (GCash, PayMaya, Cash on Pickup)
+ * - Display order summary bill with decorative background
+ * - Payment method selection (PayMaya, GCash, Cash on Pickup)
  * - Calculate totals with service fee and discount
  * - Navigate to payment processing or order confirmation
+ * - Green peso circle icon for Cash on Pickup option
  */
 
 import React, { useState, useEffect } from 'react';
@@ -25,17 +26,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ref, get, remove } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from '../../../src/constants/Colors';
 import { Fonts } from '../../../src/constants/Fonts';
-import { s, vs } from '../../../src/constants/responsive';
+import { s, vs, ms } from '../../../src/constants/responsive';
 import { OrderCompleteModal } from '../../../src/components/ui/OrderCompleteModal';
 import { OrderErrorModal } from '../../../src/components/ui/OrderErrorModal';
+import { PaymentMethodSelector, PaymentMethod } from '../../../src/components/ui/PaymentMethodSelector';
 import { createOrder } from '../../../src/api/orders';
-
-type PaymentMethod = 'gcash' | 'paymaya' | 'cash' | null;
+import { clearCart } from '../../../src/api/cart';
 
 interface OrderSummary {
   items: number;
@@ -91,7 +92,7 @@ const PaymentScreen = () => {
 
         const itemCount = items.length;
         const subtotal = items.reduce((sum: number, item: any) => sum + (item.subtotal || 0), 0);
-        const serviceFee = subtotal * 0.05; // 5% service fee
+        const serviceFee = subtotal * 0.03; // 3% service fee
         const discount = 0; // Will be calculated based on user type (senior/PWD)
 
         setOrderSummary({
@@ -185,9 +186,8 @@ const PaymentScreen = () => {
       const orderId = await createOrder(orderData);
 
       if (orderId) {
-        // Clear cart after successful order
-        const cartRef = ref(database, `carts/${user.id}/items`);
-        await remove(cartRef);
+        // Clear cart after successful order (clears items and itemCount)
+        await clearCart(user.id);
 
         // Show success modal
         setCompletedOrderId(orderNumber);
@@ -250,13 +250,6 @@ const PaymentScreen = () => {
           <>
             {/* Bill Card - Figma: x: 20, y: 166, width: 400, height: 300 */}
             <View style={styles.billCard}>
-              <View style={styles.billCardBackground}>
-                <Image
-                  source={require('../../../src/assets/images/payment/bill-card-background.png')}
-                  style={styles.billCardBackgroundImage}
-                  resizeMode="cover"
-                />
-              </View>
 
               {/* Item count - Figma: y: 189 */}
               <View style={styles.billRow}>
@@ -300,76 +293,13 @@ const PaymentScreen = () => {
             {/* Payment Methods Label - Figma: x: 20, y: 486 */}
             <Text style={styles.paymentMethodsLabel}>Payment Method</Text>
 
-            {/* Payment Methods - Figma: x: 20, y: 528, width: 400, height: 220 */}
+            {/* Payment Methods - Using reusable component */}
             <View style={styles.paymentMethodsContainer}>
-              {/* GCash - First option */}
-              <TouchableOpacity
-                style={[
-                  styles.paymentOption,
-                  selectedPayment === 'gcash' && styles.paymentOptionSelected
-                ]}
-                onPress={() => handlePaymentMethodSelect('gcash')}
-              >
-                <View style={styles.paymentOptionContent}>
-                  <Image
-                    source={require('../../../src/assets/images/payment/gcash-icon.png')}
-                    style={styles.paymentIcon}
-                  />
-                  <Text style={styles.paymentMethodText}>GCash</Text>
-                </View>
-                <View style={[
-                  styles.radioCircle,
-                  selectedPayment === 'gcash' && styles.radioCircleSelected
-                ]}>
-                  {selectedPayment === 'gcash' && <View style={styles.radioCircleInner} />}
-                </View>
-              </TouchableOpacity>
-
-              {/* PayMaya - Second option */}
-              <TouchableOpacity
-                style={[
-                  styles.paymentOption,
-                  selectedPayment === 'paymaya' && styles.paymentOptionSelected
-                ]}
-                onPress={() => handlePaymentMethodSelect('paymaya')}
-              >
-                <View style={styles.paymentOptionContent}>
-                  <Image
-                    source={require('../../../src/assets/images/payment/paypal-icon.png')}
-                    style={styles.paymentIcon}
-                  />
-                  <Text style={styles.paymentMethodText}>PayMaya</Text>
-                </View>
-                <View style={[
-                  styles.radioCircle,
-                  selectedPayment === 'paymaya' && styles.radioCircleSelected
-                ]}>
-                  {selectedPayment === 'paymaya' && <View style={styles.radioCircleInner} />}
-                </View>
-              </TouchableOpacity>
-
-              {/* Cash on Pickup - Third option */}
-              <TouchableOpacity
-                style={[
-                  styles.paymentOption,
-                  selectedPayment === 'cash' && styles.paymentOptionSelected
-                ]}
-                onPress={() => handlePaymentMethodSelect('cash')}
-              >
-                <View style={styles.paymentOptionContent}>
-                  <Image
-                    source={require('../../../src/assets/images/payment/cash-icon.png')}
-                    style={styles.paymentIcon}
-                  />
-                  <Text style={styles.paymentMethodText}>Cash on Pickup</Text>
-                </View>
-                <View style={[
-                  styles.radioCircle,
-                  selectedPayment === 'cash' && styles.radioCircleSelected
-                ]}>
-                  {selectedPayment === 'cash' && <View style={styles.radioCircleInner} />}
-                </View>
-              </TouchableOpacity>
+              <PaymentMethodSelector
+                selectedPayment={selectedPayment}
+                onPaymentSelect={handlePaymentMethodSelect}
+                disabled={processing}
+              />
             </View>
 
             {/* Spacer for bottom button */}
@@ -501,26 +431,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: s(20),
     paddingHorizontal: s(20),
-    paddingVertical: vs(20),
+    paddingTop: vs(23), // Figma: First element (Item) at y: 189, relative to card y: 166 = 23px
+    paddingBottom: vs(28), // Figma: Last element (Grand Total) at y: 394+17=411, card ends at 466 = 55px bottom padding
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 5,
     elevation: 5,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  billCardBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.1,
-  },
-  billCardBackgroundImage: {
-    width: '100%',
-    height: '100%',
   },
 
   // Bill rows
@@ -595,72 +512,10 @@ const styles = StyleSheet.create({
     lineHeight: s(22),
   },
 
-  // Payment Methods Container - Figma: x: 20, y: 528, width: 400, height: 220
+  // Payment Methods Container - Figma: x: 20, y: 528, width: 400, height: 140
   paymentMethodsContainer: {
     marginHorizontal: s(20),
     marginBottom: vs(20),
-  },
-
-  // Payment option - Figma: width: 400, height: 60, gap: 80
-  paymentOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.white,
-    borderRadius: s(20),
-    paddingHorizontal: s(20),
-    paddingVertical: vs(15),
-    marginBottom: vs(20),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  paymentOptionSelected: {
-    borderWidth: 2,
-    borderColor: Colors.primary,
-  },
-  paymentOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(20),
-  },
-
-  // Payment icon - Figma: width: 30, height: 30
-  paymentIcon: {
-    width: s(30),
-    height: vs(30),
-  },
-
-  // Payment method text
-  paymentMethodText: {
-    fontFamily: Fonts.primary,
-    fontSize: s(20),
-    fontWeight: '600',
-    color: Colors.darkGray,
-    lineHeight: s(22),
-  },
-
-  // Radio circle - Figma: width: 15, height: 15
-  radioCircle: {
-    width: s(15),
-    height: vs(15),
-    borderRadius: s(7.5),
-    borderWidth: 1,
-    borderColor: '#7A7B7B',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioCircleSelected: {
-    borderColor: Colors.primary,
-    borderWidth: 2,
-  },
-  radioCircleInner: {
-    width: s(7),
-    height: vs(7),
-    borderRadius: s(3.5),
-    backgroundColor: Colors.primary,
   },
 
   bottomSpacer: {

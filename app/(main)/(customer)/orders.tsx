@@ -211,7 +211,7 @@ const renderProgressTimeline = (order: Order) => {
   // Define progress steps
   const steps = [
     { status: 'pending', label: 'Order Placed', icon: '📋' },
-    { status: 'preparing', label: 'Preparing Your Order', icon: '👨‍🍳' },
+    { status: 'preparing', label: 'Preparing Your Order', icon: '🛍️' },
     { status: 'ready', label: 'Ready for Pickup', icon: '✅' },
     { status: 'picked_up', label: 'Order Completed', icon: '📦' },
   ];
@@ -651,11 +651,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     paddingHorizontal: s(20),
     paddingTop: vs(10),
-    paddingBottom: vs(15),
+    paddingBottom: vs(0), // Reduced to 0 to minimize space between timeline and status
   },
   // Progress Container - Order Status Timeline
   progressContainer: {
-    paddingVertical: vs(10),
+    paddingTop: vs(10),
+    paddingBottom: vs(2), // Reduced to 2 for minimal space after last item
   },
   // Progress Item - Each status step
   progressItem: {

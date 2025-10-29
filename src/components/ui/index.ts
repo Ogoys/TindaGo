@@ -13,5 +13,8 @@ export type { CustomerProfileScreenProps, MenuItem } from "./CustomerProfileScre
 export { OrderCompleteModal } from "./OrderCompleteModal";
 export { OrderErrorModal } from "./OrderErrorModal";
 export { ProductRemovedModal } from "./ProductRemovedModal";
+export { CartReplaceModal } from "./CartReplaceModal";
 export { Toast } from "./Toast";
 export type { ToastType } from "./Toast";
+export { PaymentMethodSelector } from "./PaymentMethodSelector";
+export type { PaymentMethod } from "./PaymentMethodSelector";

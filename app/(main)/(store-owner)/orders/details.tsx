@@ -226,13 +226,16 @@ export default function OrderDetailsScreen() {
   const renderActionButtons = () => {
     if (!order) return null;
 
+    // Fixed button position based on fixed card height
+    const buttonTop = 365 + 520 + 30; // Card top (365) + card height (520) + spacing (30) = 915
+
     switch (order.status) {
       case 'pending':
         return (
           <>
             {/* ACCEPT BUTTON */}
             <TouchableOpacity
-              style={styles.acceptButton}
+              style={[styles.acceptButton, { top: vs(buttonTop) }]}
               onPress={handleAcceptOrder}
               activeOpacity={0.8}
             >
@@ -242,7 +245,7 @@ export default function OrderDetailsScreen() {
 
             {/* REJECT BUTTON */}
             <TouchableOpacity
-              style={styles.rejectButton}
+              style={[styles.rejectButton, { top: vs(buttonTop + 70) }]}
               onPress={handleRejectOrder}
               activeOpacity={0.8}
             >
@@ -255,7 +258,7 @@ export default function OrderDetailsScreen() {
       case 'preparing':
         return (
           <TouchableOpacity
-            style={styles.readyButton}
+            style={[styles.readyButton, { top: vs(buttonTop) }]}
             onPress={handleReadyForPickup}
             activeOpacity={0.8}
           >
@@ -267,30 +270,23 @@ export default function OrderDetailsScreen() {
       case 'ready':
         return (
           <TouchableOpacity
-            style={styles.pickupButton}
+            style={[styles.pickupButton, { top: vs(buttonTop) }]}
             onPress={handleOrderPickup}
             activeOpacity={0.8}
           >
             <View style={styles.pickupButtonBackground} />
-            <Text style={styles.pickupButtonText}>Order Pickup</Text>
+            <Text style={styles.pickupButtonText}>Orders Complete</Text>
           </TouchableOpacity>
         );
 
       case 'picked_up':
       case 'completed':
-        return (
-          <TouchableOpacity
-            style={styles.completedButton}
-            activeOpacity={0.8}
-          >
-            <View style={styles.completedButtonBackground} />
-            <Text style={styles.completedButtonText}>Pickup</Text>
-          </TouchableOpacity>
-        );
+        // No button needed - order is completed
+        return null;
 
       case 'cancelled':
         return (
-          <View style={styles.cancelledContainer}>
+          <View style={[styles.cancelledContainer, { top: vs(buttonTop) }]}>
             <View style={styles.cancelledButton}>
               <View style={styles.cancelledButtonBackground} />
               <Text style={styles.cancelledButtonText}>Order Cancelled</Text>
@@ -447,53 +443,106 @@ export default function OrderDetailsScreen() {
           </View>
         </View>
 
-        {/* ORDER LIST CARD - Figma: 1057:4905, x:20, y:365, width:400, height:470 */}
+        {/* ORDER ITEMS CARD - Enhanced Professional Design with Scrollable Items */}
         <View style={styles.orderListCard}>
-          {/* Card Background - Figma: 1057:4906 */}
+          {/* Card Background */}
           <View style={styles.orderListBackground} />
 
-          {/* Header Row - Figma: 1057:4907, 1057:4921, 1057:4914, y:395 */}
-          <View style={styles.tableHeaderRow}>
-            <Text style={styles.headerItems}>Order Items</Text>
-            <Text style={styles.headerQnt}>Qnt.</Text>
-            <Text style={styles.headerAmount}>Amount</Text>
+          {/* Card Header */}
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardHeaderTitle}>Order Summary</Text>
+            <View style={styles.itemCountBadge}>
+              <Text style={styles.itemCountText}>{order.items.length} {order.items.length === 1 ? 'Item' : 'Items'}</Text>
+            </View>
           </View>
 
-          {/* Divider under header - Figma: 1057:4928, y:425 */}
-          <View style={styles.dividerLine2} />
+          {/* Header Divider */}
+          <View style={styles.headerDivider} />
 
-          {/* Order Items List */}
-          {order.items.map((item, index) => (
-            <View
-              key={item.productId}
-              style={[
-                styles.orderItemRow,
-                { top: vs(60 + (index * 40)) } // Dynamic positioning
-              ]}
-            >
-              <Text style={styles.itemName}>{item.productName}</Text>
-              <Text style={styles.itemQnt}>{item.quantity}</Text>
-              <Text style={styles.itemAmount}>₱{item.subtotal.toFixed(2)}</Text>
+          {/* Scrollable Order Items List */}
+          <ScrollView
+            style={styles.itemsScrollView}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            <View style={styles.itemsListContainer}>
+              {order.items.map((item, index) => (
+                <View key={item.productId} style={styles.modernItemRow}>
+                  {/* Item Info Section */}
+                  <View style={styles.itemInfoSection}>
+                    {/* Product Icon/Image Placeholder */}
+                    <View style={styles.productIconContainer}>
+                      <View style={styles.productIcon}>
+                        <Text style={styles.productIconText}>📦</Text>
+                      </View>
+                    </View>
+
+                    {/* Product Details */}
+                    <View style={styles.productDetails}>
+                      <Text style={styles.modernItemName} numberOfLines={2}>
+                        {item.productName}
+                      </Text>
+                      {item.weight && item.unit && (
+                        <Text style={styles.itemWeight}>
+                          {item.weight} {item.unit}
+                        </Text>
+                      )}
+                      <Text style={styles.itemPrice}>
+                        ₱{item.price.toFixed(2)} each
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Quantity & Amount Section */}
+                  <View style={styles.itemQuantitySection}>
+                    <View style={styles.quantityBadge}>
+                      <Text style={styles.quantityText}>×{item.quantity}</Text>
+                    </View>
+                    <Text style={styles.modernItemAmount}>₱{item.subtotal.toFixed(2)}</Text>
+                  </View>
+
+                  {/* Item Divider (not for last item) */}
+                  {index < order.items.length - 1 && (
+                    <View style={styles.itemDivider} />
+                  )}
+                </View>
+              ))}
             </View>
-          ))}
+          </ScrollView>
 
-          {/* Divider before tax - Figma: 1057:4929, y:705 */}
-          <View style={styles.dividerLine3} />
-        </View>
+          {/* Billing Section */}
+          <View style={styles.billingSection}>
+            <View style={styles.billingSeparator} />
 
-        {/* TAX ROW - Figma: 1057:4930, x:40, y:725 */}
-        <View style={styles.taxRow}>
-          <Text style={styles.taxLabel}>Tax(10%)</Text>
-          <Text style={styles.taxValue}>₱{order.tax.toFixed(2)}</Text>
-        </View>
+            {/* Subtotal Row */}
+            <View style={styles.billingRow}>
+              <Text style={styles.billingLabel}>Subtotal</Text>
+              <Text style={styles.billingValue}>₱{order.subtotal.toFixed(2)}</Text>
+            </View>
 
-        {/* Divider before subtotal - Figma: 1057:4933, y:765 */}
-        <View style={styles.dividerLine4} />
+            {/* Service Fee Row */}
+            <View style={styles.billingRow}>
+              <Text style={styles.billingLabel}>Service Fee (3%)</Text>
+              <Text style={styles.billingValue}>₱{order.serviceFee.toFixed(2)}</Text>
+            </View>
 
-        {/* SUBTOTAL ROW - Figma: 1057:4934, x:40, y:785 */}
-        <View style={styles.subtotalRow}>
-          <Text style={styles.subtotalLabel}>Sub Total</Text>
-          <Text style={styles.subtotalValue}>₱{order.subtotal.toFixed(2)}</Text>
+            {/* Tax Row (if applicable) */}
+            {order.tax > 0 && (
+              <View style={styles.billingRow}>
+                <Text style={styles.billingLabel}>Tax</Text>
+                <Text style={styles.billingValue}>₱{order.tax.toFixed(2)}</Text>
+              </View>
+            )}
+
+            {/* Total Divider */}
+            <View style={styles.totalDivider} />
+
+            {/* Grand Total Row */}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total Amount</Text>
+              <Text style={styles.totalValue}>₱{order.total.toFixed(2)}</Text>
+            </View>
+          </View>
         </View>
 
         {/* DYNAMIC ACTION BUTTONS based on order status */}
@@ -754,206 +803,263 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
   },
 
-  // ORDER LIST CARD - Figma: 1057:4905, x:20, y:365, width:400, height:470
+  // ========================================
+  // MODERN ORDER ITEMS CARD - Professional Design with Scrolling
+  // ========================================
+
+  // ORDER LIST CARD - Fixed height with scrollable items
   orderListCard: {
     position: "absolute",
     left: s(20),
     top: vs(365),
     width: s(400),
-    height: vs(470),
+    height: vs(520), // Fixed height
   },
 
-  // Order List Background - Figma: 1057:4906
+  // Order List Background - White card with shadow
   orderListBackground: {
     position: "absolute",
     width: s(400),
-    height: vs(470),
+    height: vs(520), // Fixed height
     backgroundColor: "#FFFFFF",
-    borderRadius: s(16),
-    shadowColor: "rgba(0, 0, 0, 0.25)",
-    shadowOffset: { width: 0, height: 0 },
+    borderRadius: s(20),
+    shadowColor: "rgba(0, 0, 0, 0.15)",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: s(5),
-    elevation: 5,
+    shadowRadius: s(12),
+    elevation: 8,
   },
 
-  // Table Header Row - Figma: y:395 (relative: y:30)
-  tableHeaderRow: {
+  // Card Header Section
+  cardHeader: {
     position: "absolute",
+    top: vs(20),
     left: s(20),
-    top: vs(30),
-    width: s(360),
+    right: s(20),
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
 
-  // Header Items - Figma: 1057:4908
-  headerItems: {
+  cardHeaderTitle: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(18),
+    color: "#1E1E1E",
+  },
+
+  itemCountBadge: {
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: s(12),
+    paddingVertical: vs(4),
+    borderRadius: s(12),
+  },
+
+  itemCountText: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    color: "#1E1E1E", // Figma: fill_3TK9OA
-    width: s(148),
+    fontSize: ms(12),
+    color: "#3BB77E",
   },
 
-  // Header Qnt - Figma: 1057:4927
-  headerQnt: {
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    textAlign: "center",
-    color: "#1E1E1E", // Figma: style_98AHA5
-    width: s(30),
-  },
-
-  // Header Amount - Figma: 1057:4920
-  headerAmount: {
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    textAlign: "center",
-    color: "#1E1E1E", // Figma: style_98AHA5
-    width: s(63),
-  },
-
-  // Divider Line 2 - Figma: 1057:4928, y:425 (relative: y:60)
-  dividerLine2: {
+  // Header Divider
+  headerDivider: {
     position: "absolute",
-    left: s(10),
-    top: vs(60),
-    width: s(380),
-    height: 2,
-    backgroundColor: "#02545F", // Figma: stroke_QIPMYT
-  },
-
-  // Order Item Row - Dynamic positioning based on index
-  orderItemRow: {
-    position: "absolute",
+    top: vs(55),
     left: s(20),
-    width: s(360),
+    right: s(20),
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+
+  // Items ScrollView - Scrollable container for items
+  itemsScrollView: {
+    position: "absolute",
+    top: vs(70),
+    left: 0,
+    right: 0,
+    height: vs(250), // Max height for scrolling (fits ~3.5 items)
+    paddingHorizontal: s(20),
+  },
+
+  // Items List Container
+  itemsListContainer: {
+    paddingBottom: vs(10),
+  },
+
+  // Modern Item Row - Each product row
+  modernItemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+    paddingVertical: vs(12),
+    minHeight: vs(70),
   },
 
-  // Item Name - Figma: 1057:4909 and others
-  itemName: {
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    color: "#1E1E1E", // Figma: fill_3TK9OA
-    width: s(148),
-  },
-
-  // Item Quantity - Figma: 1057:4922 and others
-  itemQnt: {
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    textAlign: "center",
-    color: "#1E1E1E", // Figma: fill_3TK9OA
-    width: s(30),
-  },
-
-  // Item Amount - Figma: 1057:4915 and others
-  itemAmount: {
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    textAlign: "center",
-    color: "#1E1E1E", // Figma: style_98AHA5
-    width: s(63),
-  },
-
-  // Divider Line 3 - Figma: 1057:4929, y:705 (relative: y:340)
-  dividerLine3: {
-    position: "absolute",
-    left: s(10),
-    top: vs(340),
-    width: s(380),
-    height: 2,
-    backgroundColor: "#02545F", // Figma: stroke_QIPMYT
-  },
-
-  // TAX ROW - Figma: 1057:4930, x:40, y:725
-  taxRow: {
-    position: "absolute",
-    left: s(40),
-    top: vs(725),
-    width: s(328),
+  // Item Info Section (Left side)
+  itemInfoSection: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    flex: 1,
+    marginRight: s(10),
   },
 
-  // Tax Label - Figma: 1057:4931
-  taxLabel: {
+  // Product Icon Container
+  productIconContainer: {
+    marginRight: s(12),
+  },
+
+  productIcon: {
+    width: s(48),
+    height: s(48),
+    borderRadius: s(12),
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  productIconText: {
+    fontSize: ms(24),
+  },
+
+  // Product Details
+  productDetails: {
+    flex: 1,
+  },
+
+  modernItemName: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    color: "#1E1E1E", // Figma: fill_3TK9OA
+    fontSize: ms(14),
+    color: "#1E1E1E",
+    lineHeight: ms(14) * 1.4,
+    marginBottom: vs(2),
   },
 
-  // Tax Value - Figma: 1057:4932
-  taxValue: {
+  itemWeight: {
     fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    textAlign: "center",
-    color: "#1E1E1E", // Figma: style_98AHA5
+    fontWeight: "400",
+    fontSize: ms(11),
+    color: "#6B7280",
+    marginBottom: vs(2),
   },
 
-  // Divider Line 4 - Figma: 1057:4933, y:765
-  dividerLine4: {
-    position: "absolute",
-    left: s(30),
-    top: vs(765),
-    width: s(380),
-    height: 2,
-    backgroundColor: "#02545F", // Figma: stroke_QIPMYT
+  itemPrice: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "400",
+    fontSize: ms(12),
+    color: "#9CA3AF",
   },
 
-  // SUBTOTAL ROW - Figma: 1057:4934, x:40, y:785
-  subtotalRow: {
-    position: "absolute",
-    left: s(40),
-    top: vs(785),
-    width: s(328),
-    flexDirection: "row",
-    justifyContent: "space-between",
+  // Item Quantity Section (Right side)
+  itemQuantitySection: {
+    alignItems: "flex-end",
   },
 
-  // Subtotal Label - Figma: 1057:4935
-  subtotalLabel: {
+  quantityBadge: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    borderRadius: s(8),
+    marginBottom: vs(6),
+  },
+
+  quantityText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(12),
+    color: "#374151",
+  },
+
+  modernItemAmount: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "600",
     fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    color: "#1E1E1E", // Figma: style_KEVKXA
+    color: "#3BB77E",
   },
 
-  // Subtotal Value - Figma: 1057:4936
-  subtotalValue: {
+  // Item Divider
+  itemDivider: {
+    position: "absolute",
+    bottom: 0,
+    left: s(60), // Start after icon
+    right: 0,
+    height: 1,
+    backgroundColor: "#F3F4F6",
+  },
+
+  // Billing Section - Fixed at bottom of card
+  billingSection: {
+    position: "absolute",
+    top: vs(330), // Fixed position from top of card
+    left: 0,
+    right: 0,
+    paddingHorizontal: s(20),
+  },
+
+  billingSeparator: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    marginBottom: vs(15),
+  },
+
+  billingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: vs(10),
+  },
+
+  billingLabel: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "400",
+    fontSize: ms(14),
+    color: "#6B7280",
+  },
+
+  billingValue: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
-    fontSize: ms(16),
-    lineHeight: ms(16) * 1.23,
-    textAlign: "center",
-    color: "#1E1E1E", // Figma: style_98AHA5
+    fontSize: ms(14),
+    color: "#1E1E1E",
   },
 
-  // ACCEPT BUTTON - Figma: 1057:4937, x:20, y:875, width:400, height:50
+  // Total Divider
+  totalDivider: {
+    height: 2,
+    backgroundColor: "#3BB77E",
+    marginVertical: vs(12),
+    marginHorizontal: s(-20),
+    paddingHorizontal: s(20),
+  },
+
+  // Total Row
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: vs(5),
+  },
+
+  totalLabel: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(16),
+    color: "#1E1E1E",
+  },
+
+  totalValue: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "700",
+    fontSize: ms(20),
+    color: "#3BB77E",
+  },
+
+  // ACCEPT BUTTON - Dynamic position based on card height
   acceptButton: {
     position: "absolute",
     left: s(20),
-    top: vs(875),
+    top: vs(385), // Will be adjusted dynamically in render
     width: s(400),
     height: vs(50),
     justifyContent: "center",
@@ -984,11 +1090,11 @@ const styles = StyleSheet.create({
     color: "#FFFFFF", // Figma: fill_H5ZU9S
   },
 
-  // REJECT BUTTON - Positioned below Accept button
+  // REJECT BUTTON - Dynamic position
   rejectButton: {
     position: "absolute",
     left: s(20),
-    top: vs(945), // 875 + 50 + 20 spacing
+    top: vs(385), // Will be adjusted dynamically in render
     width: s(400),
     height: vs(50),
     justifyContent: "center",
@@ -1025,7 +1131,7 @@ const styles = StyleSheet.create({
   readyButton: {
     position: "absolute",
     left: s(20),
-    top: vs(875),
+    top: vs(385), // Will be adjusted dynamically in render
     width: s(400),
     height: vs(50),
     justifyContent: "center",
@@ -1058,7 +1164,7 @@ const styles = StyleSheet.create({
   pickupButton: {
     position: "absolute",
     left: s(20),
-    top: vs(875),
+    top: vs(385), // Will be adjusted dynamically in render
     width: s(400),
     height: vs(50),
     justifyContent: "center",
@@ -1091,7 +1197,7 @@ const styles = StyleSheet.create({
   completedButton: {
     position: "absolute",
     left: s(20),
-    top: vs(875),
+    top: vs(385), // Will be adjusted dynamically in render
     width: s(400),
     height: vs(50),
     justifyContent: "center",
@@ -1124,7 +1230,7 @@ const styles = StyleSheet.create({
   cancelledContainer: {
     position: "absolute",
     left: s(20),
-    top: vs(875),
+    top: vs(385), // Will be adjusted dynamically in render
     width: s(400),
   },
 
