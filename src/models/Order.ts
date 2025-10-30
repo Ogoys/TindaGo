@@ -14,9 +14,11 @@ export interface Order {
   storeName: string;
   items: OrderItem[];
   subtotal: number;
-  tax: number;
-  serviceFee: number;
-  total: number;
+  total: number;            // Same as subtotal (no tax added to customer)
+  // Platform commission (1%) is deducted from store owner's earnings, not added to customer's bill
+  xenditInvoiceId?: string;      // Xendit invoice ID (for online payments)
+  platformCommission?: number;   // 1% commission amount
+  storeAmount?: number;          // Amount store owner receives (total - commission)
   status: OrderStatus;
   pickupTime?: string;        // ISO string or Date string
   notes?: string;

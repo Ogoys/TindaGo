@@ -210,9 +210,8 @@ const CartScreen = () => {
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-  const serviceFee = 0; // No service fee for pickup
-  const discount = 0; // Will be calculated based on discount type
-  const grandTotal = subtotal + serviceFee - discount;
+  const discount = 0; // Will be calculated based on discount type (senior/PWD)
+  const grandTotal = subtotal - discount; // No tax added (sari-sari stores include tax in prices)
 
   const handleProceedToPayment = () => {
     if (!user) {
@@ -417,25 +416,24 @@ const CartScreen = () => {
             <Text style={styles.billLabel}>Sub Total</Text>
             <Text style={styles.billValue}>₱ {subtotal.toFixed(2)}</Text>
           </View>
-          
-          <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Service Fee</Text>
-            <Text style={styles.billValue}>₱ {serviceFee.toFixed(2)}</Text>
-          </View>
-          
-          <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Discount (20%)</Text>
-            <Text style={styles.billValue}>₱ {discount.toFixed(2)}</Text>
-          </View>
-          
-          <Text style={styles.discountNote}>
-            Discount depend on what you are{'\n'}senior of pwd.
-          </Text>
-          
+
+          {discount > 0 && (
+            <>
+              <View style={styles.billRow}>
+                <Text style={styles.billLabel}>Discount (20%)</Text>
+                <Text style={styles.billValue}>- ₱ {discount.toFixed(2)}</Text>
+              </View>
+
+              <Text style={styles.discountNote}>
+                Discount depend on what you are{'\n'}senior of pwd.
+              </Text>
+            </>
+          )}
+
           <View style={styles.dottedLine} />
-          
+
           <View style={styles.grandTotalRow}>
-            <Text style={styles.grandTotalLabel}>Grand Total</Text>
+            <Text style={styles.grandTotalLabel}>Total</Text>
             <Text style={styles.grandTotalValue}>₱ {grandTotal.toFixed(2)}</Text>
           </View>
         </View>

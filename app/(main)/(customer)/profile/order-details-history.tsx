@@ -199,8 +199,6 @@ export default function OrderDetailsHistoryScreen() {
     ...order,
     items: order.items || [],
     subtotal: order.subtotal ?? 0,
-    serviceFee: order.serviceFee ?? 0,
-    tax: order.tax ?? 0,
     total: order.total ?? 0,
     orderNumber: order.orderNumber || 'N/A',
     storeName: order.storeName || 'N/A',
@@ -253,20 +251,6 @@ export default function OrderDetailsHistoryScreen() {
             <Text style={styles.billValue}>₱ {formatCurrency(safeOrder.subtotal)}</Text>
           </View>
 
-          {/* Service Fee - Figma: 903:5794 & 903:5800, y:263 */}
-          <View style={styles.billRow3}>
-            <Text style={styles.billLabel}>Service Fee</Text>
-            <Text style={styles.billValue}>₱ {formatCurrency(safeOrder.serviceFee)}</Text>
-          </View>
-
-          {/* Tax - Only show if exists */}
-          {safeOrder.tax > 0 && (
-            <View style={styles.billRow4}>
-              <Text style={styles.billLabel}>Tax</Text>
-              <Text style={styles.billValue}>₱ {formatCurrency(safeOrder.tax)}</Text>
-            </View>
-          )}
-
           {/* Dashed Divider Line - Figma: 903:5804, y:372 */}
           <View style={styles.dashedDivider}>
             {[...Array(18)].map((_, i) => (
@@ -276,7 +260,7 @@ export default function OrderDetailsHistoryScreen() {
 
           {/* Grand Total - Figma: 903:5798 & 903:5799, y:394 */}
           <View style={styles.billRowGrandTotal}>
-            <Text style={styles.grandTotalLabel}>Grand Total</Text>
+            <Text style={styles.grandTotalLabel}>Total</Text>
             <Text style={styles.grandTotalValue}>₱ {formatCurrency(safeOrder.total)}</Text>
           </View>
         </View>

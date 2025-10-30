@@ -248,30 +248,16 @@ export default function OrderDetailsScreen() {
             <Text style={styles.billValue}>₱ {order.subtotal.toFixed(2)}</Text>
           </View>
 
-          {/* Service Fee - Figma: 759:4076 & 759:4084, y:508 */}
-          <View style={styles.billRow3}>
-            <Text style={styles.billLabel}>Service Fee</Text>
-            <Text style={styles.billValue}>₱ {order.serviceFee.toFixed(2)}</Text>
-          </View>
-
-          {/* Tax - Figma: 759:4077 & 759:4079, y:545 */}
-          {order.tax > 0 && (
-            <View style={styles.billRow4}>
-              <Text style={styles.billLabel}>Tax</Text>
-              <Text style={styles.billValue}>₱ {order.tax.toFixed(2)}</Text>
-            </View>
-          )}
-
           {/* Dashed Divider Line - Figma: 759:4088, y:617 */}
-          <View style={[styles.dashedDivider, { top: order.tax > 0 ? vs(156) : vs(134) }]}>
+          <View style={[styles.dashedDivider, { top: vs(97) }]}>
             {[...Array(18)].map((_, i) => (
               <View key={i} style={styles.dash} />
             ))}
           </View>
 
           {/* Grand Total - Figma: 759:4080 & 759:4081, y:639 */}
-          <View style={[styles.billRowGrandTotal, { top: order.tax > 0 ? vs(178) : vs(156) }]}>
-            <Text style={styles.grandTotalLabel}>Grand Total</Text>
+          <View style={[styles.billRowGrandTotal, { top: vs(119) }]}>
+            <Text style={styles.grandTotalLabel}>Total</Text>
             <Text style={styles.grandTotalValue}>₱ {order.total.toFixed(2)}</Text>
           </View>
 

@@ -8,7 +8,7 @@
  * Features:
  * - Display order summary bill with decorative background
  * - Payment method selection (PayMaya, GCash, Cash on Pickup)
- * - Calculate totals with service fee and discount
+ * - Calculate order total (no tax added - sari-sari stores include tax in prices)
  * - Navigate to payment processing or order confirmation
  * - Green peso circle icon for Cash on Pickup option
  */
@@ -37,11 +37,12 @@ import { OrderErrorModal } from '../../../src/components/ui/OrderErrorModal';
 import { PaymentMethodSelector, PaymentMethod } from '../../../src/components/ui/PaymentMethodSelector';
 import { createOrder } from '../../../src/api/orders';
 import { clearCart } from '../../../src/api/cart';
+import { xenditService } from '../../../src/services/payment/XenditService';
+import { Linking } from 'react-native';
 
 interface OrderSummary {
   items: number;
   subtotal: number;
-  serviceFee: number;
   discount: number;
   grandTotal: number;
 }
@@ -57,7 +58,6 @@ const PaymentScreen = () => {
   const [orderSummary, setOrderSummary] = useState<OrderSummary>({
     items: 0,
     subtotal: 0,
-    serviceFee: 0,
     discount: 0,
     grandTotal: 0,
   });
@@ -92,15 +92,13 @@ const PaymentScreen = () => {
 
         const itemCount = items.length;
         const subtotal = items.reduce((sum: number, item: any) => sum + (item.subtotal || 0), 0);
-        const serviceFee = subtotal * 0.03; // 3% service fee
         const discount = 0; // Will be calculated based on user type (senior/PWD)
 
         setOrderSummary({
           items: itemCount,
           subtotal,
-          serviceFee,
           discount,
-          grandTotal: subtotal + serviceFee - discount,
+          grandTotal: subtotal - discount, // No tax added (sari-sari stores include tax in prices)
         });
       }
     } catch (error) {
@@ -135,14 +133,6 @@ const PaymentScreen = () => {
     setProcessing(true);
 
     try {
-      // Check if online payment method is selected
-      if (selectedPayment === 'gcash' || selectedPayment === 'paymaya') {
-        setProcessing(false);
-        setErrorMessage(`${selectedPayment === 'gcash' ? 'GCash' : 'PayMaya'} payment integration coming soon!\nPlease select Cash on Pickup for now.`);
-        setShowErrorModal(true);
-        return;
-      }
-
       // Get first item's store info (all items should be from same store)
       const firstItem = cartItems[0];
       const storeId = firstItem.storeId || 'unknown';
@@ -173,30 +163,108 @@ const PaymentScreen = () => {
           notes: item.notes || '',
         })),
         subtotal: orderSummary.subtotal,
-        tax: 0,
-        serviceFee: orderSummary.serviceFee,
         total: orderSummary.grandTotal,
         status: 'pending' as const,
         notes: '',
         paymentMethod: selectedPayment,
-        paymentStatus: selectedPayment === 'cash' ? ('pending' as const) : ('paid' as const),
+        paymentStatus: selectedPayment === 'cash' ? ('pending' as const) : ('pending' as const), // Will be updated after payment
       };
 
-      // Create order in Firebase
-      const orderId = await createOrder(orderData);
+      // Check if online payment (GCash/PayMaya)
+      if (selectedPayment === 'gcash' || selectedPayment === 'paymaya') {
+        console.log('Processing online payment with Xendit...');
 
-      if (orderId) {
-        // Clear cart after successful order (clears items and itemCount)
-        await clearCart(user.id);
+        // Create Xendit payment invoice
+        const paymentResponse = await xenditService.createPayment({
+          orderId: orderNumber, // Use order number as external ID
+          orderNumber,
+          amount: orderSummary.grandTotal,
+          customerEmail: user.email || `${user.id}@tindago.com`,
+          customerName: user.name || user.email || 'Customer',
+          customerPhone: user.phoneNumber || '',
+          storeId,
+          storeName,
+          items: cartItems.map(item => ({
+            name: item.productName,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          paymentMethod: selectedPayment,
+        });
 
-        // Show success modal
-        setCompletedOrderId(orderNumber);
-        setShowSuccessModal(true);
-        setCartItems([]);
+        if (!paymentResponse.success || !paymentResponse.invoiceUrl) {
+          setProcessing(false);
+          setErrorMessage(`Failed to create payment:\n${paymentResponse.error || 'Unknown error'}`);
+          setShowErrorModal(true);
+          return;
+        }
+
+        console.log('Xendit invoice created:', paymentResponse.invoiceId);
+
+        // Create order in Firebase BEFORE opening payment
+        const orderId = await createOrder({
+          ...orderData,
+          xenditInvoiceId: paymentResponse.invoiceId, // Store Xendit invoice ID
+          platformCommission: paymentResponse.platformCommission,
+          storeAmount: paymentResponse.storeAmount,
+        });
+
+        if (!orderId) {
+          setProcessing(false);
+          setErrorMessage('Failed to create order in database.\nPlease try again.');
+          setShowErrorModal(true);
+          return;
+        }
+
+        // Open Xendit payment page in browser
+        const supported = await Linking.canOpenURL(paymentResponse.invoiceUrl);
+        if (supported) {
+          await Linking.openURL(paymentResponse.invoiceUrl);
+
+          // Show info message
+          Alert.alert(
+            'Payment Page Opened',
+            'Complete your payment in the browser that just opened. Once paid, return to the app to see your order.',
+            [
+              {
+                text: 'I Completed Payment',
+                onPress: async () => {
+                  // Clear cart
+                  await clearCart(user.id);
+                  // Show success modal
+                  setCompletedOrderId(orderNumber);
+                  setShowSuccessModal(true);
+                  setCartItems([]);
+                },
+              },
+              {
+                text: 'Cancel Payment',
+                style: 'cancel',
+              },
+            ]
+          );
+        } else {
+          setErrorMessage('Cannot open payment page.\nPlease check your internet connection.');
+          setShowErrorModal(true);
+        }
+
       } else {
-        // Show error modal
-        setErrorMessage('Failed to create your order.\nPlease try again.');
-        setShowErrorModal(true);
+        // Cash on Pickup - create order directly
+        const orderId = await createOrder(orderData);
+
+        if (orderId) {
+          // Clear cart after successful order
+          await clearCart(user.id);
+
+          // Show success modal
+          setCompletedOrderId(orderNumber);
+          setShowSuccessModal(true);
+          setCartItems([]);
+        } else {
+          // Show error modal
+          setErrorMessage('Failed to create your order.\nPlease try again.');
+          setShowErrorModal(true);
+        }
       }
     } catch (error) {
       console.error('Error processing payment:', error);
@@ -263,29 +331,26 @@ const PaymentScreen = () => {
                 <Text style={styles.billValue}>₱ {orderSummary.subtotal.toFixed(2)}</Text>
               </View>
 
-              {/* Service Fee - Figma: y: 263 */}
-              <View style={styles.billRow}>
-                <Text style={styles.billLabel}>Service Fee</Text>
-                <Text style={styles.billValue}>₱ {orderSummary.serviceFee.toFixed(2)}</Text>
-              </View>
+              {/* Discount - Figma: y: 263 (if applicable) */}
+              {orderSummary.discount > 0 && (
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>Discount (20%)</Text>
+                  <Text style={styles.billValue}>- ₱ {orderSummary.discount.toFixed(2)}</Text>
+                </View>
+              )}
 
-              {/* Discount - Figma: y: 300 */}
-              <View style={styles.billRow}>
-                <Text style={styles.billLabel}>Discount (20%)</Text>
-                <Text style={styles.billValue}>₱ {orderSummary.discount.toFixed(2)}</Text>
-              </View>
-
-              {/* Discount Note - Figma: y: 322 */}
-              <Text style={styles.discountNote}>
-                Discount depend on what you are{'\n'}senior of pwd.
-              </Text>
+              {orderSummary.discount > 0 && (
+                <Text style={styles.discountNote}>
+                  Discount depend on what you are{'\n'}senior of pwd.
+                </Text>
+              )}
 
               {/* Dotted Line - Figma: y: 372 */}
               <View style={styles.dottedLine} />
 
               {/* Grand Total - Figma: y: 394 */}
               <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                <Text style={styles.grandTotalLabel}>Total</Text>
                 <Text style={styles.grandTotalValue}>₱ {orderSummary.grandTotal.toFixed(2)}</Text>
               </View>
             </View>

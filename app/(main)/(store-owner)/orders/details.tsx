@@ -520,20 +520,6 @@ export default function OrderDetailsScreen() {
               <Text style={styles.billingValue}>₱{order.subtotal.toFixed(2)}</Text>
             </View>
 
-            {/* Service Fee Row */}
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Service Fee (3%)</Text>
-              <Text style={styles.billingValue}>₱{order.serviceFee.toFixed(2)}</Text>
-            </View>
-
-            {/* Tax Row (if applicable) */}
-            {order.tax > 0 && (
-              <View style={styles.billingRow}>
-                <Text style={styles.billingLabel}>Tax</Text>
-                <Text style={styles.billingValue}>₱{order.tax.toFixed(2)}</Text>
-              </View>
-            )}
-
             {/* Total Divider */}
             <View style={styles.totalDivider} />
 
