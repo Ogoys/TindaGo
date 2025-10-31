@@ -13,7 +13,7 @@
  * - Green peso circle icon for Cash on Pickup option
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,10 +23,12 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ref, get } from 'firebase/database';
+import { ref, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from '../../../src/constants/Colors';
@@ -68,11 +70,66 @@ const PaymentScreen = () => {
   const [completedOrderId, setCompletedOrderId] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
   const [cartItems, setCartItems] = useState<any[]>([]);
+  const [pendingOrderNumber, setPendingOrderNumber] = useState<string>('');
+  const appState = useRef(AppState.currentState);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   // Load order summary from cart or params
   useEffect(() => {
     loadOrderSummary();
   }, [user]);
+
+  // Listen for app state changes (foreground/background)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [pendingOrderNumber]);
+
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    // When app comes to foreground, check if pending order has been paid
+    if (
+      appState.current.match(/inactive|background/) &&
+      nextAppState === 'active' &&
+      pendingOrderNumber
+    ) {
+      checkPendingOrderStatus();
+    }
+    appState.current = nextAppState;
+  };
+
+  const checkPendingOrderStatus = async () => {
+    if (!pendingOrderNumber) return;
+
+    try {
+      const orderRef = ref(database, `orders/${pendingOrderNumber}`);
+      const snapshot = await get(orderRef);
+
+      if (snapshot.exists()) {
+        const orderData = snapshot.val();
+        // If order is now paid, show modal
+        if (orderData.paymentStatus === 'PAID' || orderData.paymentStatus === 'SETTLED') {
+          // Clear cart
+          if (user) {
+            await clearCart(user.id);
+          }
+          setCompletedOrderId(pendingOrderNumber);
+          setShowSuccessModal(true);
+          setCartItems([]);
+          setPendingOrderNumber(''); // Clear pending
+          setProcessing(false);
+          // Unsubscribe from listener
+          if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking order status:', error);
+    }
+  };
 
   const loadOrderSummary = async () => {
     if (!user) {
@@ -221,28 +278,45 @@ const PaymentScreen = () => {
         if (supported) {
           await Linking.openURL(paymentResponse.invoiceUrl);
 
-          // Show info message
-          Alert.alert(
-            'Payment Page Opened',
-            'Complete your payment in the browser that just opened. Once paid, return to the app to see your order.',
-            [
-              {
-                text: 'I Completed Payment',
-                onPress: async () => {
-                  // Clear cart
-                  await clearCart(user.id);
-                  // Show success modal
-                  setCompletedOrderId(orderNumber);
-                  setShowSuccessModal(true);
-                  setCartItems([]);
-                },
-              },
-              {
-                text: 'Cancel Payment',
-                style: 'cancel',
-              },
-            ]
-          );
+          // Store pending order number and set up listener
+          setPendingOrderNumber(orderNumber);
+
+          // Listen for order status update from webhook (query by orderNumber)
+          const ordersQuery = query(ref(database, 'orders'), orderByChild('orderNumber'), equalTo(orderNumber));
+          const unsubscribe = onValue(ordersQuery, async (snapshot) => {
+            console.log('[Payment] Listener fired for order:', orderNumber);
+            if (snapshot.exists()) {
+              const ordersData = snapshot.val();
+              // Get first order (should only be one)
+              const orderId = Object.keys(ordersData)[0];
+              const orderData = ordersData[orderId];
+              console.log('[Payment] Order data:', orderData?.paymentStatus);
+              // Check if payment was marked PAID/SETTLED
+              if (orderData?.paymentStatus === 'PAID' || orderData?.paymentStatus === 'SETTLED') {
+                console.log('[Payment] Payment confirmed! Showing modal...');
+                unsubscribe(); // Stop listening
+                // Clear cart
+                await clearCart(user.id);
+                // Show success modal
+                setCompletedOrderId(orderNumber);
+                setShowSuccessModal(true);
+                setCartItems([]);
+                setPendingOrderNumber(''); // Clear pending
+                setProcessing(false);
+              }
+            } else {
+              console.log('[Payment] Order not found yet:', orderNumber);
+            }
+          });
+          
+          // Import query, orderByChild, equalTo if not already imported
+          // Add to imports: import { ref, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
+
+          // Store unsubscribe function
+          unsubscribeRef.current = unsubscribe;
+
+          // Fallback: Auto-close after 5 minutes or user manually taps button
+          setTimeout(() => unsubscribe(), 300000);
         } else {
           setErrorMessage('Cannot open payment page.\nPlease check your internet connection.');
           setShowErrorModal(true);

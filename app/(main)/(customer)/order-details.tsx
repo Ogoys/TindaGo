@@ -219,6 +219,28 @@ export default function OrderDetailsScreen() {
           <Text style={styles.orderIdValue}>{order.orderNumber}</Text>
         </View>
 
+        {/* Payment status badge */}
+        <View style={styles.paymentRow}>
+          <Text style={styles.paymentLabel}>Payment:</Text>
+          <View style={[
+            styles.paymentBadge,
+            (order.paymentStatus === 'PAID' || order.paymentStatus === 'SETTLED') ? styles.paymentBadgePaid : styles.paymentBadgePending
+          ]}>
+            <Text style={[
+              styles.paymentBadgeText,
+              (order.paymentStatus === 'PAID' || order.paymentStatus === 'SETTLED') ? styles.paymentBadgeTextPaid : styles.paymentBadgeTextPending
+            ]}>
+              {(order.paymentStatus === 'PAID' || order.paymentStatus === 'SETTLED') ? 'Paid' : 'Pending'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Store name */}
+        <View style={styles.storeRow}>
+          <Text style={styles.storeLabel}>Store:</Text>
+          <Text style={styles.storeValue}>{order.storeName}</Text>
+        </View>
+
         {/* STATUS ORDER CARD - Figma: 759:4029, x:20, y:191, width:400, height:200 */}
         <View style={styles.statusOrderCard}>
           {/* Card Background - Figma: 759:4030 */}
@@ -430,11 +452,61 @@ const styles = StyleSheet.create({
     color: "rgba(30, 30, 30, 0.5)", // Figma: fill_X1Q1GT
   },
 
-  // STATUS ORDER CARD - Figma: 759:4029, x:20, y:191, width:400, height:260 (increased)
+  paymentRow: {
+    position: "absolute",
+    left: s(20),
+    top: vs(175),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentLabel: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(14),
+    color: 'rgba(30, 30, 30, 0.5)'
+  },
+  paymentBadge: {
+    marginLeft: s(8),
+    borderRadius: s(10),
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+  },
+  paymentBadgePaid: { backgroundColor: 'rgba(52,199,89,0.15)' },
+  paymentBadgePending: { backgroundColor: 'rgba(128,128,128,0.15)' },
+  paymentBadgeText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "700",
+    fontSize: ms(12),
+  },
+  paymentBadgeTextPaid: { color: '#34C759' },
+  paymentBadgeTextPending: { color: '#666666' },
+
+  storeRow: {
+    position: "absolute",
+    left: s(20),
+    top: vs(200),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  storeLabel: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(14),
+    color: 'rgba(30, 30, 30, 0.5)'
+  },
+  storeValue: {
+    marginLeft: s(8),
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(14),
+    color: '#1E1E1E'
+  },
+
+  // STATUS ORDER CARD
   statusOrderCard: {
     position: "absolute",
     left: s(20),
-    top: vs(191),
+    top: vs(230),
     width: s(400),
     height: vs(260), // Increased from 240 to 260 for better spacing
   },
@@ -634,11 +706,11 @@ const styles = StyleSheet.create({
     lineHeight: ms(16) * 1.23,
     color: "#3BB77E",
   },
-
   // BILL CARD - Figma: 759:4056, x:20, y:471 (adjusted), width:400, height:320
   billCard: {
     position: "absolute",
     left: s(20),
+    top: vs(620),
     top: vs(471), // Adjusted from 451 to 471 (191 + 260 + 20 margin)
     width: s(400),
     height: vs(320),
@@ -800,18 +872,18 @@ const styles = StyleSheet.create({
   paymentMethodLabel: {
     position: "absolute",
     left: s(20),
-    top: vs(811), // Adjusted from 791 to 811 (471 + 320 + 20 margin)
+    top: vs(970),
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
     fontSize: ms(20),
     lineHeight: ms(20) * 1.1,
     color: "#1E1E1E",
   },
-
   // PAYMENT CARD - Figma: 759:4114, x:20, y:853 (adjusted), width:400, height:60
   paymentCard: {
     position: "absolute",
     left: s(20),
+    top: vs(1012),
     top: vs(853), // Adjusted from 833 to 853 (811 + 42 spacing)
     width: s(400),
     height: vs(60),
@@ -846,6 +918,12 @@ const styles = StyleSheet.create({
     height: s(30),
   },
 
+  // Payment Icon - For GCash/PayMaya logos
+  paymentIcon: {
+    width: s(50),
+    height: s(30),
+  },
+
   // Payment Text - Figma: 759:4120
   paymentText: {
     marginLeft: s(20),
@@ -875,7 +953,7 @@ const styles = StyleSheet.create({
 
   // Bottom Padding
   bottomPadding: {
-    height: vs(960), // Adjusted from 940 to 960 to accommodate taller status card
+    height: vs(1100), // Increased to show all content
   },
 
   // Loading Container

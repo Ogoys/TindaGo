@@ -1,28 +1,11 @@
 /**
- * Xendit Payment Service
+ * Payment Service (calls admin API to create Xendit invoices)
  *
- * Handles payment processing with 1% platform commission
- * Uses Xendit Invoice API for GCash, PayMaya, and other payment methods
+ * Moves all secret interaction to tindago-admin. Mobile only calls the admin endpoint
+ * and opens the returned invoice URL.
  */
 
-import axios from 'axios';
-
-// Xendit API configuration
-const XENDIT_SECRET_KEY = process.env.EXPO_PUBLIC_XENDIT_SECRET_KEY || '';
-const XENDIT_BASE_URL = 'https://api.xendit.co';
-const PLATFORM_COMMISSION_RATE = parseFloat(process.env.EXPO_PUBLIC_PLATFORM_COMMISSION_RATE || '0.01');
-
-// Create axios instance with authentication
-const xenditApi = axios.create({
-  baseURL: XENDIT_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  auth: {
-    username: XENDIT_SECRET_KEY,
-    password: '', // Xendit uses basic auth with secret key as username, no password
-  },
-});
+const ADMIN_API_BASE = process.env.EXPO_PUBLIC_ADMIN_API_BASE || 'http://localhost:3000';
 
 export interface PaymentRequest {
   orderId: string;
@@ -60,168 +43,56 @@ export interface PaymentStatusResponse {
   error?: string;
 }
 
-class XenditService {
+class PaymentService {
   /**
-   * Create payment invoice with 1% platform commission
+   * Create payment invoice via admin API
    */
   async createPayment(request: PaymentRequest): Promise<PaymentResponse> {
     try {
-      // Calculate commission (1% of total)
-      const platformCommission = Math.round(request.amount * PLATFORM_COMMISSION_RATE * 100) / 100;
-      const storeAmount = request.amount - platformCommission;
-
-      console.log('Creating Xendit payment:', {
-        orderId: request.orderId,
-        amount: request.amount,
-        commission: platformCommission,
-        storeAmount,
+      const res = await fetch(`${ADMIN_API_BASE}/api/payments/invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderNumber: request.orderNumber,
+          total: request.amount,
+          method: request.paymentMethod,
+          store: { id: request.storeId, name: request.storeName },
+          customer: { email: request.customerEmail, name: request.customerName, phone: request.customerPhone },
+          items: request.items,
+        }),
       });
 
-      // Prepare invoice data
-      const invoiceData = {
-        external_id: request.orderId,
-        amount: request.amount,
-        payer_email: request.customerEmail,
-        description: `TindaGo Order ${request.orderNumber} from ${request.storeName}`,
-        invoice_duration: 86400, // 24 hours expiry
+      if (!res.ok) {
+        const text = await res.text();
+        return { success: false, error: text || 'Failed to create invoice' };
+      }
 
-        // Customer info
-        customer: {
-          given_names: request.customerName,
-          email: request.customerEmail,
-          mobile_number: request.customerPhone,
-        },
-
-        // Platform fee (1% commission)
-        fees: [
-          {
-            type: 'PLATFORM_FEE',
-            value: platformCommission,
-          },
-        ],
-
-        // Order items
-        items: request.items.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          category: 'Groceries',
-        })),
-
-        // Payment methods allowed
-        payment_methods: this.getPaymentMethods(request.paymentMethod),
-
-        // Success/failure redirect URLs (optional - for web)
-        success_redirect_url: 'tindago://payment/success',
-        failure_redirect_url: 'tindago://payment/failure',
-
-        // Metadata for tracking
-        metadata: {
-          order_id: request.orderId,
-          order_number: request.orderNumber,
-          store_id: request.storeId,
-          store_name: request.storeName,
-          platform_commission: platformCommission,
-          store_amount: storeAmount,
-        },
-      };
-
-      // Call Xendit API
-      const response = await xenditApi.post('/v2/invoices', invoiceData);
-
-      console.log('Xendit invoice created:', {
-        invoiceId: response.data.id,
-        status: response.data.status,
-      });
-
+      const data = await res.json();
       return {
         success: true,
-        invoiceId: response.data.id,
-        invoiceUrl: response.data.invoice_url,
-        expiryDate: response.data.expiry_date,
-        platformCommission,
-        storeAmount,
+        invoiceId: data.invoiceId,
+        invoiceUrl: data.invoiceUrl,
+        expiryDate: data.expiryDate,
+        platformCommission: data.commission,
+        storeAmount: data.storeAmount,
       };
-
     } catch (error: any) {
-      console.error('Xendit payment error:', error.response?.data || error.message);
-
-      return {
-        success: false,
-        error: error.response?.data?.message || error.message || 'Failed to create payment',
-      };
+      console.error('Admin invoice error:', error?.message || error);
+      return { success: false, error: error?.message || 'Network error' };
     }
   }
 
   /**
-   * Get payment methods based on user selection
+   * Polling method can be implemented via admin later if needed
    */
-  private getPaymentMethods(method: string): string[] {
-    switch (method) {
-      case 'gcash':
-        return ['GCASH'];
-      case 'paymaya':
-        return ['PAYMAYA'];
-      case 'online':
-        return ['GCASH', 'PAYMAYA', 'CREDIT_CARD', 'DEBIT_CARD'];
-      default:
-        return ['GCASH', 'PAYMAYA'];
-    }
+  async getPaymentStatus(_invoiceId: string): Promise<PaymentStatusResponse> {
+    return { success: true, status: 'PENDING' };
   }
 
-  /**
-   * Check payment status
-   */
-  async getPaymentStatus(invoiceId: string): Promise<PaymentStatusResponse> {
-    try {
-      const response = await xenditApi.get(`/v2/invoices/${invoiceId}`);
-
-      return {
-        success: true,
-        status: response.data.status,
-        paidAmount: response.data.paid_amount,
-        paidAt: response.data.paid_at,
-        paymentMethod: response.data.payment_method,
-      };
-
-    } catch (error: any) {
-      console.error('Error checking payment status:', error.response?.data || error.message);
-
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Failed to check payment status',
-      };
-    }
-  }
-
-  /**
-   * Simulate payment for testing (sandbox only)
-   */
-  async simulatePayment(invoiceId: string, amount: number): Promise<boolean> {
-    try {
-      // In Xendit test mode, you can simulate payments via API or dashboard
-      console.log('Simulating payment for invoice:', invoiceId);
-
-      // NOTE: In test mode, you need to manually pay the invoice using test payment methods
-      // Or use Xendit dashboard to simulate payment
-
-      return true;
-    } catch (error: any) {
-      console.error('Error simulating payment:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Validate webhook callback from Xendit
-   */
-  validateWebhookSignature(payload: string, signature: string, webhookToken: string): boolean {
-    // Implement webhook signature validation for production
-    // For sandbox testing, you can skip this
+  async simulatePayment(_invoiceId: string, _amount: number): Promise<boolean> {
     return true;
   }
 }
 
-// Export singleton instance
-export const xenditService = new XenditService();
+export const xenditService = new PaymentService();
 export default xenditService;

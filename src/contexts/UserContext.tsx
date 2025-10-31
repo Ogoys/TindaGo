@@ -12,6 +12,7 @@ export interface User {
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   profileComplete: boolean;
+  storeId?: string; // For store-owner: userId is the storeId
 }
 
 interface UserContextType {

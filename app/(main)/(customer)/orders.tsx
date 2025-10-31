@@ -576,6 +576,30 @@ const styles = StyleSheet.create({
     lineHeight: ms(15),
     marginBottom: vs(2),
   },
+  paymentBadge: {
+    alignSelf: 'flex-start',
+    marginTop: vs(6),
+    borderRadius: s(10),
+    paddingHorizontal: s(8),
+    paddingVertical: vs(4),
+  },
+  paymentBadgePaid: {
+    backgroundColor: 'rgba(52,199,89,0.15)',
+  },
+  paymentBadgePending: {
+    backgroundColor: 'rgba(128,128,128,0.15)',
+  },
+  paymentBadgeText: {
+    fontSize: ms(12),
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+  },
+  paymentBadgeTextPaid: {
+    color: '#34C759',
+  },
+  paymentBadgeTextPending: {
+    color: '#666666',
+  },
   itemTotalRow: {
     flexDirection: 'row',
     alignItems: 'center',
