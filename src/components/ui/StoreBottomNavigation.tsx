@@ -4,7 +4,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { s, vs } from "../../constants/responsive";
 
 interface StoreBottomNavigationProps {
-  activeTab?: "home" | "orders" | "wallet" | "profile";
+  activeTab?: "home" | "orders" | "index" | "profile";
 }
 
 export default function StoreBottomNavigation({ activeTab = "home" }: StoreBottomNavigationProps) {
@@ -67,7 +67,7 @@ export default function StoreBottomNavigation({ activeTab = "home" }: StoreBotto
           style={styles.walletIcon}
           resizeMode="contain"
         />
-        <Text style={[styles.tabLabel, currentTab === "wallet" && styles.tabLabelActive]}>
+        <Text style={[styles.tabLabel, currentTab === "index" && styles.tabLabelActive]}>
           Wallet
         </Text>
       </TouchableOpacity>

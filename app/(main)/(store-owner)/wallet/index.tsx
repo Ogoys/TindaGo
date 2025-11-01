@@ -8,12 +8,12 @@ import {
   Text,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { ref, get } from "firebase/database";
-import { database } from "../../../FirebaseConfig";
-import { useUser } from "../../../src/contexts/UserContext";
-import { Typography } from "../../../src/components/ui/Typography";
-import { Colors } from "../../../src/constants/Colors";
-import { s, vs } from "../../../src/constants/responsive";
+import { ref, get, onValue } from "firebase/database";
+import { database } from "../../../../FirebaseConfig";
+import { useUser } from "../../../../src/contexts/UserContext";
+import { Typography } from "../../../../src/components/ui/Typography";
+import { Colors } from "../../../../src/constants/Colors";
+import { s, vs } from "../../../../src/constants/responsive";
 
 interface WalletData {
   available: number;
@@ -32,32 +32,86 @@ export default function WalletScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.storeId) {
-      loadWalletData();
-    }
-  }, [user?.storeId]);
-
-  const loadWalletData = async () => {
-    if (!user?.storeId) return;
-    try {
-      setLoading(true);
-      const walletRef = ref(database, `wallets/${user.storeId}`);
-      const walletSnap = await get(walletRef);
-
-      if (walletSnap.exists()) {
-        const data = walletSnap.val();
-        setWalletData({
-          available: data.available || 0,
-          pending: data.pending || 0,
-          totalWithdrawn: data.totalWithdrawn || 0,
-        });
-      }
-    } catch (error) {
-      console.error("Error loading wallet data:", error);
-    } finally {
+    const sid = user?.storeId || user?.id;
+    if (!sid) {
       setLoading(false);
+      return;
     }
-  };
+
+    const walletRef = ref(database, `wallets/${sid}`);
+    const payoutsRef = ref(database, 'payouts');
+    const ledgerRef = ref(database, `ledgers/stores/${sid}/transactions`);
+
+    // Realtime wallet listener with fallback
+    const unsubWallet = onValue(walletRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        setWalletData({
+          available: Number(data.available || 0),
+          pending: Number(data.pending || 0),
+          totalWithdrawn: Number(data.totalWithdrawn || 0),
+        });
+        setLoading(false);
+      } else {
+        // compute fallback when wallet node missing
+        computeFallback();
+      }
+    });
+
+    const unsubPayouts = onValue(payoutsRef, () => {
+      // if wallet missing, recompute fallback from payouts changes too
+      computeFallback(true);
+    });
+
+    const unsubLedger = onValue(ledgerRef, () => {
+      computeFallback(true);
+    });
+
+    async function computeFallback(fromListener = false) {
+      try {
+        // fetch latest once for accuracy when wallet missing
+        const [ledgerSnap, payoutsSnap] = await Promise.all([
+          get(ledgerRef),
+          get(payoutsRef),
+        ]);
+        let earned = 0;
+        let pendingTxn = 0;
+        if (ledgerSnap.exists()) {
+          const txns = Object.values(ledgerSnap.val() || {}) as any[];
+          txns.forEach((t: any) => {
+            const amt = Number(t?.storeAmount || 0);
+            const s = String(t?.status || '').toUpperCase();
+            if (s === 'PENDING') pendingTxn += amt;
+            else if (s === 'PAID' || s === 'SETTLED') earned += amt;
+          });
+        }
+        let totalWithdrawn = 0;
+        let pendingWithdrawal = 0;
+        if (payoutsSnap.exists()) {
+          const list = Object.values(payoutsSnap.val() || {}) as any[];
+          list.forEach((p: any) => {
+            if (p?.storeId !== sid) return;
+            const amt = Number(p?.amount || 0);
+            const s = String(p?.status || '').toLowerCase();
+            if (s === 'completed') totalWithdrawn += amt;
+            else if (s === 'pending' || s === 'approved') pendingWithdrawal += amt;
+          });
+        }
+        const availableCalc = Math.max(earned - totalWithdrawn - pendingWithdrawal, 0);
+        setWalletData({ available: availableCalc, pending: pendingTxn, totalWithdrawn });
+      } catch (e) {
+        // ignore fallback errors in UI
+      } finally {
+        if (!fromListener) setLoading(false);
+      }
+    }
+
+    return () => {
+      unsubWallet();
+      unsubPayouts();
+      unsubLedger();
+    };
+  }, [user?.storeId, user?.id]);
 
   if (loading) {
     return (
@@ -102,7 +156,7 @@ export default function WalletScreen() {
             <Typography variant="caption" style={styles.statLabel}>
               Pending
             </Typography>
-            <Typography variant="h3" style={styles.statValue}>
+            <Typography variant="h2" style={styles.statValue}>
               ₱{walletData.pending.toFixed(2)}
             </Typography>
           </View>
@@ -110,7 +164,7 @@ export default function WalletScreen() {
             <Typography variant="caption" style={styles.statLabel}>
               Total Withdrawn
             </Typography>
-            <Typography variant="h3" style={styles.statValue}>
+            <Typography variant="h2" style={styles.statValue}>
               ₱{walletData.totalWithdrawn.toFixed(2)}
             </Typography>
           </View>
@@ -120,7 +174,7 @@ export default function WalletScreen() {
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonPrimary]}
-            onPress={() => router.push("/(main)/(store-owner)/wallet/payout-request")}
+            onPress={() => router.push("/(main)/(store-owner)/wallet/payout-requests")}
           >
             <Typography variant="body" style={styles.actionButtonTextPrimary}>
               💰 Request Payout
@@ -138,7 +192,16 @@ export default function WalletScreen() {
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push("/(main)/(store-owner)/earnings/transactions")}
+            onPress={() => router.push("/(main)/(store-owner)/wallet/earnings")}
+          >
+            <Typography variant="body" style={styles.actionButtonText}>
+              📈 View Earnings
+            </Typography>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push("/(main)/(store-owner)/wallet/transaction")}
           >
             <Typography variant="body" style={styles.actionButtonText}>
               📋 View Transactions

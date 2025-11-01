@@ -1,24 +1,33 @@
-import { Tabs } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import { View, Image } from "react-native";
 import { Colors } from "../../../src/constants/Colors";
 import { s, vs } from "../../../src/constants/responsive";
 
 export default function StoreOwnerLayout() {
+  const pathname = usePathname();
+
+  // Hide bottom tabs when inside wallet or profile subdirectories
+  // Show tabs ONLY on: /home, /orders, /wallet (index), /profile (index)
+  const hideTabsWallet = pathname?.startsWith('/(main)/(store-owner)/wallet/') && pathname !== '/(main)/(store-owner)/wallet';
+  const hideTabsProfile = pathname?.startsWith('/(main)/(store-owner)/profile/') && pathname !== '/(main)/(store-owner)/profile';
+  const hideTabs = hideTabsWallet || hideTabsProfile;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
           backgroundColor: Colors.white,
-          height: vs(120),
-          paddingBottom: vs(20),
-          paddingTop: vs(20),
+          height: hideTabs ? 0 : vs(120),
+          paddingBottom: hideTabs ? 0 : vs(20),
+          paddingTop: hideTabs ? 0 : vs(20),
           borderTopWidth: 0,
           shadowColor: Colors.shadow,
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.25,
-          shadowRadius: s(5),
-          elevation: 10,
+          shadowOpacity: hideTabs ? 0 : 0.25,
+          shadowRadius: hideTabs ? 0 : s(5),
+          elevation: hideTabs ? 0 : 10,
+          display: hideTabs ? 'none' : 'flex',
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textSecondary,
@@ -26,6 +35,7 @@ export default function StoreOwnerLayout() {
           fontSize: 12,
           fontWeight: "500",
           marginTop: vs(4),
+          display: hideTabs ? 'none' : 'flex',
         },
       }}
     >
