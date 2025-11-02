@@ -70,8 +70,6 @@ const MOCK_ORDERS: Partial<Order>[] = [
       },
     ],
     subtotal: 100,
-    tax: 0,
-    serviceFee: 5,
     total: 105,
     status: 'preparing',
     paymentMethod: 'cash',

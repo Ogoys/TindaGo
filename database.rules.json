@@ -1,0 +1,75 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+      ".write": false,
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || root.child('roles').child(auth.uid).val() === 'admin')",
+        ".write": "auth != null && ($uid === auth.uid || root.child('roles').child(auth.uid).val() === 'admin')"
+      }
+    },
+
+    "roles": {
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || root.child('roles').child(auth.uid).val() === 'admin')",
+        ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'"
+      }
+    },
+
+    "admins": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+      ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || root.child('roles').child(auth.uid).val() === 'admin')",
+        ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'"
+      }
+    },
+
+    "ledgers": {
+      "stores": {
+        "$storeId": {
+          "transactions": {
+            ".indexOn": ["createdAt", "status"],
+            ".read": "auth != null && root.child('users').child(auth.uid).child('storeId').val() === $storeId",
+            ".write": false
+          }
+        }
+      }
+    },
+
+    "wallets": {
+      "$storeId": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('storeId').val() === $storeId",
+        ".write": false
+      }
+    },
+
+    "payouts": {
+      ".indexOn": ["storeId", "status", "createdAt"],
+      "$payoutId": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('storeId').val() === data.child('storeId').val()",
+        ".write": "auth != null && (
+          // owner can CREATE only their own payout with sane values
+          (!data.exists() && newData.child('storeId').val() === root.child('users').child(auth.uid).child('storeId').val() &&
+           newData.child('amount').isNumber() && newData.child('amount').val() >= 100 &&
+           newData.child('amount').val() <= ((root.child('wallets').child(newData.child('storeId').val()).child('available').val() != null) ? root.child('wallets').child(newData.child('storeId').val()).child('available').val() : 0) &&
+           newData.child('status').val() === 'pending' && newData.child('createdAt').isNumber()) ||
+          // admin can update status (set approved/completed/rejected) and admin-only fields
+          (root.child('roles').child(auth.uid).val() === 'admin')
+        )"
+      }
+    },
+
+    "payouts_by_store": {
+      "$storeId": {
+        "$payoutId": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('storeId').val() === $storeId",
+          ".write": "auth != null && (!data.exists() && root.child('users').child(auth.uid).child('storeId').val() === $storeId)"
+        }
+      }
+    }
+  }
+}

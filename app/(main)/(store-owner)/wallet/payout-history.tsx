@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ref, get } from 'firebase/database';
+import { ref, get, onValue } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
 import { useUser } from '../../../../src/contexts/UserContext';
 import { Typography } from '../../../../src/components/ui/Typography';
@@ -63,15 +63,14 @@ export default function PayoutHistory() {
 
   useEffect(() => {
     const sid = user?.storeId || user?.id;
-    if (sid) loadPayouts(sid);
-  }, [user?.storeId, user?.id]);
+    if (!sid) {
+      setPayouts([]);
+      setLoading(false);
+      return;
+    }
 
-  const loadPayouts = async (sid: string) => {
-    try {
-      setLoading(true);
-      const payoutsRef = ref(database, 'payouts');
-      const payoutsSnap = await get(payoutsRef);
-
+    const payoutsRef = ref(database, 'payouts');
+    const unsub = onValue(payoutsRef, (payoutsSnap) => {
       if (payoutsSnap.exists()) {
         const data = payoutsSnap.val();
         const userPayouts: Payout[] = Object.entries(data)
@@ -89,13 +88,18 @@ export default function PayoutHistory() {
       } else {
         setPayouts([]);
       }
-    } catch (error) {
-      console.error('Error loading payouts:', error);
-      setPayouts([]);
-    } finally {
       setLoading(false);
-    }
-  };
+    }, (err) => {
+      console.error('Error loading payouts:', err);
+      setPayouts([]);
+      setLoading(false);
+    });
+
+    return () => {
+      // detach listener
+      try { (unsub as any)?.(); } catch {}
+    };
+  }, [user?.storeId, user?.id]);
 
   // Handle back navigation
   const handleBack = () => {
@@ -107,6 +111,10 @@ export default function PayoutHistory() {
     ? payouts
     : payouts.filter(p => p.status === selectedFilter);
 
+  // Simple client-side pagination
+  const [showCount, setShowCount] = useState(20);
+  const visiblePayouts = filteredPayouts.slice(0, showCount);
+
   // Get title based on selected filter
   const getTitle = () => {
     const tab = FILTER_TABS.find(t => t.status === selectedFilter);
@@ -117,13 +125,13 @@ export default function PayoutHistory() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return Colors.success || '#34C759';
+        return '#34C759';
       case 'approved':
-        return Colors.info || '#007AFF';
+        return '#007AFF';
       case 'pending':
-        return Colors.warning || '#FF9500';
+        return '#FF9500';
       case 'rejected':
-        return Colors.error || '#FF3B30';
+        return '#FF3B30';
       default:
         return Colors.textSecondary;
     }
@@ -223,7 +231,7 @@ export default function PayoutHistory() {
           </View>
         ) : (
           <View style={styles.payoutListContainer}>
-            {filteredPayouts.map((payout) => (
+            {visiblePayouts.map((payout) => (
               <View key={payout.id} style={styles.payoutCard}>
                 {/* Card Background */}
                 <View style={styles.payoutCardBackground} />
@@ -307,6 +315,12 @@ export default function PayoutHistory() {
               </View>
             ))}
           </View>
+        )}
+
+        {showCount < filteredPayouts.length && (
+          <TouchableOpacity style={[styles.createButton, { alignSelf: 'center', marginTop: vs(8) }]} onPress={() => setShowCount(prev => prev + 20)}>
+            <Text style={styles.createButtonText}>Load more</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
     </SafeAreaView>

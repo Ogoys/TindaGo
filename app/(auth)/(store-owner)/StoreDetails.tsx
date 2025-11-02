@@ -60,6 +60,8 @@ const FormInputField = React.memo(({
   </View>
 ));
 
+FormInputField.displayName = 'StoreDetails.FormInputField';
+
 export default function StoreDetailsScreen() {
   // Get owner details from previous screen
   const { ownerName, ownerMobile, ownerEmail } = useLocalSearchParams<{

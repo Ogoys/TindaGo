@@ -52,6 +52,8 @@ const FormInputField = React.memo(({
   </View>
 ));
 
+FormInputField.displayName = 'BankDetails.FormInputField';
+
 export default function BankDetailsScreen() {
   // Get store info from previous screen
   const { storeName, ownerName, ownerEmail } = useLocalSearchParams<{

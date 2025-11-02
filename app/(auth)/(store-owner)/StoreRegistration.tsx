@@ -71,6 +71,8 @@ const FormInputField = React.memo(({
   </View>
 ));
 
+FormInputField.displayName = 'StoreRegistration.FormInputField';
+
 export default function StoreOwnerRegisterScreen() {
   // Get pre-filled data from navigation params
   const { name, email, uid, prefilledName, prefilledEmail, prefilledPassword } = useLocalSearchParams<{

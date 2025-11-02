@@ -25,6 +25,7 @@ import {
   ActivityIndicator,
   AppState,
   AppStateStatus,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -40,7 +41,6 @@ import { PaymentMethodSelector, PaymentMethod } from '../../../src/components/ui
 import { createOrder } from '../../../src/api/orders';
 import { clearCart } from '../../../src/api/cart';
 import { xenditService } from '../../../src/services/payment/XenditService';
-import { Linking } from 'react-native';
 
 interface OrderSummary {
   items: number;

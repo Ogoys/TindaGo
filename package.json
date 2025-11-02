@@ -8,7 +8,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "backfill:wallets": "node scripts/backfill-wallets.js",
+    "payout:approve": "node scripts/approve-payout.js",
+    "payout:complete": "node scripts/complete-payout.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -54,6 +57,7 @@
     "@types/react": "~19.0.10",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
+    "firebase-admin": "^13.5.0",
     "typescript": "~5.8.3"
   },
   "private": true

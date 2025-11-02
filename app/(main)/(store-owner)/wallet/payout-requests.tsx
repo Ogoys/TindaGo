@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ref, get, set } from 'firebase/database';
+import { ref, get, set, onValue, update } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
 import { useUser } from '../../../../src/contexts/UserContext';
 import { Typography } from '../../../../src/components/ui/Typography';
@@ -37,6 +37,8 @@ import { Fonts } from '../../../../src/constants/Fonts';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 
 type PaymentMethod = 'bank' | 'gcash' | 'paymaya';
+
+const MIN_PAYOUT = 100;
 
 interface ValidationErrors {
   amount?: string;
@@ -58,22 +60,23 @@ export default function PayoutRequest() {
 
   useEffect(() => {
     const sid = user?.storeId || user?.id;
-    if (sid) loadWallet(sid);
-  }, [user?.storeId, user?.id]);
-
-  const loadWallet = async (sid: string) => {
-    try {
-      const walletRef = ref(database, `wallets/${sid}`);
-      const walletSnap = await get(walletRef);
-      if (walletSnap.exists()) {
-        setAvailableBalance(walletSnap.val().available || 0);
-      }
-    } catch (error) {
-      console.error('Error loading wallet:', error);
-    } finally {
+    if (!sid) {
       setLoading(false);
+      return;
     }
-  };
+    const walletRef = ref(database, `wallets/${sid}`);
+    const unsub = onValue(walletRef, (snap) => {
+      if (snap.exists()) {
+        setAvailableBalance(Number(snap.val().available || 0));
+      } else {
+        setAvailableBalance(0);
+      }
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => {
+      try { (unsub as any)?.(); } catch {}
+    };
+  }, [user?.storeId, user?.id]);
 
   const handleBack = () => {
     router.back();
@@ -114,7 +117,7 @@ export default function PayoutRequest() {
     setSubmitting(true);
     try {
       const payoutId = `PAYOUT-${Date.now()}`;
-      await set(ref(database, `payouts/${payoutId}`), {
+      const data = {
         payoutId,
         storeId: sid,
         amount: parseFloat(amount),
@@ -122,8 +125,13 @@ export default function PayoutRequest() {
         accountName: accountName.trim(),
         accountNumber: accountNumber.trim(),
         status: 'pending',
-        createdAt: new Date().toISOString(),
-      });
+        createdAt: Date.now(),
+      };
+      const updates: Record<string, any> = {};
+      updates[`payouts/${payoutId}`] = data;
+      updates[`payouts_by_store/${sid}/${payoutId}`] = true;
+      updates[`logs/${payoutId}/events/${Date.now()}`] = { action: 'requested', amount: data.amount, storeId: sid, method };
+      await update(ref(database), updates);
 
       Alert.alert(
         'Request Submitted',
@@ -219,8 +227,16 @@ export default function PayoutRequest() {
                   editable={!submitting}
                 />
               </View>
+              <View style={styles.inlineButtons}>
+                <TouchableOpacity style={styles.pill} onPress={() => setAmount(String(MIN_PAYOUT))} disabled={submitting}>
+                  <Text style={styles.pillText}>Min ₱{MIN_PAYOUT}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.pill} onPress={() => setAmount(availableBalance.toFixed(2))} disabled={submitting}>
+                  <Text style={styles.pillText}>Withdraw All</Text>
+                </TouchableOpacity>
+              </View>
               {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
-              <Text style={styles.helperText}>Minimum payout: ₱100.00</Text>
+              <Text style={styles.helperText}>Minimum payout: ₱{MIN_PAYOUT.toFixed(2)}</Text>
             </View>
 
             {/* Payment Method Selection */}
@@ -317,9 +333,12 @@ export default function PayoutRequest() {
         {/* Submit Button (Fixed at Bottom) */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+            style={[
+              styles.submitButton,
+              (submitting || isNaN(parseFloat(amount || '')) || parseFloat(amount || '0') < MIN_PAYOUT || parseFloat(amount || '0') > availableBalance || !method || !accountName.trim() || !accountNumber.trim()) && styles.submitButtonDisabled
+            ]}
             onPress={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || isNaN(parseFloat(amount || '')) || parseFloat(amount || '0') < MIN_PAYOUT || parseFloat(amount || '0') > availableBalance || !method || !accountName.trim() || !accountNumber.trim()}
             activeOpacity={0.8}
           >
             {submitting ? (
@@ -486,6 +505,24 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: '#FF3B30',
+  },
+  inlineButtons: {
+    flexDirection: 'row',
+    gap: s(8),
+    marginTop: vs(8),
+  },
+  pill: {
+    backgroundColor: Colors.white,
+    borderColor: '#E0E0E0',
+    borderWidth: 1,
+    borderRadius: s(16),
+    paddingHorizontal: s(10),
+    paddingVertical: vs(6),
+  },
+  pillText: {
+    fontSize: ms(12),
+    color: Colors.darkGray,
+    fontWeight: '600',
   },
   errorText: {
     fontFamily: Fonts.primary,

@@ -115,7 +115,7 @@ export const ProductRemovedModal: React.FC<ProductRemovedModalProps> = ({
           {/* Product Name */}
           <View style={styles.productNameContainer}>
             <Text style={styles.productName} numberOfLines={2}>
-              "{productName}"
+              {productName}
             </Text>
           </View>
 

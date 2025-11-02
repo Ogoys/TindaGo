@@ -174,6 +174,9 @@ export default function OrderDetailsScreen() {
     );
   }
 
+  // Normalize payment status for type-safe comparisons
+  const isPaid = ['PAID', 'SETTLED'].includes(String(order.paymentStatus || '').toUpperCase());
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
@@ -224,13 +227,13 @@ export default function OrderDetailsScreen() {
           <Text style={styles.paymentLabel}>Payment:</Text>
           <View style={[
             styles.paymentBadge,
-            (order.paymentStatus === 'PAID' || order.paymentStatus === 'SETTLED') ? styles.paymentBadgePaid : styles.paymentBadgePending
+            isPaid ? styles.paymentBadgePaid : styles.paymentBadgePending
           ]}>
             <Text style={[
               styles.paymentBadgeText,
-              (order.paymentStatus === 'PAID' || order.paymentStatus === 'SETTLED') ? styles.paymentBadgeTextPaid : styles.paymentBadgeTextPending
+              isPaid ? styles.paymentBadgeTextPaid : styles.paymentBadgeTextPending
             ]}>
-              {(order.paymentStatus === 'PAID' || order.paymentStatus === 'SETTLED') ? 'Paid' : 'Pending'}
+              {isPaid ? 'Paid' : 'Pending'}
             </Text>
           </View>
         </View>
@@ -710,7 +713,6 @@ const styles = StyleSheet.create({
   billCard: {
     position: "absolute",
     left: s(20),
-    top: vs(620),
     top: vs(471), // Adjusted from 451 to 471 (191 + 260 + 20 margin)
     width: s(400),
     height: vs(320),
@@ -883,7 +885,6 @@ const styles = StyleSheet.create({
   paymentCard: {
     position: "absolute",
     left: s(20),
-    top: vs(1012),
     top: vs(853), // Adjusted from 833 to 853 (811 + 42 spacing)
     width: s(400),
     height: vs(60),

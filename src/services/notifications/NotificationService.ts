@@ -17,6 +17,7 @@ let isNotificationSupported = false;
 try {
   // Check if we're in Expo Go (appOwnership will be 'expo' in Expo Go)
   if (Constants.appOwnership !== 'expo') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     Notifications = require('expo-notifications');
     isNotificationSupported = true;
 

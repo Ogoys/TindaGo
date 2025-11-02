@@ -131,7 +131,12 @@ export default function OrderDetailsHistoryScreen() {
           unit: item.unit || '',
           subtotal: item.subtotal,
           notes: item.notes || '',
-        };
+          // Required CartItem fields
+          storeId: order.storeId,
+          storeName: order.storeName,
+          stock: (item as any).stock ?? 999,
+          isAvailable: (item as any).isAvailable ?? true,
+        } as any;
 
         const success = await addToCart(user.id, cartItem);
         if (success) {
