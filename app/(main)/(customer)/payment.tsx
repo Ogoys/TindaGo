@@ -41,6 +41,7 @@ import { PaymentMethodSelector, PaymentMethod } from '../../../src/components/ui
 import { createOrder } from '../../../src/api/orders';
 import { clearCart } from '../../../src/api/cart';
 import { xenditService } from '../../../src/services/payment/XenditService';
+import { CommissionService } from '../../../src/services/commission';
 
 interface OrderSummary {
   items: number;
@@ -323,8 +324,14 @@ const PaymentScreen = () => {
         }
 
       } else {
-        // Cash on Pickup - create order directly
-        const orderId = await createOrder(orderData);
+        // Cash on Pickup - calculate commission and create order
+        const { platformCommission, storeAmount } = await CommissionService.calculateCommission(orderSummary.grandTotal);
+
+        const orderId = await createOrder({
+          ...orderData,
+          platformCommission,
+          storeAmount,
+        });
 
         if (orderId) {
           // Clear cart after successful order
