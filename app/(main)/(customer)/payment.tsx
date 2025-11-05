@@ -29,7 +29,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ref, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get, onValue, query, orderByChild, equalTo, update } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from '../../../src/constants/Colors';
@@ -232,9 +232,23 @@ const PaymentScreen = () => {
       if (selectedPayment === 'gcash' || selectedPayment === 'paymaya') {
         console.log('Processing online payment with Xendit...');
 
-        // Create Xendit payment invoice
+        // Create order in Firebase FIRST to get orderId
+        const orderId = await createOrder({
+          ...orderData,
+          platformCommission: 0, // Will be updated after invoice creation
+          storeAmount: orderSummary.grandTotal,
+        });
+
+        if (!orderId) {
+          setProcessing(false);
+          setErrorMessage('Failed to create order in database.\nPlease try again.');
+          setShowErrorModal(true);
+          return;
+        }
+
+        // Create Xendit payment invoice with the real orderId
         const paymentResponse = await xenditService.createPayment({
-          orderId: orderNumber, // Use order number as external ID
+          orderId, // Real Firebase key
           orderNumber,
           amount: orderSummary.grandTotal,
           customerEmail: user.email || `${user.id}@tindago.com`,
@@ -259,10 +273,9 @@ const PaymentScreen = () => {
 
         console.log('Xendit invoice created:', paymentResponse.invoiceId);
 
-        // Create order in Firebase BEFORE opening payment
-        const orderId = await createOrder({
-          ...orderData,
-          xenditInvoiceId: paymentResponse.invoiceId, // Store Xendit invoice ID
+        // Update order with invoice details
+        await update(ref(database, `orders/${orderId}`), {
+          xenditInvoiceId: paymentResponse.invoiceId,
           platformCommission: paymentResponse.platformCommission,
           storeAmount: paymentResponse.storeAmount,
         });
@@ -282,17 +295,14 @@ const PaymentScreen = () => {
           // Store pending order number and set up listener
           setPendingOrderNumber(orderNumber);
 
-          // Listen for order status update from webhook (query by orderNumber)
-          const ordersQuery = query(ref(database, 'orders'), orderByChild('orderNumber'), equalTo(orderNumber));
-          const unsubscribe = onValue(ordersQuery, async (snapshot) => {
-            console.log('[Payment] Listener fired for order:', orderNumber);
+          // Listen directly to the order by its Firebase key (orderId)
+          const orderRef = ref(database, `orders/${orderId}`);
+          const unsubscribe = onValue(orderRef, async (snapshot) => {
+            console.log('[Payment] Listener fired for orderId:', orderId);
             if (snapshot.exists()) {
-              const ordersData = snapshot.val();
-              // Get first order (should only be one)
-              const orderId = Object.keys(ordersData)[0];
-              const orderData = ordersData[orderId];
-              console.log('[Payment] Order data:', orderData?.paymentStatus);
-              // Check if payment was marked PAID/SETTLED
+              const orderData = snapshot.val();
+              console.log('[Payment] Order paymentStatus:', orderData?.paymentStatus);
+              // Check if payment was marked PAID/SETTLED by webhook
               if (orderData?.paymentStatus === 'PAID' || orderData?.paymentStatus === 'SETTLED') {
                 console.log('[Payment] Payment confirmed! Showing modal...');
                 unsubscribe(); // Stop listening
@@ -306,12 +316,9 @@ const PaymentScreen = () => {
                 setProcessing(false);
               }
             } else {
-              console.log('[Payment] Order not found yet:', orderNumber);
+              console.log('[Payment] Order not found yet at orders/' + orderId);
             }
           });
-          
-          // Import query, orderByChild, equalTo if not already imported
-          // Add to imports: import { ref, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
 
           // Store unsubscribe function
           unsubscribeRef.current = unsubscribe;

@@ -49,10 +49,12 @@ class PaymentService {
    */
   async createPayment(request: PaymentRequest): Promise<PaymentResponse> {
     try {
+      console.log('[XenditService] Calling admin API:', ADMIN_API_BASE, 'with order:', request.orderNumber);
       const res = await fetch(`${ADMIN_API_BASE}/api/payments/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          orderId: request.orderId,
           orderNumber: request.orderNumber,
           total: request.amount,
           method: request.paymentMethod,
@@ -62,8 +64,10 @@ class PaymentService {
         }),
       });
 
+      console.log('[XenditService] Admin API response status:', res.status);
       if (!res.ok) {
         const text = await res.text();
+        console.error('[XenditService] Admin API error response:', text);
         return { success: false, error: text || 'Failed to create invoice' };
       }
 
