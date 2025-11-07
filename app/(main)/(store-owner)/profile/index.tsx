@@ -145,6 +145,18 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/record-walk-in-sale');
   };
 
+  const handleRecordDamage = () => {
+    router.push('/(main)/(store-owner)/profile/record-damage');
+  };
+
+  const handleSalesDashboard = () => {
+    router.push('/(main)/(store-owner)/profile/sales-dashboard');
+  };
+
+  const handleSalesHistory = () => {
+    router.push('/(main)/(store-owner)/profile/sales-history');
+  };
+
   const handleHelp = () => {
     console.log("Help pressed");
   };
@@ -269,9 +281,24 @@ export default function ProfileScreen() {
             onPress={handleStoreProduct}
           />
           <SettingItem
+            title="Sales Dashboard"
+            icon={require("../../../../src/assets/images/store-owner-profile/card-wallet.png")}
+            onPress={handleSalesDashboard}
+          />
+          <SettingItem
+            title="Sales History"
+            icon={require("../../../../src/assets/images/store-owner-profile/product-icon.png")}
+            onPress={handleSalesHistory}
+          />
+          <SettingItem
             title="Record Walk-in Sale"
             icon={require("../../../../src/assets/images/store-owner-profile/card-wallet.png")}
             onPress={handleRecordWalkInSale}
+          />
+          <SettingItem
+            title="Record Damages & Spoilages"
+            icon={require("../../../../src/assets/images/store-owner-profile/protect-icon.png")}
+            onPress={handleRecordDamage}
             isLast={true}
           />
         </View>
