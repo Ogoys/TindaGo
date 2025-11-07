@@ -30,6 +30,7 @@ import { getWalkInSales } from '../../../../src/api/walkInSales';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { ms, s, vs } from '../../../../src/constants/responsive';
+import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
 
 interface SaleTransaction {
   id: string;
@@ -232,21 +233,16 @@ const SalesHistoryScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
-      {/* Fixed Header */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <Image
-            source={require('../../../../src/assets/images/store-product/chevron-left.png')}
-            style={styles.backIcon}
-          />
-        </TouchableOpacity>
-        <Text style={styles.title}>Sales History</Text>
+      {/* Header */}
+      <ProfileScreenHeader title="Sales History" />
+      
+      {/* Filter Button - Aligned with search bar */}
+      <View style={styles.filterButtonContainer}>
         <TouchableOpacity
           style={styles.filterIconButton}
           onPress={() => setShowFiltersModal(true)}
           activeOpacity={0.7}
         >
-          {/* Filter Icon - 3 horizontal lines with funnel shape */}
           <View style={styles.filterIconContainer}>
             <View style={[styles.filterLine, styles.filterLineTop]} />
             <View style={[styles.filterLine, styles.filterLineMiddle]} />
@@ -562,37 +558,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundGray,
   },
 
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: s(20),
-    paddingTop: vs(79),
-    paddingBottom: vs(15),
-    backgroundColor: Colors.backgroundGray,
+  filterButtonContainer: {
+    position: 'absolute',
+    top: vs(79),
+    right: s(20),
+    zIndex: 100,
   },
 
-  backButton: {
-    width: s(30),
-    height: s(30),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  backIcon: {
-    width: s(30),
-    height: s(30),
-  },
-
-  title: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(20),
-    lineHeight: vs(24),
-    color: Colors.darkGray,
-    flex: 1,
-    marginLeft: s(15),
-  },
 
   filterIconButton: {
     width: s(40),

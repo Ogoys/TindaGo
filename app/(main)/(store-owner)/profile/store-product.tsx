@@ -32,6 +32,7 @@ import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
+import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
 
 interface CategoryItem {
   id: string;
@@ -237,21 +238,10 @@ const StoreProductScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
-      {/* Fixed Header */}
-      <View style={styles.headerContainer}>
-        {/* Back Button - Figma: x: 20, y: 79, width: 30, height: 30 */}
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <Image
-            source={require('../../../../src/assets/images/store-product/chevron-left.png')}
-            style={styles.backIcon}
-          />
-        </TouchableOpacity>
-
-        {/* Title - Figma: x: 154, y: 83, font: Clash Grotesk 600, size: 20 */}
-        <Text style={styles.title}>Store Product</Text>
-      </View>
+      {/* Header */}
+      <ProfileScreenHeader title="Store Product" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Add Product Card - Figma: x: 20, y: 149, width: 400, height: 80 */}
@@ -486,49 +476,7 @@ const StoreProductScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6F6', // Figma: #F4F6F6
-  },
-
-  // Fixed Header Container
-  headerContainer: {
-    backgroundColor: '#F4F6F6',
-    paddingTop: vs(79),
-    paddingBottom: vs(20),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Back Button - Figma: x: 20, y: 79, width: 30, height: 30
-  backButton: {
-    position: 'absolute',
-    left: s(20),
-    top: vs(79),
-    width: s(30),
-    height: vs(30),
-    borderRadius: s(20),
-    backgroundColor: Colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.25)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 10,
-  },
-
-  backIcon: {
-    width: s(15),
-    height: vs(15),
-  },
-
-  // Title - Figma: x: 154, y: 83, font: Clash Grotesk 600, size: 20
-  title: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(20),
-    lineHeight: vs(22),
-    color: Colors.darkGray,
+    backgroundColor: Colors.backgroundGray,
   },
 
   scrollContent: {

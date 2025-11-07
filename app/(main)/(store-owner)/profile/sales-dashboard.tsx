@@ -30,6 +30,7 @@ import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { getWalkInSales } from '../../../../src/api/walkInSales';
+import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
 
 interface Transaction {
   id: string;
@@ -259,16 +260,8 @@ const SalesDashboardScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
-      {/* Fixed Header */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <Image
-            source={require('../../../../src/assets/images/store-product/chevron-left.png')}
-            style={styles.backIcon}
-          />
-        </TouchableOpacity>
-        <Text style={styles.title}>Sales Dashboard</Text>
-      </View>
+      {/* Header */}
+      <ProfileScreenHeader title="Sales Dashboard" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -473,36 +466,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.backgroundGray,
-  },
-
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: s(20),
-    paddingTop: vs(79),
-    paddingBottom: vs(20),
-    backgroundColor: Colors.backgroundGray,
-  },
-
-  backButton: {
-    width: s(30),
-    height: s(30),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  backIcon: {
-    width: s(30),
-    height: s(30),
-  },
-
-  title: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(20),
-    lineHeight: vs(24),
-    color: Colors.darkGray,
-    marginLeft: s(80),
   },
 
   scrollContent: {

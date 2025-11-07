@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Image, Alert } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from '@expo/vector-icons';
 import { auth, database } from "@/lib/firebase";
 import { ref, get } from "firebase/database";
 import { signOut } from "firebase/auth";
 import { Colors } from "../../../../src/constants/Colors";
-import { s, vs } from "../../../../src/constants/responsive";
+import { s, vs, ms } from "../../../../src/constants/responsive";
 import { StoreRegistrationService } from "@/services/store";
 import { useUser } from "../../../../src/contexts/UserContext";
 
 interface SettingItemProps {
   title: string;
-  icon: any;
+  iconName: keyof typeof Ionicons.glyphMap;
   onPress?: () => void;
   isLast?: boolean;
+  iconColor?: string;
 }
 
-function SettingItem({ title, icon, onPress, isLast = false }: SettingItemProps) {
+function SettingItem({ title, iconName, onPress, isLast = false, iconColor }: SettingItemProps) {
   return (
     <TouchableOpacity
       style={[
@@ -27,20 +29,17 @@ function SettingItem({ title, icon, onPress, isLast = false }: SettingItemProps)
       activeOpacity={0.7}
     >
       <View style={styles.settingLeft}>
-        {/* Icon Circle - Figma: x: 35, y: varies, width: 50, height: 50 */}
+        {/* Icon Circle */}
         <View style={styles.iconCircle}>
-          <Image source={icon} style={styles.settingIcon} />
+          <Ionicons name={iconName} size={ms(24)} color={iconColor || '#1E1E1E'} />
         </View>
 
-        {/* Title - Figma: x: 100, y: varies, font: Clash Grotesk 500, size: 18 */}
+        {/* Title */}
         <Text style={styles.settingTitle}>{title}</Text>
       </View>
 
-      {/* Forward Arrow - Figma: x: 375, y: varies, width: 30, height: 30 */}
-      <Image
-        source={require("../../../../src/assets/images/store-owner-profile/forward-arrow.png")}
-        style={styles.forwardArrow}
-      />
+      {/* Forward Arrow */}
+      <Ionicons name="chevron-forward" size={ms(20)} color="rgba(30, 30, 30, 0.5)" />
     </TouchableOpacity>
   );
 }
@@ -134,7 +133,7 @@ export default function ProfileScreen() {
   };
 
   const handleStoreInfo = () => {
-    console.log("Store Info pressed");
+    router.push('/(main)/(store-owner)/profile/store-info');
   };
 
   const handleStoreProduct = () => {
@@ -248,71 +247,72 @@ export default function ProfileScreen() {
         {/* Other Settings Label - Figma: x: 23, y: 249, font: Clash Grotesk 600, size: 20 */}
         <Text style={styles.sectionLabel}>Other Settings</Text>
 
-        {/* Main Settings Group - Figma: x: 20, y: 291, width: 400, height: 450 */}
+        {/* Main Settings Group */}
         <View style={styles.settingsGroup}>
           <SettingItem
             title="My Account"
-            icon={require("../../../../src/assets/images/store-owner-profile/writer-male.png")}
+            iconName="person"
             onPress={handleMyAccount}
           />
           <SettingItem
             title="Notification Setting"
-            icon={require("../../../../src/assets/images/store-owner-profile/notification-icon.png")}
+            iconName="notifications"
             onPress={handleNotificationSettings}
           />
           <SettingItem
             title="E-Wallet Details"
-            icon={require("../../../../src/assets/images/store-owner-profile/card-wallet.png")}
+            iconName="wallet"
             onPress={handleEWalletDetails}
           />
           <SettingItem
             title="License Verification"
-            icon={require("../../../../src/assets/images/store-owner-profile/protect-icon.png")}
+            iconName="shield-checkmark"
             onPress={handleLicenseVerification}
           />
           <SettingItem
             title="Store Info"
-            icon={require("../../../../src/assets/images/store-owner-profile/shop-icon.png")}
+            iconName="storefront"
             onPress={handleStoreInfo}
           />
           <SettingItem
             title="Store Product"
-            icon={require("../../../../src/assets/images/store-owner-profile/product-icon.png")}
+            iconName="cube"
             onPress={handleStoreProduct}
           />
           <SettingItem
             title="Sales Dashboard"
-            icon={require("../../../../src/assets/images/store-owner-profile/card-wallet.png")}
+            iconName="stats-chart"
             onPress={handleSalesDashboard}
           />
           <SettingItem
             title="Sales History"
-            icon={require("../../../../src/assets/images/store-owner-profile/product-icon.png")}
+            iconName="time"
             onPress={handleSalesHistory}
           />
           <SettingItem
             title="Record Walk-in Sale"
-            icon={require("../../../../src/assets/images/store-owner-profile/card-wallet.png")}
+            iconName="cash"
             onPress={handleRecordWalkInSale}
           />
           <SettingItem
             title="Record Damages & Spoilages"
-            icon={require("../../../../src/assets/images/store-owner-profile/protect-icon.png")}
+            iconName="alert-circle"
             onPress={handleRecordDamage}
             isLast={true}
           />
         </View>
 
-        {/* Secondary Settings Group - Figma: x: 20, y: 761, width: 400, height: 150 */}
+        {/* Secondary Settings Group */}
         <View style={styles.secondarySettingsGroup}>
           <SettingItem
             title="Help"
-            icon={require("../../../../src/assets/images/store-owner-profile/writer-male.png")}
+            iconName="help-circle"
             onPress={handleHelp}
           />
           <SettingItem
             title="Logout"
-            icon={require("../../../../src/assets/images/customer-profile-nav/logout-icon.png")}
+            iconName="log-out"
+            iconColor="#EF4444"
             onPress={handleLogout}
             isLast={true}
           />
@@ -516,11 +516,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
 
-  // Setting Icon - Figma: width: 30, height: 30 (relative: x: 10, y: 10)
-  settingIcon: {
-    width: s(30),
-    height: vs(30),
-  },
 
   // Setting Title - Figma: x: 100, y: varies (relative: x: 65, y: 14), font: Clash Grotesk 500, size: 18
   settingTitle: {
@@ -532,9 +527,4 @@ const styles = StyleSheet.create({
     marginLeft: s(15),
   },
 
-  // Forward Arrow - Figma: x: 375, y: varies (relative: x: 355, y: 25), width: 30, height: 30
-  forwardArrow: {
-    width: s(30),
-    height: vs(30),
-  },
 });
