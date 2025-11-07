@@ -141,6 +141,10 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/store-product');
   };
 
+  const handleRecordWalkInSale = () => {
+    router.push('/(main)/(store-owner)/profile/record-walk-in-sale');
+  };
+
   const handleHelp = () => {
     console.log("Help pressed");
   };
@@ -263,6 +267,11 @@ export default function ProfileScreen() {
             title="Store Product"
             icon={require("../../../../src/assets/images/store-owner-profile/product-icon.png")}
             onPress={handleStoreProduct}
+          />
+          <SettingItem
+            title="Record Walk-in Sale"
+            icon={require("../../../../src/assets/images/store-owner-profile/card-wallet.png")}
+            onPress={handleRecordWalkInSale}
             isLast={true}
           />
         </View>

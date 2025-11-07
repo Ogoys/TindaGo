@@ -11,14 +11,16 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-import { ref, push, set, query, orderByChild, equalTo, get } from 'firebase/database';
+import { ref, push, set, query, orderByChild, equalTo, get, update } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { s, vs, ms } from '../../../../src/constants/responsive';
+import * as Haptics from 'expo-haptics';
 
 interface CategoryItem {
   id: string;
@@ -33,10 +35,17 @@ const AddProductScreen = () => {
   const [quantity, setQuantity] = useState('');
   const [productSize, setProductSize] = useState('');
   const [selectedUnit, setSelectedUnit] = useState('');
+  const [expiryDate, setExpiryDate] = useState(''); // New: Expiry date field
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false); // Date picker modal state
+  const [tempDate, setTempDate] = useState(new Date()); // Temporary date for picker
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [showMonthYearPicker, setShowMonthYearPicker] = useState(false); // Show month/year overlay
   const [isSaving, setIsSaving] = useState(false);
+  const yearScrollRef = React.useRef<ScrollView>(null);
 
   // Helper function: Format product name (Capitalize first letter of each word)
   const formatProductName = (name: string): string => {
@@ -72,6 +81,10 @@ const AddProductScreen = () => {
 
   const handleProductSizeChange = useCallback((text: string) => {
     setProductSize(text);
+  }, []);
+
+  const handleExpiryDateChange = useCallback((text: string) => {
+    setExpiryDate(text);
   }, []);
 
   // Product categories - Matching customer side (10 categories)
@@ -162,6 +175,170 @@ const AddProductScreen = () => {
 
   const handleUnitDropdownOpen = () => {
     setShowUnitDropdown(true);
+  };
+
+  const handleDatePickerOpen = () => {
+    // If there's already a date, use it; otherwise use current date
+    const now = new Date();
+    if (expiryDate.trim()) {
+      try {
+        const parsedDate = new Date(expiryDate);
+        if (!isNaN(parsedDate.getTime())) {
+          setTempDate(parsedDate);
+          setCalendarMonth(parsedDate.getMonth());
+          setCalendarYear(parsedDate.getFullYear());
+        } else {
+          setTempDate(now);
+          setCalendarMonth(now.getMonth());
+          setCalendarYear(now.getFullYear());
+        }
+      } catch {
+        setTempDate(now);
+        setCalendarMonth(now.getMonth());
+        setCalendarYear(now.getFullYear());
+      }
+    } else {
+      setTempDate(now);
+      setCalendarMonth(now.getMonth());
+      setCalendarYear(now.getFullYear());
+    }
+    setShowDatePicker(true);
+  };
+
+  const handleDateSelect = () => {
+    // Always format as MM/DD/YYYY
+    const month = String(tempDate.getMonth() + 1).padStart(2, '0');
+    const day = String(tempDate.getDate()).padStart(2, '0');
+    const year = tempDate.getFullYear();
+    const formattedDate = `${month}/${day}/${year}`;
+    setExpiryDate(formattedDate);
+    setShowDatePicker(false);
+  };
+
+  const handleMonthYearHeaderPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowMonthYearPicker(true);
+    
+    // Auto-scroll to the selected year after modal opens
+    setTimeout(() => {
+      const years = getYears();
+      const selectedYearIndex = years.indexOf(calendarYear);
+      if (selectedYearIndex !== -1 && yearScrollRef.current) {
+        // Each year button is ~70px wide (60 + 10 margin)
+        const scrollPosition = selectedYearIndex * s(70);
+        yearScrollRef.current.scrollTo({ x: scrollPosition, animated: true });
+      }
+    }, 100);
+  };
+
+  const handleMonthYearApply = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowMonthYearPicker(false);
+    // tempDate is already updated from handleMonthSelect/handleYearSelect
+  };
+
+  const handleDaySelect = (day: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newDate = new Date(calendarYear, calendarMonth, day);
+    setTempDate(newDate);
+    // calendarMonth and calendarYear are already in sync from navigation
+  };
+
+  const handleMonthChange = (increment: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    let newMonth = calendarMonth + increment;
+    let newYear = calendarYear;
+    
+    if (newMonth > 11) {
+      newMonth = 0;
+      newYear++;
+    } else if (newMonth < 0) {
+      newMonth = 11;
+      newYear--;
+    }
+    
+    setCalendarMonth(newMonth);
+    setCalendarYear(newYear);
+    
+    // Update tempDate to stay synchronized
+    const currentDay = tempDate.getDate();
+    const daysInNewMonth = new Date(newYear, newMonth + 1, 0).getDate();
+    const safeDay = Math.min(currentDay, daysInNewMonth);
+    setTempDate(new Date(newYear, newMonth, safeDay));
+  };
+
+  const handleMonthSelect = (monthId: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCalendarMonth(monthId);
+    
+    // Update tempDate to stay synchronized
+    const currentDay = tempDate.getDate();
+    const daysInNewMonth = new Date(calendarYear, monthId + 1, 0).getDate();
+    const safeDay = Math.min(currentDay, daysInNewMonth);
+    setTempDate(new Date(calendarYear, monthId, safeDay));
+  };
+
+  const handleYearSelect = (year: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCalendarYear(year);
+    
+    // Update tempDate to stay synchronized
+    const currentDay = tempDate.getDate();
+    const daysInNewMonth = new Date(year, calendarMonth + 1, 0).getDate();
+    const safeDay = Math.min(currentDay, daysInNewMonth);
+    setTempDate(new Date(year, calendarMonth, safeDay));
+  };
+
+  const handleClearDate = () => {
+    setExpiryDate('');
+    setShowDatePicker(false);
+  };
+
+  // Generate calendar days for current month
+  const getCalendarDays = () => {
+    const firstDay = new Date(calendarYear, calendarMonth, 1).getDay();
+    const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+    const days: (number | null)[] = [];
+    
+    // Add empty slots for days before month starts
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+    
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+    
+    return days;
+  };
+
+  // Generate list of months for month-year mode
+  const getMonths = () => {
+    return [
+      { id: 0, name: 'January', short: 'Jan' },
+      { id: 1, name: 'February', short: 'Feb' },
+      { id: 2, name: 'March', short: 'Mar' },
+      { id: 3, name: 'April', short: 'Apr' },
+      { id: 4, name: 'May', short: 'May' },
+      { id: 5, name: 'June', short: 'Jun' },
+      { id: 6, name: 'July', short: 'Jul' },
+      { id: 7, name: 'August', short: 'Aug' },
+      { id: 8, name: 'September', short: 'Sep' },
+      { id: 9, name: 'October', short: 'Oct' },
+      { id: 10, name: 'November', short: 'Nov' },
+      { id: 11, name: 'December', short: 'Dec' },
+    ];
+  };
+
+  // Generate range of years for month-year mode
+  const getYears = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = 0; i <= 10; i++) {
+      years.push(currentYear + i);
+    }
+    return years;
   };
 
   const handleAddProduct = async () => {
@@ -259,7 +436,22 @@ const AddProductScreen = () => {
       }
 
       // ========================================
-      // 7. IMAGE VALIDATION
+      // 7. EXPIRY DATE VALIDATION (OPTIONAL)
+      // ========================================
+      // Expiry date is optional, but if provided, validate format
+      if (expiryDate.trim()) {
+        // Validate MM/DD/YYYY or MM/YYYY format
+        const fullDatePattern = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
+        const monthYearPattern = /^(0[1-9]|1[0-2])\/\d{4}$/;
+        
+        if (!fullDatePattern.test(expiryDate.trim()) && !monthYearPattern.test(expiryDate.trim())) {
+          Alert.alert('Error', 'Please enter a valid expiry date (MM/DD/YYYY or MM/YYYY format)');
+          return;
+        }
+      }
+
+      // ========================================
+      // 8. IMAGE VALIDATION
       // ========================================
       if (!selectedImage) {
         Alert.alert('Error', 'Please select a product image');
@@ -267,7 +459,7 @@ const AddProductScreen = () => {
       }
 
       // ========================================
-      // 8. USER AUTHENTICATION CHECK
+      // 9. USER AUTHENTICATION CHECK
       // ========================================
       const currentUser = auth.currentUser;
       if (!currentUser) {
@@ -276,7 +468,7 @@ const AddProductScreen = () => {
       }
 
       // ========================================
-      // 9. FETCH STORE INFO
+      // 10. FETCH STORE INFO
       // ========================================
       console.log('📍 Fetching store information...');
       const storeRef = ref(database, `stores/${currentUser.uid}`);
@@ -295,7 +487,7 @@ const AddProductScreen = () => {
       }
 
       // ========================================
-      // 10. DUPLICATE PRODUCT CHECK
+      // 11. DUPLICATE PRODUCT CHECK
       // ========================================
       console.log('🔍 Checking for duplicate products...');
       const productsRef = ref(database, 'products');
@@ -329,7 +521,7 @@ const AddProductScreen = () => {
       console.log('✅ No duplicate found - proceeding with save');
 
       // ========================================
-      // 11. FORMAT DATA
+      // 12. FORMAT DATA
       // ========================================
       const formattedProductName = formatProductName(productName);
       const formattedPrice = formatPrice(priceNum);
@@ -341,7 +533,7 @@ const AddProductScreen = () => {
       console.log('  - Quantity:', formattedQuantity);
 
       // ========================================
-      // 12. PREPARE PRODUCT DATA
+      // 13. PREPARE PRODUCT DATA
       // ========================================
       const productData = {
         productName: formattedProductName,
@@ -351,6 +543,7 @@ const AddProductScreen = () => {
         quantity: formattedQuantity,
         productSize: productSize.trim(),
         unit: selectedUnit,
+        expiryDate: expiryDate.trim() || null, // Include expiry date if provided
         productImage: selectedImage, // Base64 string
         storeOwnerId: currentUser.uid,
         storeId: currentUser.uid,
@@ -364,7 +557,7 @@ const AddProductScreen = () => {
       console.log('🏪 Store Info:', storeName, 'by', storeOwnerName);
 
       // ========================================
-      // 13. SAVE TO FIREBASE
+      // 14. SAVE TO FIREBASE
       // ========================================
       console.log('💾 Saving to Firebase...');
       const newProductRef = push(productsRef);
@@ -373,7 +566,7 @@ const AddProductScreen = () => {
       console.log('✅ Product saved successfully:', productData.productName);
 
       // ========================================
-      // 14. SUCCESS FEEDBACK
+      // 15. SUCCESS FEEDBACK
       // ========================================
       Alert.alert('Success', 'Product added successfully!', [
         { text: 'OK', onPress: () => router.back() }
@@ -542,7 +735,22 @@ const AddProductScreen = () => {
           </View>
         </View>
 
-        {/* Add Product Button - Figma: x: 20, y: 850, width: 400, height: 50 */}
+        {/* Expiry Date Section - Full width like Product Category */}
+        <View style={[styles.inputSection, { top: vs(941) }]}>
+          <Text style={styles.inputLabel}>Expiry Date (Optional)</Text>
+          <TouchableOpacity style={styles.datePickerContainer} onPress={handleDatePickerOpen} activeOpacity={0.7}>
+            <Text style={[styles.dateText, expiryDate && { color: Colors.darkGray }]}>
+              {expiryDate || 'Select expiry MM/DD/YYYY'}
+            </Text>
+            {/* Calendar Icon */}
+            <Image
+              source={require('../../../../src/assets/images/add-product/forward-arrow.png')}
+              style={styles.forwardArrow}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Add Product Button - Adjusted position for expiry date field */}
         <TouchableOpacity
           style={[styles.addButton, isSaving && styles.addButtonDisabled]}
           onPress={handleAddProduct}
@@ -638,6 +846,222 @@ const AddProductScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Date Picker Modal */}
+      <Modal
+        visible={showDatePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDatePicker(false)}
+        >
+          <View style={styles.datePickerModal}>
+            {/* Close Button */}
+            <TouchableOpacity
+              style={styles.closeModalButton}
+              onPress={() => setShowDatePicker(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.closeModalButtonText}>✕</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.dropdownTitle}>Select Expiry Date</Text>
+
+            {/* Month/Year Header - Clickable */}
+            <View style={styles.calendarHeader}>
+              <TouchableOpacity
+                style={styles.calendarNavButton}
+                onPress={() => handleMonthChange(-1)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.calendarNavButtonText}>‹</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={handleMonthYearHeaderPress}
+                activeOpacity={0.7}
+                style={styles.monthYearHeaderButton}
+              >
+                <Text style={styles.calendarMonthYear}>
+                  {new Date(calendarYear, calendarMonth).toLocaleDateString('en-US', { 
+                    month: 'long', 
+                    year: 'numeric' 
+                  })}
+                </Text>
+                <Text style={styles.monthYearHeaderIcon}>▼</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.calendarNavButton}
+                onPress={() => handleMonthChange(1)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.calendarNavButtonText}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Selected Date Display */}
+            <View style={styles.dateDisplay}>
+              <Text style={styles.dateDisplayText}>
+                Selected: {tempDate.toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                })}
+              </Text>
+            </View>
+
+            {/* Day Labels */}
+            <View style={styles.calendarDayLabels}>
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                <Text key={day} style={styles.calendarDayLabel}>{day}</Text>
+              ))}
+            </View>
+
+            {/* Calendar Grid */}
+            <View style={styles.calendarGrid}>
+              {getCalendarDays().map((day, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.calendarDay,
+                    !day && styles.calendarDayEmpty,
+                    day === tempDate.getDate() && 
+                    calendarMonth === tempDate.getMonth() && 
+                    calendarYear === tempDate.getFullYear() && 
+                    styles.calendarDaySelected
+                  ]}
+                  onPress={() => day && handleDaySelect(day)}
+                  activeOpacity={day ? 0.7 : 1}
+                  disabled={!day}
+                >
+                  {day && (
+                    <Text style={[
+                      styles.calendarDayText,
+                      day === tempDate.getDate() && 
+                      calendarMonth === tempDate.getMonth() && 
+                      calendarYear === tempDate.getFullYear() && 
+                      styles.calendarDayTextSelected
+                    ]}>
+                      {day}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Month/Year Picker Overlay */}
+            {showMonthYearPicker && (
+              <View style={styles.monthYearOverlay}>
+                <TouchableOpacity 
+                  style={styles.overlayBackground}
+                  activeOpacity={1}
+                  onPress={() => setShowMonthYearPicker(false)}
+                />
+                <View style={styles.monthYearOverlayContent}>
+                  <View style={styles.overlayHeader}>
+                    <Text style={styles.overlayTitle}>Select Expiry Month/Year</Text>
+                    <TouchableOpacity 
+                      onPress={() => setShowMonthYearPicker(false)}
+                      style={styles.overlayCloseButton}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.overlayCloseText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Year Selection */}
+                  <View style={styles.pickerSection}>
+                    <Text style={styles.pickerLabel}>Year</Text>
+                    <ScrollView 
+                      ref={yearScrollRef}
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.yearScroll}
+                      contentContainerStyle={styles.yearScrollContent}
+                    >
+                      {getYears().map((year) => (
+                        <TouchableOpacity
+                          key={year}
+                          style={[
+                            styles.yearButton,
+                            calendarYear === year && styles.yearButtonSelected
+                          ]}
+                          onPress={() => handleYearSelect(year)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[
+                            styles.yearButtonText,
+                            calendarYear === year && styles.yearButtonTextSelected
+                          ]}>
+                            {year}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  {/* Month Grid */}
+                  <View style={styles.pickerSection}>
+                    <Text style={styles.pickerLabel}>Month</Text>
+                    <View style={styles.monthGrid}>
+                      {getMonths().map((month) => (
+                        <TouchableOpacity
+                          key={month.id}
+                          style={[
+                            styles.monthButton,
+                            calendarMonth === month.id && styles.monthButtonSelected
+                          ]}
+                          onPress={() => handleMonthSelect(month.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[
+                            styles.monthButtonText,
+                            calendarMonth === month.id && styles.monthButtonTextSelected
+                          ]}>
+                            {month.short}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Apply Button */}
+                  <TouchableOpacity
+                    style={styles.overlayApplyButton}
+                    onPress={handleMonthYearApply}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.overlayApplyButtonText}>Apply</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View style={styles.datePickerActions}>
+              <TouchableOpacity
+                style={[styles.datePickerActionButton, styles.clearButton]}
+                onPress={handleClearDate}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearButtonText}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.datePickerActionButton, styles.confirmButton]}
+                onPress={handleDateSelect}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.confirmButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -649,7 +1073,7 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    height: vs(1060), // Increased height for size/unit row
+    height: vs(1190), // Increased height for expiry date field + padding
     paddingBottom: vs(50),
   },
 
@@ -927,11 +1351,11 @@ const styles = StyleSheet.create({
     height: vs(20),
   },
 
-  // Add Button - Adjusted position for size/unit row
+  // Add Button - Adjusted position for expiry date field with extra padding
   addButton: {
     position: 'absolute',
     left: s(20),
-    top: vs(961), // Adjusted for size/unit row spacing
+    top: vs(1088), // Added 30px padding between expiry date and button
     width: s(400),
     height: vs(50),
     backgroundColor: Colors.primary, // #3BB77E
@@ -1034,6 +1458,375 @@ const styles = StyleSheet.create({
     fontSize: ms(18),
     fontWeight: '600',
     color: Colors.darkGray,
+  },
+
+  // Date Picker Container - Similar to category dropdown
+  datePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 2,
+    borderColor: '#02545F',
+    borderRadius: s(20),
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(20),
+    paddingVertical: vs(14),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+
+  dateText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.medium,
+    fontSize: ms(14),
+    lineHeight: vs(22),
+    color: 'rgba(30, 30, 30, 0.5)',
+    flex: 1,
+  },
+
+  // Date Picker Modal
+  datePickerModal: {
+    backgroundColor: Colors.white,
+    borderRadius: s(20),
+    width: s(380),
+    padding: s(20),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 15,
+    elevation: 15,
+    marginHorizontal: s(20),
+  },
+
+  // Month/Year Header Button
+  monthYearHeaderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(5),
+  },
+
+  monthYearHeaderIcon: {
+    fontSize: ms(12),
+    color: Colors.primary,
+  },
+
+  // Calendar Header (Month/Year with navigation)
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: vs(15),
+    paddingHorizontal: s(10),
+    marginBottom: vs(10),
+  },
+
+  calendarNavButton: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  calendarNavButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.bold,
+    fontSize: ms(28),
+    lineHeight: vs(32),
+    color: Colors.white,
+  },
+
+  calendarMonthYear: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.semiBold,
+    fontSize: ms(18),
+    lineHeight: vs(22),
+    color: Colors.darkGray,
+  },
+
+  // Calendar Day Labels (Sun, Mon, etc.)
+  calendarDayLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: vs(10),
+    paddingHorizontal: s(5),
+  },
+
+  calendarDayLabel: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.semiBold,
+    fontSize: ms(12),
+    lineHeight: vs(16),
+    color: Colors.textSecondary,
+    width: s(42),
+    textAlign: 'center',
+  },
+
+  // Calendar Grid
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: vs(15),
+  },
+
+  calendarDay: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: vs(8),
+  },
+
+  calendarDayEmpty: {
+    backgroundColor: 'transparent',
+  },
+
+  calendarDaySelected: {
+    backgroundColor: Colors.primary,
+    borderRadius: s(8),
+  },
+
+  calendarDayText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.medium,
+    fontSize: ms(14),
+    lineHeight: vs(18),
+    color: Colors.darkGray,
+  },
+
+  calendarDayTextSelected: {
+    color: Colors.white,
+    fontWeight: Fonts.weights.bold,
+  },
+
+  // Month/Year Overlay
+  monthYearOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+
+  overlayBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+
+  monthYearOverlayContent: {
+    backgroundColor: Colors.white,
+    borderRadius: s(20),
+    paddingTop: s(20),
+    paddingHorizontal: s(20),
+    paddingBottom: s(20),
+    width: '90%',
+    minHeight: vs(480),
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+
+  overlayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vs(20),
+    paddingBottom: vs(15),
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+  },
+
+  overlayTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.bold,
+    fontSize: ms(20),
+    lineHeight: vs(24),
+    color: Colors.darkGray,
+    flex: 1,
+  },
+
+  overlayCloseButton: {
+    width: s(32),
+    height: s(32),
+    borderRadius: s(16),
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  overlayCloseText: {
+    fontSize: ms(18),
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+
+  overlayApplyButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: s(12),
+    paddingVertical: vs(14),
+    alignItems: 'center',
+    marginTop: vs(10),
+    marginBottom: 0,
+  },
+
+  overlayApplyButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.bold,
+    fontSize: ms(16),
+    lineHeight: vs(20),
+    color: Colors.white,
+  },
+
+  // Picker Section (for month/year overlay)
+  pickerSection: {
+    marginBottom: vs(15),
+  },
+
+  pickerLabel: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.semiBold,
+    fontSize: ms(15),
+    lineHeight: vs(20),
+    color: Colors.darkGray,
+    marginBottom: vs(12),
+    letterSpacing: 0.5,
+  },
+
+  // Year Selection
+  yearScroll: {
+    maxHeight: vs(60),
+  },
+
+  yearScrollContent: {
+    gap: s(10),
+    paddingHorizontal: s(5),
+  },
+
+  yearButton: {
+    paddingHorizontal: s(20),
+    paddingVertical: vs(12),
+    borderRadius: s(12),
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    minWidth: s(80),
+    alignItems: 'center',
+  },
+
+  yearButtonSelected: {
+    backgroundColor: Colors.primary,
+  },
+
+  yearButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.semiBold,
+    fontSize: ms(16),
+    lineHeight: vs(20),
+    color: Colors.darkGray,
+  },
+
+  yearButtonTextSelected: {
+    color: Colors.white,
+    fontWeight: Fonts.weights.bold,
+  },
+
+  // Month Grid
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: s(10),
+  },
+
+  monthButton: {
+    width: `${(100 - 4 * 2.5) / 4}%`,
+    paddingVertical: vs(15),
+    borderRadius: s(12),
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    alignItems: 'center',
+  },
+
+  monthButtonSelected: {
+    backgroundColor: Colors.primary,
+  },
+
+  monthButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.semiBold,
+    fontSize: ms(14),
+    lineHeight: vs(18),
+    color: Colors.darkGray,
+  },
+
+  monthButtonTextSelected: {
+    color: Colors.white,
+    fontWeight: Fonts.weights.bold,
+  },
+
+  dateDisplay: {
+    backgroundColor: Colors.lightGreen,
+    borderRadius: s(12),
+    paddingVertical: vs(15),
+    paddingHorizontal: s(15),
+    marginBottom: vs(20),
+    alignItems: 'center',
+  },
+
+  dateDisplayText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.semiBold,
+    fontSize: ms(16),
+    lineHeight: vs(20),
+    color: Colors.darkGray,
+    textAlign: 'center',
+  },
+
+  datePickerActions: {
+    flexDirection: 'row',
+    gap: s(10),
+  },
+
+  datePickerActionButton: {
+    flex: 1,
+    paddingVertical: vs(12),
+    borderRadius: s(15),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  clearButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+  },
+
+  clearButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.semiBold,
+    fontSize: ms(16),
+    lineHeight: vs(20),
+    color: Colors.darkGray,
+  },
+
+  confirmButton: {
+    backgroundColor: Colors.primary,
+  },
+
+  confirmButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: Fonts.weights.semiBold,
+    fontSize: ms(16),
+    lineHeight: vs(20),
+    color: Colors.white,
   },
 });
 
