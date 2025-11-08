@@ -25,6 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { auth, database } from '../../../../FirebaseConfig';
 import { getWalkInSales } from '../../../../src/api/walkInSales';
 import { Colors } from '../../../../src/constants/Colors';
@@ -235,37 +236,6 @@ const SalesHistoryScreen = () => {
 
       {/* Header */}
       <ProfileScreenHeader title="Sales History" />
-      
-      {/* Filter Button - Aligned with search bar */}
-      <View style={styles.filterButtonContainer}>
-        <TouchableOpacity
-          style={styles.filterIconButton}
-          onPress={() => setShowFiltersModal(true)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.filterIconContainer}>
-            <View style={[styles.filterLine, styles.filterLineTop]} />
-            <View style={[styles.filterLine, styles.filterLineMiddle]} />
-            <View style={[styles.filterLine, styles.filterLineBottom]} />
-          </View>
-          {activeFiltersCount > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by customer name..."
-          placeholderTextColor={Colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -274,6 +244,37 @@ const SalesHistoryScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[Colors.primary]} />
         }
       >
+        {/* Search and Filter Row */}
+        <View style={styles.searchFilterRow}>
+          <View style={styles.searchContainer}>
+            <Ionicons
+              name="search"
+              size={s(20)}
+              color="rgba(30, 30, 30, 0.5)"
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by customer name..."
+              placeholderTextColor="rgba(30, 30, 30, 0.5)"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setShowFiltersModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.filterIcon}>
+              <View style={[styles.filterLine, { width: s(20) }]} />
+              <View style={[styles.filterLine, { width: s(14), marginTop: vs(3) }]} />
+              <View style={[styles.filterLine, { width: s(8), marginTop: vs(3) }]} />
+            </View>
+            {activeFiltersCount > 0 && <View style={styles.filterBadge} />}
+          </TouchableOpacity>
+        </View>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.primary} />
@@ -558,92 +559,64 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundGray,
   },
 
-  filterButtonContainer: {
-    position: 'absolute',
-    top: vs(79),
-    right: s(20),
-    zIndex: 100,
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: vs(15),
   },
 
-
-  filterIconButton: {
-    width: s(40),
-    height: s(40),
-    borderRadius: s(20),
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.white,
+    borderRadius: s(12),
+    paddingHorizontal: s(15),
+    paddingVertical: vs(12),
+    marginRight: s(10),
+  },
+
+  searchIcon: {
+    width: s(20),
+    height: s(20),
+    marginRight: s(10),
+  },
+
+  searchInput: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: Colors.darkGray,
+  },
+
+  filterButton: {
+    width: s(50),
+    height: s(50),
+    backgroundColor: Colors.white,
+    borderRadius: s(12),
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 3,
   },
 
-  filterIconContainer: {
+  filterIcon: {
     width: s(20),
-    height: s(16),
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
 
   filterLine: {
-    height: s(2.5),
-    backgroundColor: Colors.darkGray,
+    height: vs(2.5),
+    backgroundColor: Colors.primary,
     borderRadius: s(2),
-  },
-
-  filterLineTop: {
-    width: s(20),
-  },
-
-  filterLineMiddle: {
-    width: s(14),
-    alignSelf: 'center',
-  },
-
-  filterLineBottom: {
-    width: s(8),
-    alignSelf: 'center',
   },
 
   filterBadge: {
     position: 'absolute',
-    top: -2,
-    right: -2,
+    top: s(8),
+    right: s(8),
+    width: s(8),
+    height: s(8),
+    borderRadius: s(4),
     backgroundColor: '#EF5350',
-    borderRadius: s(10),
-    minWidth: s(18),
-    height: s(18),
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: s(4),
-  },
-
-  filterBadgeText: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(10),
-    color: Colors.white,
-  },
-
-  searchContainer: {
-    paddingHorizontal: s(20),
-    marginBottom: vs(15),
-  },
-
-  searchInput: {
-    backgroundColor: Colors.white,
-    borderRadius: s(12),
-    paddingVertical: vs(12),
-    paddingHorizontal: s(15),
-    fontFamily: Fonts.primary,
-    fontSize: ms(15),
-    color: Colors.darkGray,
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
   },
 
   scrollContent: {
@@ -729,7 +702,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(18),
-    color: '#4CAF50',
+    color: Colors.primary,
   },
 
   emptyState: {
@@ -829,7 +802,7 @@ const styles = StyleSheet.create({
   paymentMethod: {
     fontFamily: Fonts.primary,
     fontSize: ms(12),
-    color: '#2196F3',
+    color: Colors.primary,
     fontWeight: '500',
   },
 
@@ -856,7 +829,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(13),
-    color: '#4CAF50',
+    color: Colors.primary,
   },
 
   transactionFooter: {

@@ -156,6 +156,22 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/sales-history');
   };
 
+  const handleRecordPurchaseOrder = () => {
+    router.push('/(main)/(store-owner)/profile/record-purchase-order');
+  };
+
+  const handlePurchaseOrderHistory = () => {
+    router.push('/(main)/(store-owner)/profile/purchase-order-history');
+  };
+
+  const handleRecordReturn = () => {
+    router.push('/(main)/(store-owner)/profile/record-return');
+  };
+
+  const handleReturnHistory = () => {
+    router.push('/(main)/(store-owner)/profile/return-history');
+  };
+
   const handleHelp = () => {
     console.log("Help pressed");
   };
@@ -298,6 +314,26 @@ export default function ProfileScreen() {
             title="Record Damages & Spoilages"
             iconName="alert-circle"
             onPress={handleRecordDamage}
+          />
+          <SettingItem
+            title="Record Purchase Order"
+            iconName="add-circle"
+            onPress={handleRecordPurchaseOrder}
+          />
+          <SettingItem
+            title="Purchase Order History"
+            iconName="receipt"
+            onPress={handlePurchaseOrderHistory}
+          />
+          <SettingItem
+            title="Record Customer Return"
+            iconName="return-down-back"
+            onPress={handleRecordReturn}
+          />
+          <SettingItem
+            title="Return History"
+            iconName="list"
+            onPress={handleReturnHistory}
             isLast={true}
           />
         </View>
@@ -330,17 +366,18 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     flexGrow: 1,
-    paddingTop: vs(90), // Reduced space for fixed header
+    paddingTop: vs(119), // Match ProfileScreenHeader height (79 + 20 + 20)
     paddingBottom: vs(120), // Space below logout
   },
 
   // Fixed Header
   fixedHeader: {
     position: 'absolute',
-    top: vs(50),
+    top: 0,
     left: 0,
     right: 0,
-    height: vs(40),
+    paddingTop: vs(79),
+    paddingBottom: vs(20),
     zIndex: 10,
     backgroundColor: Colors.backgroundGray,
     flexDirection: 'row',
@@ -352,13 +389,14 @@ const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     left: s(20),
+    top: vs(79),
     width: s(30),
     height: vs(30),
     borderRadius: s(20),
     backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 4,
