@@ -192,8 +192,8 @@ export default function SignInScreen() {
                   router.replace("/(auth)/(store-owner)/StoreRegistration");
                 }
               } else {
-                // Navigate to customer dashboard
-                router.replace("/(main)/(customer)/home");
+                // Navigate to enable location screen for customers
+                router.replace("/(auth)/enable-location");
               }
             }
           }

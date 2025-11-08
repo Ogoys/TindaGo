@@ -28,6 +28,7 @@ export default function CustomerLayout() {
       }}
     >
       <Stack.Screen name="home" />
+      <Stack.Screen name="search" />
       <Stack.Screen name="orders" />
       <Stack.Screen name="cart" />
       <Stack.Screen name="category" />

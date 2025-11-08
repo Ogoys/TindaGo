@@ -97,9 +97,7 @@ export default function CustomerProfile() {
       label: 'Help & Support',
       icon: require('../../../../src/assets/images/customer-profile-nav/support-icon.png'),
       onPress: () => {
-        console.log('Help & Support pressed');
-        // TODO: Navigate to help screen
-        // router.push('/(main)/(customer)/profile/help');
+        router.push('/(main)/(customer)/profile/help-support');
       },
     },
     {
@@ -107,9 +105,7 @@ export default function CustomerProfile() {
       label: 'Term & Privacy Policy',
       icon: require('../../../../src/assets/images/customer-profile-nav/privacy-icon.png'),
       onPress: () => {
-        console.log('Terms & Privacy pressed');
-        // TODO: Navigate to terms and privacy screen
-        // router.push('/(main)/(customer)/profile/terms-privacy');
+        router.push('/(main)/(customer)/profile/terms-privacy');
       },
     },
     {

@@ -557,7 +557,11 @@ export default function HomeScreen() {
         />
 
         {/* Profile Section - Figma: 759:593, x:20, y:74, width:179, height:40 */}
-        <View style={styles.profileSection}>
+        <TouchableOpacity
+          style={styles.profileSection}
+          onPress={() => router.push("/(main)/(customer)/profile" as any)}
+          activeOpacity={0.7}
+        >
           {/* Logo - Figma: 759:594 */}
           <View style={styles.profileLogo}>
             <Text style={styles.profileLogoText}>{getUserInitials()}</Text>
@@ -580,7 +584,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Notification Button - Figma: 759:205, x:375, y:74, width:40, height:40 */}
         <TouchableOpacity style={styles.notificationButton}>
@@ -594,7 +598,11 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* Search Bar - Figma: 759:208, x:20, y:134, width:400, height:50 */}
-        <View style={styles.searchContainer}>
+        <TouchableOpacity
+          style={styles.searchContainer}
+          activeOpacity={0.8}
+          onPress={() => router.push("/(main)/(customer)/search" as any)}
+        >
           {/* Search Background - Figma: 759:209 Rectangle 12 */}
           <View style={styles.searchBackground} />
           {/* Search Icon - Figma: 759:210 */}
@@ -602,13 +610,9 @@ export default function HomeScreen() {
             source={require("../../../src/assets/images/customer-home/search-icon.png")}
             style={styles.searchIcon}
           />
-          {/* Search Input - Figma: 759:211 */}
-          <TextInput
-            placeholder='Search for "Items"'
-            placeholderTextColor="#7A7B7B"
-            style={styles.searchInput}
-          />
-        </View>
+          {/* Search Placeholder Text - Figma: 759:211 */}
+          <Text style={styles.searchPlaceholder}>Search for "Items"</Text>
+        </TouchableOpacity>
       </View>
 
       {/* SCROLLABLE CONTENT */}
@@ -994,8 +998,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  // Search Input - Figma: 903:211 Search for "Items" (80, 149)
-  searchInput: {
+  // Search Placeholder - Figma: 903:211 Search for "Items" (80, 149)
+  searchPlaceholder: {
     flex: 1,
     marginLeft: s(20),
     fontFamily: "Clash Grotesk Variable",
