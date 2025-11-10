@@ -30,6 +30,13 @@ export const Fonts = {
     normal: 1.22,
     relaxed: 1.29,
   },
+  
+  // Backward compatibility aliases (uppercase)
+  REGULAR: 'Clash Grotesk Variable',
+  MEDIUM: 'Clash Grotesk Variable',
+  SEMIBOLD: 'Clash Grotesk Variable',
+  BOLD: 'Clash Grotesk Variable',
+  primaryBold: 'Clash Grotesk Variable',
 } as const;
 
 export type FontSizes = keyof typeof Fonts.sizes;

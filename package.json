@@ -30,6 +30,7 @@
     "expo-image": "~3.0.8",
     "expo-image-picker": "~17.0.8",
     "expo-linking": "~8.0.8",
+    "expo-location": "~19.0.7",
     "expo-notifications": "~0.32.12",
     "expo-router": "~6.0.7",
     "expo-splash-screen": "~31.0.10",
@@ -50,8 +51,7 @@
     "react-native-size-matters": "^0.4.2",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.15.0",
-    "xendit-node": "^7.0.0",
-    "expo-location": "~19.0.7"
+    "xendit-node": "^7.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
