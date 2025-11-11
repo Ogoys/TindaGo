@@ -79,6 +79,10 @@ export default function StoreInfoScreen() {
           const userSnapshot = await get(userRef);
           const userData = userSnapshot.exists() ? userSnapshot.val() : {};
 
+          // Get location data (prefer from location field)
+          const locationAddress = regData.location?.address || regData.businessInfo?.address || regData.address || '';
+          const locationCity = regData.location?.city || regData.businessInfo?.city || regData.city || 'Davao City';
+
           // Map the data to our interface
           const mappedData: StoreData = {
             storeName: regData.businessInfo?.storeName || regData.storeName || 'My Store',
@@ -88,8 +92,8 @@ export default function StoreInfoScreen() {
             businessType: regData.businessInfo?.businessType || 'Sari-Sari Store',
             phoneNumber: regData.businessInfo?.contactNumber || regData.contactNumber || userData.phoneNumber || user.phoneNumber || '',
             email: regData.businessInfo?.email || userData.email || user.email || '',
-            address: regData.businessInfo?.address || regData.address || '',
-            city: regData.businessInfo?.city || regData.city || 'Davao City',
+            address: locationAddress,
+            city: locationCity,
             operatingHours: regData.operatingHours || {
               Monday: '8:00 AM - 6:00 PM',
               Tuesday: '8:00 AM - 6:00 PM',
@@ -99,10 +103,7 @@ export default function StoreInfoScreen() {
               Saturday: '9:00 AM - 5:00 PM',
               Sunday: 'Closed',
             },
-            coordinates: regData.businessInfo?.coordinates || regData.coordinates || {
-              latitude: 7.0731,
-              longitude: 125.6128,
-            },
+            coordinates: regData.location?.coordinates || regData.businessInfo?.coordinates || regData.coordinates || undefined,
             status: regData.status || 'active',
             isOpen: regData.isOpen ?? true,
             ownerName: userData.name || regData.ownerName || 'Store Owner',
@@ -187,6 +188,10 @@ export default function StoreInfoScreen() {
     if (url) {
       Linking.openURL(url);
     }
+  };
+
+  const handleViewOnMap = () => {
+    router.push('/(main)/(store-owner)/profile/view-store-location');
   };
 
   const handleBack = () => {
@@ -353,17 +358,17 @@ export default function StoreInfoScreen() {
           </View>
 
           {/* Map Button */}
-          {storeData.coordinates && (
-            <TouchableOpacity
-              style={styles.mapContainer}
-              onPress={handleDirections}
-            >
-              <View style={styles.mapPlaceholder}>
-                <Ionicons name="map" size={40} color={Colors.primary} />
-                <Text style={styles.mapText}>Tap to view on map</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.mapContainer}
+            onPress={handleViewOnMap}
+          >
+            <View style={styles.mapPlaceholder}>
+              <Ionicons name="map" size={40} color={Colors.primary} />
+              <Text style={styles.mapText}>
+                {storeData.coordinates ? 'Tap to view on map' : 'No location set - Tap to add'}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Bottom Spacing */}

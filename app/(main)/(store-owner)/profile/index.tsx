@@ -136,6 +136,10 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/store-info');
   };
 
+  const handleStoreLocation = () => {
+    router.push('/(main)/(store-owner)/profile/edit-store-location');
+  };
+
   const handleStoreProduct = () => {
     router.push('/(main)/(store-owner)/profile/store-product');
   };
@@ -289,6 +293,11 @@ export default function ProfileScreen() {
             title="Store Info"
             iconName="storefront"
             onPress={handleStoreInfo}
+          />
+          <SettingItem
+            title="Store Location"
+            iconName="location"
+            onPress={handleStoreLocation}
           />
           <SettingItem
             title="Store Product"

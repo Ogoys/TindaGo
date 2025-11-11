@@ -185,7 +185,81 @@ export class StoreRegistrationService {
   }
 
   /**
-   * Update documents (step 2 of registration)
+   * Update store location (step 2 of registration)
+   * Also updates businessInfo.address and businessInfo.city
+   */
+  static async updateStoreLocation(locationData: {
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+    address: string;
+    formattedAddress: string;
+    city?: string;
+    setAt: Date;
+    setMethod: 'gps' | 'manual';
+  }): Promise<void> {
+    if (!auth.currentUser) {
+      throw new Error('User not authenticated');
+    }
+
+    const userId = auth.currentUser.uid;
+    const timestamp = new Date().toISOString();
+
+    // Extract city from address if not provided
+    const extractedCity = locationData.city || this.extractCityFromAddress(locationData.address);
+
+    const locationInfo = {
+      location: {
+        coordinates: locationData.coordinates,
+        address: locationData.address,
+        formattedAddress: locationData.formattedAddress,
+        city: extractedCity,
+        setAt: serverTimestamp(),
+        setMethod: locationData.setMethod,
+      },
+      // Also update businessInfo fields for consistency
+      'businessInfo/address': locationData.address,
+      'businessInfo/city': extractedCity,
+      locationSet: true,
+      updatedAt: timestamp,
+    };
+
+    console.log('📍 Saving store location:');
+    console.log('  - Coordinates:', locationData.coordinates);
+    console.log('  - Address:', locationData.address);
+    console.log('  - City:', extractedCity);
+    console.log('  - Method:', locationData.setMethod);
+
+    // Update both collections
+    const storeRef = ref(database, `stores/${userId}`);
+    await update(storeRef, locationInfo);
+
+    const registrationRef = ref(database, `store_registrations/${userId}`);
+    await update(registrationRef, locationInfo);
+
+    console.log('✅ Store location saved to Firebase successfully');
+    console.log('✅ Business address and city synced');
+  }
+
+  /**
+   * Helper: Extract city from address string
+   */
+  private static extractCityFromAddress(address: string): string {
+    // Example: "J.P. Laurel Avenue, Poblacion, Davao City, Davao del Sur"
+    // Try to find "City" or return last part before province
+    const parts = address.split(',').map(p => p.trim());
+    
+    // Look for part containing "City"
+    const cityPart = parts.find(p => p.toLowerCase().includes('city'));
+    if (cityPart) return cityPart;
+    
+    // Otherwise return the 3rd part (usually city in Philippine addresses)
+    return parts[2] || parts[parts.length - 2] || 'Davao City';
+  }
+
+  /**
+   * Update documents (step 3 of registration)
    */
   static async updateDocuments(documents: {
     barangayBusinessClearance: any;

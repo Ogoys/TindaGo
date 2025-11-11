@@ -38,17 +38,24 @@ export default function StoreHomeScreen() {
 
             const businessInfo = registrationData.businessInfo || {};
             const personalInfo = registrationData.personalInfo || {};
+            const location = registrationData.location || {};
+
+            // Prefer location data from map picker, fallback to businessInfo
+            const displayAddress = location.address || businessInfo.address || 'Address not set';
+            const displayCity = location.city || businessInfo.city || 'City';
 
             setStoreData({
               storeName: businessInfo.storeName || 'Store Owner',
               ownerName: personalInfo.name || 'Owner',
-              storeAddress: businessInfo.address || 'Address',
-              city: businessInfo.city || 'City',
+              storeAddress: displayAddress,
+              city: displayCity,
               logo: businessInfo.logo || null,
             });
 
             console.log('🏪 Store data updated:', {
               storeName: businessInfo.storeName,
+              address: displayAddress,
+              city: displayCity,
               logo: businessInfo.logo ? 'Logo exists' : 'No logo',
             });
           } else {
@@ -67,7 +74,7 @@ export default function StoreHomeScreen() {
     fetchStoreData();
   }, []);
 
-  // Real-time sync of store open/close status from Firebase
+  // Real-time sync of store open/close status and location from Firebase
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
@@ -77,6 +84,16 @@ export default function StoreHomeScreen() {
       if (snapshot.exists()) {
         const store = snapshot.val();
         setIsStoreOpen(store.isOpen ?? true); // Default to open if not set
+        
+        // Update location if changed
+        if (store.location) {
+          setStoreData(prev => ({
+            ...prev,
+            storeAddress: store.location.address || prev.storeAddress,
+            city: store.location.city || prev.city,
+          }));
+          console.log('📍 Location updated in real-time:', store.location.address);
+        }
       }
     });
 
@@ -238,7 +255,7 @@ export default function StoreHomeScreen() {
           <View style={styles.locationSection}>
             <Typography style={styles.currentLocationLabel}>Current Location</Typography>
             <Typography style={styles.locationText}>
-              {`${storeData.storeAddress}, ${storeData.city}`}
+              {storeData.storeAddress}
             </Typography>
           </View>
         </View>

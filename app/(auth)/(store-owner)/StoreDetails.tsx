@@ -245,15 +245,15 @@ export default function StoreDetailsScreen() {
 
       Alert.alert(
         "Store Details Saved!",
-        "Your store details have been saved successfully. Next, you'll add your payment details.",
+        "Your store details have been saved successfully. Next, pin your store location on the map.",
         [
           {
-            text: "Continue to Bank Details",
+            text: "Continue to Set Location",
             onPress: () => {
               console.log("Store details saved for:", formData.storeName);
-              // Pass all data to bank details screen (improved flow)
+              // Pass data to location screen
               router.push({
-                pathname: "/(auth)/(store-owner)/BankDetails",
+                pathname: "/(auth)/(store-owner)/set-store-location",
                 params: {
                   storeName: formData.storeName,
                   ownerName: ownerName || "",
