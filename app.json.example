@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "tindago",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true
     },
@@ -19,8 +19,16 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
-      ]
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+        }
+      },
+      "package": "com.tindagoproject.TindaGO"
     },
     "web": {
       "bundler": "metro",
@@ -37,10 +45,17 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2aac26a3-0272-4bb2-a5d8-b0de78d69ffa"
+      }
     }
   }
 }

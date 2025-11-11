@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as DocumentPicker from "expo-document-picker";
-import { readAsStringAsync } from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
 // import { FormInput } from "@/components/ui/FormInput";
@@ -86,8 +86,8 @@ export default function DocumentUploadScreen() {
         const documentUri = document.uri;
 
         // Convert document to Base64 (same as add-product)
-        const base64 = await readAsStringAsync(documentUri, {
-          encoding: 'base64',
+        const base64 = await FileSystem.readAsStringAsync(documentUri, {
+          encoding: FileSystem.EncodingType.Base64,
         });
 
         // Determine MIME type based on file extension or type

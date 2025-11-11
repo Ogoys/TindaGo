@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { readAsStringAsync } from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState, useCallback } from "react";
@@ -193,8 +193,8 @@ export default function StoreDetailsScreen() {
         const imageUri = result.assets[0].uri;
 
         // Convert image to Base64 (same as add-product)
-        const base64 = await readAsStringAsync(imageUri, {
-          encoding: 'base64',
+        const base64 = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: FileSystem.EncodingType.Base64,
         });
 
         // Create the data URL format

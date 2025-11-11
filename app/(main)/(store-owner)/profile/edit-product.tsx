@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { readAsStringAsync } from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import { ref, get, update } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
@@ -173,8 +173,8 @@ const EditProductScreen = () => {
         const imageUri = result.assets[0].uri;
 
         // Convert image to Base64
-        const base64 = await readAsStringAsync(imageUri, {
-          encoding: 'base64',
+        const base64 = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: FileSystem.EncodingType.Base64,
         });
 
         // Create the data URL format
