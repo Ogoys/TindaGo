@@ -586,6 +586,18 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* Map View Button - NEW: Access nearby stores map */}
+        <TouchableOpacity 
+          style={styles.mapButton}
+          onPress={() => router.push("/(main)/(customer)/stores-map" as any)}
+        >
+          <View style={styles.mapCircle} />
+          <Image
+            source={require("../../../src/assets/images/customer-home/location-icon.png")}
+            style={styles.mapIcon}
+          />
+        </TouchableOpacity>
+
         {/* Notification Button - Figma: 759:205, x:375, y:74, width:40, height:40 */}
         <TouchableOpacity style={styles.notificationButton}>
           {/* Circle Background - Figma: 759:206 */}
@@ -962,6 +974,39 @@ const styles = StyleSheet.create({
     top: s(7),
     width: s(25),
     height: s(25),
+  },
+
+  // Map Button - NEW: Access nearby stores map
+  mapButton: {
+    position: "absolute",
+    left: s(325), // Positioned before notification button
+    top: vs(20),
+    width: s(40),
+    height: s(40),
+  },
+
+  // Map Circle - Same style as notification circle
+  mapCircle: {
+    position: "absolute",
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: "#3BB77E", // Green for map/location
+    shadowColor: "rgba(0, 0, 0, 0.25)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: s(10),
+    elevation: 10,
+  },
+
+  // Map Icon
+  mapIcon: {
+    position: "absolute",
+    left: s(7),
+    top: s(7),
+    width: s(25),
+    height: s(25),
+    tintColor: "#FFFFFF", // White icon on green background
   },
 
   // Search Container - Figma: 903:208 Search (20, 134, 400x50)
