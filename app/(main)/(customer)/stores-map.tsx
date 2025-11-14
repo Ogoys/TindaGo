@@ -10,7 +10,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import MapView, { PROVIDER_GOOGLE, Marker, Region, Callout } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE, Marker, Region, Callout, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -39,6 +39,7 @@ const DAVAO_CITY_DEFAULT = {
   longitudeDelta: 0.1,
 };
 
+
 const DISTANCE_FILTERS = [
   { label: 'All', value: 999 },
   { label: '1 km', value: 1 },
@@ -58,46 +59,84 @@ export default function StoresMapScreen() {
   const [region, setRegion] = useState<Region>(DAVAO_CITY_DEFAULT);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState(999); // All stores
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [showRoute, setShowRoute] = useState(false);
+  const [routeCoordinates, setRouteCoordinates] = useState<Array<{latitude: number, longitude: number}>>([]);
+  const [routeDistance, setRouteDistance] = useState<string | null>(null);
+  const [routeDuration, setRouteDuration] = useState<string | null>(null);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
 
   // Load user location
   useEffect(() => {
-    const loadUserLocation = async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.log('❌ Location permission denied');
-          return;
-        }
-
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-
-        const userCoords = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
-
-        setUserLocation(userCoords);
-        setRegion({
-          ...userCoords,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
-
-        console.log('📍 User location loaded:', userCoords);
-      } catch (error) {
-        console.error('Error getting user location:', error);
-      }
-    };
-
     loadUserLocation();
   }, []);
+
+  const loadUserLocation = async () => {
+    try {
+      // Check existing permission first
+      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      
+      let finalStatus = existingStatus;
+      
+      // If not determined, request permission
+      if (existingStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('❌ Location permission denied');
+        setLocationPermissionDenied(true);
+        setIsLoading(false);
+        Alert.alert(
+          'Location Permission Required',
+          'TindaGo needs access to your location to show nearby stores and calculate distances. Please enable location permission in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Open Settings',
+              onPress: () => Linking.openSettings(),
+            },
+          ]
+        );
+        return;
+      }
+
+      // Get location
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const userCoords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+
+      setUserLocation(userCoords);
+      setRegion({
+        ...userCoords,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+      setLocationPermissionDenied(false);
+
+      console.log('📍 User location loaded:', userCoords);
+    } catch (error) {
+      console.error('Error getting user location:', error);
+      setIsLoading(false);
+      Alert.alert('Error', 'Unable to get your location. Please check if location services are enabled.');
+    }
+  };
 
   // Load all active stores with location
   useEffect(() => {
     const loadStores = async () => {
       try {
+        // Don't load stores if permission denied
+        if (locationPermissionDenied) {
+          return;
+        }
+        
         setIsLoading(true);
         const storesRef = ref(database, 'stores');
         const snapshot = await get(storesRef);
@@ -163,8 +202,11 @@ export default function StoresMapScreen() {
 
     if (userLocation) {
       loadStores();
+    } else if (!locationPermissionDenied) {
+      // Still loading location
+      setIsLoading(true);
     }
-  }, [userLocation]);
+  }, [userLocation, locationPermissionDenied]);
 
   // Apply distance filter
   useEffect(() => {
@@ -179,33 +221,52 @@ export default function StoresMapScreen() {
   }, [selectedFilter, stores]);
 
   const handleMarkerPress = (store: StoreLocation) => {
+    // Clear route when selecting new store
+    setShowRoute(false);
+    setRouteCoordinates([]);
     setSelectedStore(store);
-    
-    // Animate to store location
-    if (mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: store.coordinates.latitude,
-        longitude: store.coordinates.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      });
-    }
   };
 
   const handleNavigate = () => {
     if (!selectedStore) return;
 
-    const scheme = Platform.select({
-      ios: 'maps:',
-      android: 'geo:',
-    });
-    const url = Platform.select({
-      ios: `${scheme}?q=${selectedStore.coordinates.latitude},${selectedStore.coordinates.longitude}`,
-      android: `${scheme}${selectedStore.coordinates.latitude},${selectedStore.coordinates.longitude}`,
-    });
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedStore.coordinates.latitude},${selectedStore.coordinates.longitude}`;
+    Linking.openURL(url);
+  };
 
-    if (url) {
-      Linking.openURL(url);
+  const handleShowRoute = async () => {
+    if (!selectedStore || !userLocation || isLoadingRoute) return;
+    
+    setIsLoadingRoute(true);
+    
+    try {
+      // Calculate route using OSRM
+      const url = `https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${selectedStore.coordinates.longitude},${selectedStore.coordinates.latitude}?overview=full&geometries=geojson`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        
+        // Convert coordinates
+        const coords = route.geometry.coordinates.map((coord: [number, number]) => ({
+          latitude: coord[1],
+          longitude: coord[0],
+        }));
+        
+        setRouteCoordinates(coords);
+        setRouteDistance((route.distance / 1000).toFixed(2));
+        setRouteDuration(Math.round(route.duration / 60).toString());
+        setShowRoute(true);
+        
+        console.log('✅ Route displayed');
+      }
+    } catch (error) {
+      console.error('❌ Route error:', error);
+      Alert.alert('Error', 'Could not calculate route');
+    } finally {
+      setIsLoadingRoute(false);
     }
   };
 
@@ -219,7 +280,8 @@ export default function StoresMapScreen() {
 
   const handleCenterOnUser = () => {
     if (userLocation && mapRef.current) {
-      mapRef.current.animateToRegion({
+      // Just set region via state - safest way
+      setRegion({
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
         latitudeDelta: 0.05,
@@ -232,11 +294,53 @@ export default function StoresMapScreen() {
     router.back();
   };
 
-  if (isLoading) {
+  if (isLoading && !locationPermissionDenied) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3BB77E" />
         <Text style={styles.loadingText}>Loading stores map...</Text>
+      </View>
+    );
+  }
+
+  // Show permission denied screen
+  if (locationPermissionDenied) {
+    return (
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#1E1E1E" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Nearby Stores</Text>
+          <View style={styles.backButton} />
+        </View>
+
+        <View style={styles.permissionContainer}>
+          <Ionicons name="location-outline" size={80} color="#CCC" />
+          <Text style={styles.permissionTitle}>Location Permission Required</Text>
+          <Text style={styles.permissionText}>
+            TindaGo needs access to your location to show nearby stores and calculate distances.
+          </Text>
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={() => {
+              setLocationPermissionDenied(false);
+              setIsLoading(true);
+              loadUserLocation();
+            }}
+          >
+            <Ionicons name="location" size={20} color="#FFF" />
+            <Text style={styles.permissionButtonText}>Allow Location Access</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.permissionButtonSecondary}
+            onPress={() => Linking.openSettings()}
+          >
+            <Ionicons name="settings-outline" size={20} color="#3BB77E" />
+            <Text style={styles.permissionButtonTextSecondary}>Open Settings</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -304,6 +408,15 @@ export default function StoresMapScreen() {
             </View>
           </Marker>
         ))}
+        
+        {/* Route Polyline */}
+        {showRoute && routeCoordinates.length > 0 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor="#0066FF"
+            strokeWidth={4}
+          />
+        )}
       </MapView>
 
       {/* Center on User Button */}
@@ -329,18 +442,43 @@ export default function StoresMapScreen() {
               <Text style={styles.infoAddress} numberOfLines={1}>
                 {selectedStore.address}
               </Text>
-              {selectedStore.distance !== undefined && (
+              {!showRoute && selectedStore.distance !== undefined && (
                 <Text style={styles.infoDistance}>
                   📍 {selectedStore.distance.toFixed(2)} km away
                 </Text>
               )}
+              {showRoute && routeDistance && (
+                <Text style={styles.infoDistance}>
+                  🚗 {routeDistance} km · {routeDuration} min
+                </Text>
+              )}
             </View>
-            <TouchableOpacity onPress={() => setSelectedStore(null)}>
+            <TouchableOpacity onPress={() => {
+              setSelectedStore(null);
+              setShowRoute(false);
+              setRouteCoordinates([]);
+            }}>
               <Ionicons name="close-circle" size={28} color="#999" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.infoActions}>
+            {!showRoute && (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.actionButtonSecondary]}
+                onPress={handleShowRoute}
+                disabled={isLoadingRoute}
+              >
+                {isLoadingRoute ? (
+                  <ActivityIndicator size="small" color="#666" />
+                ) : (
+                  <>
+                    <Ionicons name="map" size={20} color="#666" />
+                    <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>Show Route</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.actionButton} onPress={handleNavigate}>
               <Ionicons name="navigate" size={20} color="#FFF" />
               <Text style={styles.actionButtonText}>Navigate</Text>
@@ -567,11 +705,17 @@ const styles = StyleSheet.create({
   actionButtonPrimary: {
     backgroundColor: '#3BB77E',
   },
+  actionButtonSecondary: {
+    backgroundColor: '#F4F6F6',
+  },
   actionButtonText: {
     fontSize: s(16),
     fontWeight: '600',
     color: '#FFF',
     fontFamily: 'Clash Grotesk Variable',
+  },
+  actionButtonTextSecondary: {
+    color: '#666',
   },
   noStoresContainer: {
     position: 'absolute',
@@ -603,5 +747,63 @@ const styles = StyleSheet.create({
     color: '#666',
     fontFamily: 'Clash Grotesk Variable',
     textAlign: 'center',
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: s(40),
+  },
+  permissionTitle: {
+    fontSize: s(22),
+    fontWeight: '600',
+    color: '#1E1E1E',
+    fontFamily: 'Clash Grotesk Variable',
+    marginTop: vs(20),
+    marginBottom: vs(10),
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: s(16),
+    color: '#666',
+    fontFamily: 'Clash Grotesk Variable',
+    textAlign: 'center',
+    marginBottom: vs(30),
+    lineHeight: s(24),
+  },
+  permissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3BB77E',
+    paddingHorizontal: s(30),
+    paddingVertical: vs(15),
+    borderRadius: s(12),
+    gap: s(10),
+    marginBottom: vs(15),
+  },
+  permissionButtonText: {
+    fontSize: s(16),
+    fontWeight: '600',
+    color: '#FFF',
+    fontFamily: 'Clash Grotesk Variable',
+  },
+  permissionButtonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: s(30),
+    paddingVertical: vs(15),
+    borderRadius: s(12),
+    gap: s(10),
+    borderWidth: 2,
+    borderColor: '#3BB77E',
+  },
+  permissionButtonTextSecondary: {
+    fontSize: s(16),
+    fontWeight: '600',
+    color: '#3BB77E',
+    fontFamily: 'Clash Grotesk Variable',
   },
 });
