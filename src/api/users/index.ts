@@ -21,6 +21,8 @@ export interface UserProfile {
   avatar?: string;
   address?: string;
   city?: string;
+  selectedStoreId?: string | null;  // Customer's selected store (synced across devices)
+  selectedStoreUpdatedAt?: string;  // Last time store selection was updated
 }
 
 /**

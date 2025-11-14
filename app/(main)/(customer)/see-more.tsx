@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { ref, onValue } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
-import { addToCart } from '../../../src/api/cart';
+import { addToCartWithValidation } from '../../../src/api/cart';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
@@ -166,7 +166,7 @@ export default function SeeMoreScreen() {
     }
   };
 
-  // Quick add product to cart
+  // Quick add product to cart with store validation
   const handleAddProduct = async (product: Product) => {
     if (!user) {
       router.push('/(auth)/signin' as any);
@@ -199,9 +199,30 @@ export default function SeeMoreScreen() {
         isAvailable: product.quantity > 0,
       };
 
-      const success = await addToCart(user.id, cartItem);
+      const result = await addToCartWithValidation(user.id, cartItem);
 
-      if (success) {
+      if (result.needsConfirmation) {
+        // Prompt to replace cart
+        Alert.alert(
+          'Switch store?',
+          `Your cart has items from ${result.currentStore?.storeName}. Replace with ${result.newStore?.storeName}?`,
+          [
+            { text: 'Keep current', style: 'cancel' },
+            {
+              text: 'Replace cart',
+              style: 'destructive',
+              onPress: async () => {
+                const forced = await addToCartWithValidation(user.id, cartItem, true);
+                if (forced.success) {
+                  setToastMessage(`${product.productName} added to cart!`);
+                  setToastType('success');
+                  setShowToast(true);
+                }
+              }
+            }
+          ]
+        );
+      } else if (result.success) {
         setToastMessage(`${product.productName} added to cart!`);
         setToastType('success');
         setShowToast(true);

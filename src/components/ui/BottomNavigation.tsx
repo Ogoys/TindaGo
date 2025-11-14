@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     width: "100%",
-    height: vs(130), // slightly reduced
+    height: vs(80), // Increased to accommodate icons with padding
   },
 
   background: {
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     width: "100%",
-    height: vs(100), // reduced from 110 → 100 to remove some white space
+    height: vs(75), // Increased to accommodate icons with padding
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: s(20),
     borderTopRightRadius: s(20),
@@ -145,12 +145,13 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
-  /** Move icons slightly higher to balance white space */
+  /** Move icons higher to reduce white space */
   homeTab: {
     position: "absolute",
     left: s(25),
-    bottom: vs(36), // was 32
+    bottom: vs(8), // Moved down from 12 to 8
     alignItems: "center",
+    paddingTop: vs(15), // Increased padding to prevent overlap
   },
   homeIcon: {
     width: s(30),
@@ -161,8 +162,9 @@ const styles = StyleSheet.create({
   ordersTab: {
     position: "absolute",
     left: s(100),
-    bottom: vs(36), // was 32
+    bottom: vs(8), // Moved down from 12 to 8
     alignItems: "center",
+    paddingTop: vs(15), // Increased padding to prevent overlap
   },
   ordersIcon: {
     width: s(30),
@@ -173,8 +175,9 @@ const styles = StyleSheet.create({
   categoryTab: {
     position: "absolute",
     right: s(100),
-    bottom: vs(36), // was 32
+    bottom: vs(8), // Moved down from 12 to 8
     alignItems: "center",
+    paddingTop: vs(15), // Increased padding to prevent overlap
   },
   categoryIcon: {
     width: s(30),
@@ -185,8 +188,9 @@ const styles = StyleSheet.create({
   profileTab: {
     position: "absolute",
     right: s(25),
-    bottom: vs(36), // was 32
+    bottom: vs(8), // Moved down from 12 to 8
     alignItems: "center",
+    paddingTop: vs(15), // Increased padding to prevent overlap
   },
   profileIcon: {
     width: s(30),
@@ -198,7 +202,7 @@ const styles = StyleSheet.create({
   cartButton: {
     position: "absolute",
     alignSelf: "center",
-    bottom: vs(45), // slightly lower to look natural
+    bottom: vs(15), // Aggressively reduced from 25 to 15
     width: s(70),
     height: s(85),
     alignItems: "center",

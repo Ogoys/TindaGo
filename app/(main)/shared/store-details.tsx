@@ -22,11 +22,17 @@ import {
   View,
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
+import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import { s, vs, ms } from '../../../src/constants/responsive';
 import { Colors } from '../../../src/constants/Colors';
 import { fetchStoreById } from '../../../src/api/stores';
 import { fetchProductsByStore } from '../../../src/api/products';
+import { ProductCard } from '../../../src/components/ui';
+import { useUser } from '../../../src/contexts/UserContext';
+import { addToCartWithValidation } from '../../../src/api/cart';
 
 // Firebase Store interface matching actual database structure
 interface Store {
@@ -41,6 +47,13 @@ interface Store {
   email?: string;
   phone?: string;
   status: 'pending' | 'approved' | 'active' | 'rejected' | 'suspended';
+  location?: {
+    address?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
 }
 
 // Firebase Product interface
@@ -67,15 +80,20 @@ interface Product {
 }
 
 export default function StoreDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, storeId } = useLocalSearchParams<{ id?: string; storeId?: string }>();
+  const { user } = useUser();
 
   const [store, setStore] = useState<Store | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
+
+  // Use either id or storeId parameter
+  const actualStoreId = id || storeId;
 
   useEffect(() => {
     const loadStoreData = async () => {
-      if (!id) {
+      if (!actualStoreId) {
         Alert.alert('Error', 'Store not found');
         router.back();
         return;
@@ -85,7 +103,7 @@ export default function StoreDetailsScreen() {
         setLoading(true);
 
         // Fetch store details
-        const storeData = await fetchStoreById(id) as any;
+        const storeData = await fetchStoreById(actualStoreId) as any;
         if (!storeData) {
           Alert.alert('Error', 'Store not found');
           router.back();
@@ -94,12 +112,13 @@ export default function StoreDetailsScreen() {
         setStore(storeData as Store);
 
         // Fetch store products
-        const storeProducts = await fetchProductsByStore(id) as any[];
+        const storeProducts = await fetchProductsByStore(actualStoreId) as any[];
         const availableProducts = storeProducts.filter(p => p.status === 'available');
         setProducts(availableProducts as Product[]);
 
         console.log('🏪 Store loaded:', storeData.storeName);
         console.log('📦 Products loaded:', availableProducts.length);
+        console.log('📍 Store location:', storeData.location?.coordinates);
       } catch (error) {
         console.error('Error loading store:', error);
         Alert.alert('Error', 'Failed to load store details');
@@ -109,7 +128,82 @@ export default function StoreDetailsScreen() {
     };
 
     loadStoreData();
-  }, [id]);
+  }, [actualStoreId]);
+
+  // Add to cart handler with validation
+  const handleAddToCart = async (product: Product) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to add items to cart');
+      router.push('/(auth)/signin');
+      return;
+    }
+
+    if (product.quantity <= 0) {
+      Alert.alert('Out of Stock', 'This product is currently out of stock');
+      return;
+    }
+
+    setAddingProductId(product.id);
+
+    try {
+      const result = await addToCartWithValidation(user.id, {
+        productId: product.id,
+        productName: product.productName,
+        productImage: product.productImage,
+        storeId: product.storeId,
+        storeName: product.storeName,
+        quantity: 1,
+        price: product.price,
+        weight: product.productSize,
+        unit: product.unit,
+        subtotal: product.price,
+        stock: product.quantity,
+        isAvailable: product.quantity > 0,
+      });
+
+      if (result.needsConfirmation) {
+        Alert.alert(
+          'Switch store?',
+          `Your cart has items from ${result.currentStore?.storeName}. Replace with ${result.newStore?.storeName}?`,
+          [
+            { text: 'Keep current', style: 'cancel' },
+            {
+              text: 'Replace cart',
+              style: 'destructive',
+              onPress: async () => {
+                const forced = await addToCartWithValidation(user.id, {
+                  productId: product.id,
+                  productName: product.productName,
+                  productImage: product.productImage,
+                  storeId: product.storeId,
+                  storeName: product.storeName,
+                  quantity: 1,
+                  price: product.price,
+                  weight: product.productSize,
+                  unit: product.unit,
+                  subtotal: product.price,
+                  stock: product.quantity,
+                  isAvailable: product.quantity > 0,
+                }, true);
+                if (forced.success) {
+                  Alert.alert('Success', `${product.productName} added to cart!`);
+                }
+              }
+            }
+          ]
+        );
+      } else if (result.success) {
+        Alert.alert('Success', `${product.productName} added to cart!`);
+      } else {
+        Alert.alert('Error', 'Failed to add to cart. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'An error occurred. Please try again.');
+    } finally {
+      setAddingProductId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -192,10 +286,21 @@ export default function StoreDetailsScreen() {
         <View style={styles.storeInfoContainer}>
           <Text style={styles.storeName}>{store.storeName}</Text>
 
-          {store.address && (
+          {/* Show exact map pin location if available, otherwise fallback to generic address */}
+          {(store.location?.address || store.address) && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>📍</Text>
-              <Text style={styles.infoText}>{store.address}{store.city ? `, ${store.city}` : ''}</Text>
+              <View style={styles.locationTextContainer}>
+                <Text style={styles.infoText}>
+                  {store.location?.address || `${store.address}${store.city ? `, ${store.city}` : ''}`}
+                </Text>
+                {/* Show coordinates if available */}
+                {store.location?.coordinates?.latitude && store.location?.coordinates?.longitude && (
+                  <Text style={styles.coordinatesText}>
+                    {store.location.coordinates.latitude.toFixed(6)}, {store.location.coordinates.longitude.toFixed(6)}
+                  </Text>
+                )}
+              </View>
             </View>
           )}
 
@@ -226,10 +331,51 @@ export default function StoreDetailsScreen() {
               source={require('../../../src/assets/images/product-details/star-icon.png')}
               style={styles.starIcon}
             />
-            <Text style={styles.ratingText}>5.0 / 5.0</Text>
-            <Text style={styles.reviewCount}>(0 Reviews)</Text>
+            <Text style={styles.ratingText}>0.0 / 5.0</Text>
+            <Text style={styles.reviewCount}>(No reviews yet)</Text>
           </View>
         </View>
+
+        {/* Store Location Map */}
+        {store.location?.coordinates?.latitude && store.location?.coordinates?.longitude && (
+          <View style={styles.mapSection}>
+            <Text style={styles.sectionTitle}>Store Location</Text>
+            <View style={styles.mapContainer}>
+              <MapView
+                provider={PROVIDER_GOOGLE}
+                style={styles.map}
+                initialRegion={{
+                  latitude: store.location.coordinates.latitude,
+                  longitude: store.location.coordinates.longitude,
+                  latitudeDelta: 0.005,
+                  longitudeDelta: 0.005,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: store.location.coordinates.latitude,
+                    longitude: store.location.coordinates.longitude,
+                  }}
+                  title={store.storeName}
+                  description={store.location.address || store.address}
+                />
+              </MapView>
+              <TouchableOpacity 
+                style={styles.openMapButton}
+                onPress={() => {
+                  // Navigate to stores-map screen
+                  router.push('/(main)/(customer)/stores-map' as any);
+                }}
+              >
+                <Text style={styles.openMapButtonText}>Get Directions</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Products Section */}
         <View style={styles.productsSection}>
@@ -242,30 +388,17 @@ export default function StoreDetailsScreen() {
           ) : (
             <View style={styles.productsGrid}>
               {products.map((product) => (
-                <TouchableOpacity
+                <ProductCard
                   key={product.id}
-                  style={styles.productCard}
+                  title={product.productName}
+                  subtitle={`${product.productSize} ${product.unit}`}
+                  price={`₱${product.price.toFixed(2)}`}
+                  image={{ uri: product.productImage }}
+                  variant="grid"
+                  onAddPress={() => handleAddToCart(product)}
                   onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}`)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.productImageContainer}>
-                    <Image
-                      source={{ uri: product.productImage }}
-                      style={styles.productImage}
-                      resizeMode="contain"
-                    />
-                  </View>
-
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productName} numberOfLines={2}>{product.productName}</Text>
-                    <Text style={styles.productSize}>{product.productSize} {product.unit}</Text>
-                    <Text style={styles.productPrice}>₱{product.price.toFixed(2)}</Text>
-                  </View>
-
-                  <TouchableOpacity style={styles.addButton}>
-                    <Text style={styles.addButtonText}>+</Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
+                  isAdding={addingProductId === product.id}
+                />
               ))}
             </View>
           )}
@@ -440,6 +573,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  locationTextContainer: {
+    flex: 1,
+  },
+
+  coordinatesText: {
+    fontSize: ms(14),
+    color: '#999',
+    fontFamily: 'monospace',
+    marginTop: vs(2),
+  },
+
   descriptionSection: {
     marginTop: vs(15),
     marginBottom: vs(10),
@@ -506,76 +650,54 @@ const styles = StyleSheet.create({
     color: 'rgba(0, 0, 0, 0.5)',
   },
 
+  // Map Section
+  mapSection: {
+    paddingHorizontal: s(20),
+    paddingTop: vs(20),
+    paddingBottom: vs(10),
+  },
+
+  mapContainer: {
+    width: '100%',
+    height: vs(200),
+    borderRadius: s(16),
+    overflow: 'hidden',
+    backgroundColor: Colors.lightGray,
+    position: 'relative',
+  },
+
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+
+  openMapButton: {
+    position: 'absolute',
+    bottom: vs(10),
+    right: s(10),
+    backgroundColor: Colors.primary,
+    paddingHorizontal: s(15),
+    paddingVertical: vs(8),
+    borderRadius: s(20),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: vs(2) },
+    shadowOpacity: 0.3,
+    shadowRadius: s(4),
+    elevation: 5,
+  },
+
+  openMapButtonText: {
+    color: Colors.white,
+    fontSize: ms(12),
+    fontWeight: '600',
+  },
+
+  // Products Grid - 3 columns
   productsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: s(15),
-  },
-
-  productCard: {
-    width: s(185),
-    backgroundColor: Colors.white,
-    borderRadius: s(16),
-    padding: s(12),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: s(8),
-    elevation: 8,
-    marginBottom: vs(15),
-  },
-
-  productImageContainer: {
-    width: '100%',
-    height: vs(120),
-    backgroundColor: '#E9E9E9',
-    borderRadius: s(12),
-    marginBottom: vs(10),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  productImage: {
-    width: '90%',
-    height: '90%',
-  },
-
-  productInfo: {
-    marginBottom: vs(8),
-  },
-
-  productName: {
-    fontSize: ms(14),
-    fontWeight: '600',
-    color: Colors.darkGray,
-    marginBottom: vs(4),
-    lineHeight: ms(14) * 1.3,
-  },
-
-  productSize: {
-    fontSize: ms(12),
-    color: 'rgba(0, 0, 0, 0.5)',
-    marginBottom: vs(4),
-  },
-
-  productPrice: {
-    fontSize: ms(16),
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-
-  addButton: {
-    backgroundColor: '#EBF3DA',
-    borderRadius: s(8),
-    height: vs(32),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  addButtonText: {
-    fontSize: ms(20),
-    fontWeight: '600',
-    color: Colors.primary,
+    justifyContent: 'space-between',
+    gap: s(10),
   },
 
   bottomSpacer: {

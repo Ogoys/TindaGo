@@ -42,8 +42,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: s(-197),
     top: 0,
+    bottom: 0, // Extend to full screen height
     width: s(1434),
-    height: vs(956),
   },
   glassOverlay: {
     // Figma register: x:-30, y:-46, width:500, height:500
@@ -58,8 +58,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: s(20),
     top: vs(97),
+    bottom: 0, // Anchor to bottom to remove system nav padding
     width: s(400),
-    height: vs(740),
     borderRadius: s(20),
     backgroundColor: "rgba(30, 30, 30, 0.1)",
     overflow: "hidden",

@@ -19,6 +19,8 @@ import { ref, get } from 'firebase/database';
 import { getDistance } from 'geolib';
 import { s, vs } from '@/constants/responsive';
 import { MapErrorBoundary } from '@/components/MapErrorBoundary';
+import { getSelectedStoreId, setSelectedStoreId } from '@/lib/storage/selectedStore';
+import { useUser } from '@/contexts/UserContext';
 
 interface StoreLocation {
   id: string;
@@ -49,6 +51,7 @@ const DISTANCE_FILTERS = [
 ];
 
 export default function StoresMapScreen() {
+  const { user } = useUser();
   const mapRef = useRef<MapView>(null);
   const isMounted = useRef(true);
   const [stores, setStores] = useState<StoreLocation[]>([]);
@@ -126,9 +129,9 @@ export default function StoresMapScreen() {
         return;
       }
 
-      // Get location
+      // Get location with high accuracy for precise map positioning
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.Highest,
       });
 
       const userCoords = {
@@ -155,6 +158,8 @@ export default function StoresMapScreen() {
   };
 
   // Load all active stores with location
+  const hasSuggestedNearest = useRef(false);
+
   useEffect(() => {
     const loadStores = async () => {
       try {
@@ -216,6 +221,38 @@ export default function StoresMapScreen() {
             setFilteredStores(storesList);
 
             console.log(`✅ Loaded ${storesList.length} active stores with location`);
+
+            // Suggest nearest open store on first launch when none selected
+            try {
+              const already = await getSelectedStoreId(user?.id);
+              if (!already && !hasSuggestedNearest.current && storesList.length > 0) {
+                const openStores = storesList.filter(s => s.isOpen !== false && s.distance != null);
+                if (openStores.length > 0) {
+                  const nearest = [...openStores].sort((a,b) => (a.distance! - b.distance!))[0];
+                  hasSuggestedNearest.current = true;
+                  Alert.alert(
+                    'Shop at nearest store?',
+                    `${nearest.storeName} · ${nearest.distance?.toFixed(2)} km away`,
+                    [
+                      {
+                        text: 'See others', style: 'cancel'
+                      },
+                      {
+                        text: 'Shop here',
+                        onPress: async () => {
+                          await setSelectedStoreId(nearest.id, user?.id);
+                          setSelectedStore(nearest);
+                          Alert.alert('Store selected', `${nearest.storeName} set as your store.`);
+                          router.push('/(main)/(customer)/home' as any);
+                        }
+                      }
+                    ]
+                  );
+                }
+              }
+            } catch (e) {
+              console.warn('Nearest store suggestion skipped:', e);
+            }
           }
         } else {
           console.log('⚠️ No stores found');
@@ -276,7 +313,18 @@ export default function StoresMapScreen() {
       // Static route using OSRM (free, no card needed)
       const url = `https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${selectedStore.coordinates.longitude},${selectedStore.coordinates.latitude}?overview=full&geometries=geojson`;
       
-      const response = await fetch(url, { timeout: 5000 });
+      // Implement timeout using AbortController (5 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) throw new Error('Route API failed');
       
@@ -324,8 +372,20 @@ export default function StoresMapScreen() {
     if (!selectedStore) return;
     router.push({
       pathname: '/(main)/shared/store-details',
-      params: { storeId: selectedStore.id },
+      params: { id: selectedStore.id },
     });
+  };
+
+  const handleSetMyStore = async () => {
+    if (!selectedStore) return;
+    try {
+      await setSelectedStoreId(selectedStore.id, user?.id);
+      Alert.alert('Store selected', `${selectedStore.storeName} set as your store.`);
+      router.push('/(main)/(customer)/home' as any);
+    } catch (e) {
+      console.error('Failed setting selected store', e);
+      Alert.alert('Error', 'Could not set your store. Please try again.');
+    }
   };
 
   const handleCenterOnUser = () => {
@@ -516,6 +576,9 @@ export default function StoresMapScreen() {
             )}
             <View style={styles.infoDetails}>
               <Text style={styles.infoStoreName}>{selectedStore.storeName}</Text>
+              <Text style={[styles.infoStatus, selectedStore.isOpen === false ? styles.closed : styles.open]}>
+                {selectedStore.isOpen === false ? 'Closed' : 'Open now'}
+              </Text>
               <Text style={styles.infoAddress} numberOfLines={1}>
                 {selectedStore.address}
               </Text>
@@ -539,45 +602,65 @@ export default function StoresMapScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Action Buttons - 2x2 Grid Layout */}
           <View style={styles.infoActions}>
-            {!showRoute ? (
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.actionButtonSecondary]}
-                onPress={handleShowRoute}
-                disabled={isLoadingRoute || !mapFullyLoaded}
+            {/* Row 1: Show Route + View Products */}
+            <View style={styles.actionRow}>
+              {!showRoute ? (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.actionButtonNavigate]}
+                  onPress={handleShowRoute}
+                  disabled={isLoadingRoute || !mapFullyLoaded}
+                >
+                  {isLoadingRoute ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="map" size={18} color="#FFF" />
+                      <Text style={styles.actionButtonText}>Show Route</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.actionButtonNavigate]}
+                  onPress={() => {
+                    setShowRoute(false);
+                    setRouteCoordinates([]);
+                  }}
+                >
+                  <Ionicons name="close" size={18} color="#FFF" />
+                  <Text style={styles.actionButtonText}>Hide Route</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.actionButton, styles.actionButtonPrimary]}
+                onPress={handleViewProducts}
               >
-                {isLoadingRoute ? (
-                  <ActivityIndicator size="small" color="#666" />
-                ) : (
-                  <>
-                    <Ionicons name="map" size={20} color="#666" />
-                    <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>Show Route</Text>
-                  </>
-                )}
+                <Ionicons name="cart" size={18} color="#FFF" />
+                <Text style={styles.actionButtonText}>View Products</Text>
               </TouchableOpacity>
-            ) : (
+            </View>
+
+            {/* Row 2: Navigate + Set as My Store */}
+            <View style={styles.actionRow}>
               <TouchableOpacity 
-                style={[styles.actionButton, styles.actionButtonSecondary]}
-                onPress={() => {
-                  setShowRoute(false);
-                  setRouteCoordinates([]);
-                }}
+                style={[styles.actionButton, styles.actionButtonNavigate, selectedStore?.isOpen === false && { opacity: 0.6 }]} 
+                onPress={handleNavigate} 
+                disabled={selectedStore?.isOpen === false}
               >
-                <Ionicons name="close" size={20} color="#666" />
-                <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>Hide Route</Text>
+                <Ionicons name="navigate" size={18} color="#FFF" />
+                <Text style={styles.actionButtonText}>Navigate</Text>
               </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.actionButton} onPress={handleNavigate}>
-              <Ionicons name="navigate" size={20} color="#FFF" />
-              <Text style={styles.actionButtonText}>Navigate</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionButtonPrimary]}
-              onPress={handleViewProducts}
-            >
-              <Ionicons name="cart" size={20} color="#FFF" />
-              <Text style={styles.actionButtonText}>View Products</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.actionButtonPrimary]}
+                onPress={handleSetMyStore}
+                disabled={selectedStore?.isOpen === false}
+              >
+                <Ionicons name="checkmark-circle" size={18} color="#FFF" />
+                <Text style={styles.actionButtonText}>Set as My Store</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -770,6 +853,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Clash Grotesk Variable',
     marginBottom: vs(2),
   },
+  infoStatus: {
+    fontSize: s(12),
+    marginTop: vs(2),
+  },
+  open: { color: '#3BB77E', fontWeight: '600' },
+  closed: { color: '#E92B45', fontWeight: '600' },
   infoDistance: {
     fontSize: s(14),
     color: '#3BB77E',
@@ -777,18 +866,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoActions: {
+    flexDirection: 'column',
+    gap: s(8),
+  },
+  actionRow: {
     flexDirection: 'row',
-    gap: s(10),
+    gap: s(8),
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0066FF',
-    borderRadius: s(12),
-    paddingVertical: vs(12),
-    gap: s(6),
+    borderRadius: s(10),
+    paddingVertical: vs(10),
+    gap: s(4),
+    minHeight: vs(42),
   },
   actionButtonPrimary: {
     backgroundColor: '#3BB77E',
@@ -796,8 +889,11 @@ const styles = StyleSheet.create({
   actionButtonSecondary: {
     backgroundColor: '#F4F6F6',
   },
+  actionButtonNavigate: {
+    backgroundColor: '#0066FF',
+  },
   actionButtonText: {
-    fontSize: s(16),
+    fontSize: s(13),
     fontWeight: '600',
     color: '#FFF',
     fontFamily: 'Clash Grotesk Variable',

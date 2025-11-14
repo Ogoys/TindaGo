@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingBottom: vs(20),
+    paddingBottom: vs(90), // Increased to account for bottom navigation bar
   },
 
   // Grid Container

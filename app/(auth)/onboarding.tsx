@@ -13,9 +13,11 @@ export default function OnboardingScreen() {
         bounces={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <HeroImageStack />
-        <OnboardingContent />
-        <ActionButtons />
+        <View style={styles.content}>
+          <HeroImageStack />
+          <OnboardingContent />
+          <ActionButtons />
+        </View>
       </ScrollView>
     </View>
   );
@@ -30,6 +32,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    // No extra padding - using exact Figma positioning
+    flexGrow: 1,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
 });

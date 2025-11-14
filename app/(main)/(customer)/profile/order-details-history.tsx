@@ -31,7 +31,7 @@ import { s, vs, ms } from "../../../../src/constants/responsive";
 import { Colors } from "../../../../src/constants/Colors";
 import { Fonts } from "../../../../src/constants/Fonts";
 import { useUser } from '../../../../src/contexts/UserContext';
-import { addToCart } from '../../../../src/api/cart';
+import { addToCartWithValidation, clearCart } from '../../../../src/api/cart';
 
 export default function OrderDetailsHistoryScreen() {
   const params = useLocalSearchParams();
@@ -107,7 +107,7 @@ export default function OrderDetailsHistoryScreen() {
     return value.toFixed(2);
   };
 
-  // Handle reorder - add all items back to cart
+  // Handle reorder - add all items back to cart with store validation
   const handleReorder = async () => {
     if (!user || !order) {
       Alert.alert("Error", "Unable to reorder at this time");
@@ -117,7 +117,67 @@ export default function OrderDetailsHistoryScreen() {
     setReordering(true);
 
     try {
-      // Add all items from the order back to the cart
+      // Check if cart has items from a different store first
+      const firstItem = order.items[0];
+      if (!firstItem) {
+        Alert.alert("Error", "No items to reorder");
+        setReordering(false);
+        return;
+      }
+
+      // Check first item to see if we need to clear the cart
+      const testCartItem = {
+        productId: firstItem.productId,
+        productName: firstItem.productName,
+        productImage: firstItem.productImage,
+        price: firstItem.price,
+        quantity: firstItem.quantity,
+        weight: firstItem.weight || '',
+        unit: firstItem.unit || '',
+        subtotal: firstItem.subtotal,
+        storeId: order.storeId,
+        storeName: order.storeName,
+        stock: (firstItem as any).stock ?? 999,
+        isAvailable: (firstItem as any).isAvailable ?? true,
+      } as any;
+
+      const testResult = await addToCartWithValidation(user.id, testCartItem);
+
+      if (testResult.needsConfirmation) {
+        // Prompt user to replace cart
+        Alert.alert(
+          'Replace cart?',
+          `Your cart has items from ${testResult.currentStore?.storeName}. Replace with order from ${testResult.newStore?.storeName}?`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => setReordering(false) },
+            {
+              text: 'Replace cart',
+              style: 'destructive',
+              onPress: async () => {
+                // Clear cart first, then add all items
+                await clearCart(user.id);
+                await proceedWithReorder();
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      // No conflict, proceed with reorder
+      await proceedWithReorder();
+    } catch (error) {
+      console.error("Error reordering:", error);
+      Alert.alert("Error", "An error occurred while reordering. Please try again.");
+      setReordering(false);
+    }
+  };
+
+  // Proceed with adding all items to cart
+  const proceedWithReorder = async () => {
+    if (!user || !order) return;
+
+    try {
       let successCount = 0;
 
       for (const item of order.items) {
@@ -138,8 +198,9 @@ export default function OrderDetailsHistoryScreen() {
           isAvailable: (item as any).isAvailable ?? true,
         } as any;
 
-        const success = await addToCart(user.id, cartItem);
-        if (success) {
+        // Use forceReplace=true since we already confirmed cart replacement
+        const result = await addToCartWithValidation(user.id, cartItem, true);
+        if (result.success) {
           successCount++;
         }
       }

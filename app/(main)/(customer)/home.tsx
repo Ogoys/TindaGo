@@ -10,6 +10,7 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -18,8 +19,10 @@ import { database } from "../../../FirebaseConfig";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { BottomNavigation, Toast, ProductCard } from "../../../src/components/ui";
 import { useUser } from "../../../src/contexts/UserContext";
-import { addToCart } from "../../../src/api/cart";
+import { addToCart, addToCartWithValidation } from "../../../src/api/cart";
 import { useCartCount } from "../../../src/hooks";
+import { getSelectedStoreId } from "../../../src/lib/storage/selectedStore";
+import * as Location from 'expo-location';
 
 /**
  * CUSTOMER HOME PAGE - PIXEL-PERFECT FIGMA REBUILD
@@ -87,10 +90,121 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Selected store personalization
+  const [selectedStoreId, setSelectedStoreIdState] = useState<string | null>(null);
+
   // State for quick add to cart
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  // User location state
+  const [userAddress, setUserAddress] = useState<string>('Getting location...');
+
+  // Load selected store id (personalization) with Firebase sync
+  useEffect(() => {
+    (async () => {
+      // Try Firebase first (cross-device), fallback to local
+      const id = await getSelectedStoreId(user?.id);
+      setSelectedStoreIdState(id);
+    })();
+  }, [user?.id]);
+
+  // Get user's current location
+  useEffect(() => {
+    (async () => {
+      try {
+        // Check permission
+        const { status } = await Location.getForegroundPermissionsAsync();
+        
+        if (status !== 'granted') {
+          setUserAddress('Location permission needed');
+          return;
+        }
+
+        // Get current position with highest accuracy for better reverse geocoding
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Highest, // Use highest for better street-level accuracy
+        });
+
+        const coords = {
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+        };
+
+        console.log('📍 GPS Coordinates:', coords);
+
+        // Reverse geocode to get address
+        const addresses = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+        console.log('🗺️ Reverse Geocoding Results:', addresses);
+
+        if (addresses && addresses.length > 0) {
+          // Try all results to find the best street-level address
+          let bestAddress = addresses[0];
+          
+          // Prefer addresses with street names over generic areas
+          for (const addr of addresses) {
+            if (addr.street && addr.street !== bestAddress.street) {
+              bestAddress = addr;
+              break;
+            }
+          }
+
+          const { street, name, streetNumber, district, subregion, city, region } = bestAddress;
+          
+          // Helper function to generate Plus Code (Open Location Code)
+          const generatePlusCode = (lat: number, lng: number): string => {
+            // Simple Plus Code generation for display
+            // Format: XXXX+XX City
+            const latCode = Math.floor((lat + 90) * 8000).toString(36).toUpperCase().slice(-4);
+            const lngCode = Math.floor((lng + 180) * 8000).toString(36).toUpperCase().slice(-2);
+            return `${latCode}+${lngCode}`;
+          };
+          
+          // Priority: 
+          // 1. Use name + district for more specific location (e.g. "Km. 12, Buhangin")
+          // 2. Use streetNumber + street for street addresses
+          // 3. Use district with approximate landmark
+          // 4. Generate Plus Code if no good address available
+          let formattedAddress;
+          
+          if (name && district && name !== street) {
+            // Best: Landmark/location name with district ("Km. 12, Buhangin, Davao City")
+            formattedAddress = `${name}, ${district}, ${city || 'Davao City'}`;
+          } else if (streetNumber && street && !street.includes('Highway') && !street.includes('Road')) {
+            // Good: Street number + street name (only if it's a real street, not highway)
+            formattedAddress = `${streetNumber} ${street}, ${city || 'Davao City'}`;
+          } else if (name && name !== district && !name.includes('Km')) {
+            // OK: Just the location name with city (if it's not just a kilometer marker)
+            formattedAddress = `${name}, ${city || 'Davao City'}`;
+          } else if (district && district !== city) {
+            // Fallback: District name with nearby landmark if available
+            const landmark = name && name.includes('Km') ? ` (near ${name})` : '';
+            formattedAddress = `${district}${landmark}, ${city || 'Davao City'}`;
+          } else {
+            // Last resort: District or Plus Code for unmapped areas
+            const plusCode = generatePlusCode(coords.lat, coords.lng);
+            formattedAddress = district 
+              ? `${district}, ${city || 'Davao City'}`
+              : `${plusCode} ${city || 'Davao City'}`;
+          }
+          
+          setUserAddress(formattedAddress);
+          console.log('✅ Final Address:', formattedAddress);
+        } else {
+          setUserAddress('Location found');
+        }
+      } catch (error) {
+        console.error('Error getting location:', error);
+        setUserAddress('Location unavailable');
+      }
+    })();
+  }, []);
 
   // Fetch products and stores from Firebase
   useEffect(() => {
@@ -264,7 +378,7 @@ export default function HomeScreen() {
     setAddingProductId(product.id);
 
     try {
-      await addToCart(user.id, {
+      const result = await addToCartWithValidation(user.id, {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
@@ -279,8 +393,46 @@ export default function HomeScreen() {
         isAvailable: product.quantity > 0,
       });
 
-      setToastMessage(`${product.productName} added to cart!`);
-      setShowToast(true);
+      if (result.needsConfirmation) {
+        // Prompt to replace cart
+        Alert.alert(
+          'Switch store?',
+          `Your cart has items from ${result.currentStore?.storeName}. Replace with ${result.newStore?.storeName}?`,
+          [
+            { text: 'Keep current', style: 'cancel' },
+            {
+              text: 'Replace cart',
+              style: 'destructive',
+              onPress: async () => {
+                const forced = await addToCartWithValidation(user.id, {
+                  productId: product.id,
+                  productName: product.productName,
+                  productImage: product.productImage,
+                  storeId: product.storeId,
+                  storeName: product.storeName,
+                  quantity: 1,
+                  price: product.price,
+                  weight: product.productSize,
+                  unit: product.unit,
+                  subtotal: product.price,
+                  stock: product.quantity,
+                  isAvailable: product.quantity > 0,
+                }, true);
+                if (forced.success) {
+                  setToastMessage(`${product.productName} added to cart!`);
+                  setShowToast(true);
+                }
+              }
+            }
+          ]
+        );
+      } else if (result.success) {
+        setToastMessage(`${product.productName} added to cart!`);
+        setShowToast(true);
+      } else {
+        setToastMessage('Failed to add to cart. Please try again.');
+        setShowToast(true);
+      }
     } catch (error) {
       console.error('Error adding to cart:', error);
       setToastMessage('Failed to add to cart. Please try again.');
@@ -366,6 +518,17 @@ export default function HomeScreen() {
 
   // ============ SMART PRODUCT RECOMMENDATION LOGIC ============
 
+  // Selected store reference and products
+  const selectedStore = React.useMemo(() => {
+    if (!selectedStoreId) return null;
+    return allStores.find(s => s.id === selectedStoreId) || null;
+  }, [selectedStoreId, allStores]);
+
+  const selectedStoreProducts = React.useMemo(() => {
+    if (!selectedStoreId) return [] as Product[];
+    return allProducts.filter(p => p.storeId === selectedStoreId).slice(0, 12);
+  }, [allProducts, selectedStoreId]);
+
   // Best Selling Products - Show recently added products (newest first)
   const bestSellingProducts = React.useMemo(() => {
     if (allProducts.length === 0) return [];
@@ -445,7 +608,7 @@ export default function HomeScreen() {
     return (
       <TouchableOpacity
         style={styles.storeCard}
-        onPress={() => router.push(`/(main)/(customer)/store-details?storeId=${store.id}` as any)}
+        onPress={() => router.push(`/(main)/shared/store-details?storeId=${store.id}` as any)}
         activeOpacity={0.8}
       >
         {/* White Background - Figma: 759:488 Rectangle 20 */}
@@ -494,7 +657,7 @@ export default function HomeScreen() {
             style={styles.storeStarIcon}
           />
           {/* Rating - Figma: 759:493 */}
-          <Text style={styles.storeRating}>5.0</Text>
+          <Text style={styles.storeRating}>0.0</Text>
           {/* Product Count */}
           <Text style={styles.storeDistance}>• {productCount} products</Text>
         </View>
@@ -580,7 +743,7 @@ export default function HomeScreen() {
               />
               {/* Location Text - Figma: 759:597 */}
               <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
-                Jacinto st. Davao City
+                {userAddress}
               </Text>
             </View>
           </View>
@@ -627,6 +790,27 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Selected Store Banner */}
+      {selectedStore ? (
+        <View style={styles.storeBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerTitle}>Shopping at</Text>
+            <Text style={styles.bannerStoreName} numberOfLines={1}>{selectedStore.storeName}</Text>
+          </View>
+          <TouchableOpacity style={styles.changeStoreBtn} onPress={() => router.push("/(main)/(customer)/stores-map" as any)}>
+            <Text style={styles.changeStoreText}>Change Store</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.storeBanner} onPress={() => router.push("/(main)/(customer)/stores-map" as any)}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerTitle}>No store selected</Text>
+            <Text style={styles.bannerStoreName}>Pick a nearby store</Text>
+          </View>
+          <View style={styles.changeStoreBtn}><Text style={styles.changeStoreText}>Select</Text></View>
+        </TouchableOpacity>
+      )}
+
       {/* SCROLLABLE CONTENT */}
       <ScrollView
         style={styles.scrollContent}
@@ -636,6 +820,49 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3BB77E" />
         }
       >
+        {/* PERSONALIZED SECTION: Available at selected store */}
+        {selectedStore && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Available at {selectedStore.storeName}</Text>
+              <TouchableOpacity onPress={() => router.push(`/(main)/shared/store-details?id=${selectedStore.id}` as any)}>
+                <Text style={styles.seeMoreText}>See store</Text>
+              </TouchableOpacity>
+            </View>
+            {loading ? (
+              <View style={[styles.productsSection, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#3BB77E" />
+              </View>
+            ) : selectedStoreProducts.length === 0 ? (
+              <View style={[styles.productsSection, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: s(40) }]}>
+                <Text style={styles.emptyText}>No products available in this store</Text>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.productsSection}
+                contentContainerStyle={styles.productsScrollContent}
+              >
+                {selectedStoreProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    title={product.productName || 'Unnamed Product'}
+                    subtitle={product.productSize && product.unit ? `${product.productSize} ${product.unit}` : ''}
+                    weight={''}
+                    price={product.price ? `₱${product.price.toFixed(2)}` : '₱0.00'}
+                    image={product.productImage ? { uri: product.productImage } : undefined}
+                    variant="horizontal"
+                    onAddPress={() => handleQuickAdd(product)}
+                    onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
+                    isAdding={addingProductId === product.id}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </>
+        )}
+
         {/* CATEGORY SECTION - Figma: 903:556 Category (0, 198, 440x90) */}
         {/* Horizontal scrollable category navigation with icons */}
         <View style={styles.categorySection}>
@@ -729,7 +956,7 @@ export default function HomeScreen() {
           {/* Section Title - Figma: 903:216 Feature store near you */}
           <Text style={styles.sectionTitle}>Feature store near you</Text>
           {/* See More - Figma: 903:217 See more */}
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/(main)/(customer)/stores-list" as any)}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
@@ -1055,13 +1282,53 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
+  // Selected Store Banner styles
+  storeBanner: {
+    marginHorizontal: s(20),
+    marginTop: vs(10),
+    marginBottom: vs(10),
+    backgroundColor: '#FFFFFF',
+    borderRadius: s(12),
+    paddingVertical: vs(12),
+    paddingHorizontal: s(14),
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    gap: s(10),
+  },
+  bannerTitle: {
+    fontFamily: "Clash Grotesk Variable",
+    fontSize: ms(12),
+    color: '#666',
+  },
+  bannerStoreName: {
+    fontFamily: "Clash Grotesk Variable",
+    fontSize: ms(16),
+    fontWeight: '700',
+    color: '#1E1E1E',
+  },
+  changeStoreBtn: {
+    backgroundColor: '#3BB77E',
+    borderRadius: s(8),
+    paddingVertical: vs(8),
+    paddingHorizontal: s(12),
+  },
+  changeStoreText: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
+
   // ============ SCROLLABLE CONTENT ============
   scrollContent: {
     flex: 1,
   },
 
   scrollContentContainer: {
-    paddingBottom: vs(100), // Space for bottom navigation
+    paddingBottom: vs(60), // Aggressively reduced from 80 to 60
   },
 
   // ============ CATEGORY SECTION ============
@@ -1551,6 +1818,6 @@ const styles = StyleSheet.create({
 
   // Bottom Padding
   bottomPadding: {
-    height: vs(20),
+    height: vs(5), // Aggressively reduced from 10 to 5
   },
 });

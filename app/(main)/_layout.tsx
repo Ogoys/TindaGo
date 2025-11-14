@@ -5,6 +5,7 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { Colors } from '../../src/constants/Colors';
 import { Fonts } from '../../src/constants/Fonts';
 import { s, vs } from '../../src/constants/responsive';
+import { getSelectedStoreId } from '@/lib/storage/selectedStore';
 
 export default function MainLayout() {
   const { user, isLoading } = useUser();
@@ -25,7 +26,15 @@ export default function MainLayout() {
 
       // User has role, redirect to appropriate home
       if (user.role === 'customer') {
-        router.replace('/(main)/(customer)/home');
+        (async () => {
+          // Try Firebase first (cross-device), fallback to local
+          const selected = await getSelectedStoreId(user.id);
+          if (selected) {
+            router.replace('/(main)/(customer)/home');
+          } else {
+            router.replace('/(main)/(customer)/stores-map');
+          }
+        })();
       } else {
         router.replace('/(main)/(store-owner)/home');
       }

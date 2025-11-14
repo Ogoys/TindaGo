@@ -413,14 +413,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: vs(10),
-    paddingBottom: vs(40),
+    paddingBottom: 0, // Remove bottom padding completely
   },
 
   // Header Section (Figma: x:140, y:322)
   headerSection: {
     alignItems: "center",
-    marginTop: vs(180), // Reduce top margin to fit content
-    marginBottom: vs(50), // Reduce bottom margin
+    marginTop: vs(140), // Reduced from 180 to 140
+    marginBottom: vs(35), // Reduced from 50 to 35
   },
   title: {
     // Figma: fontSize:28, centered
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   // Form Section
   formSection: {
     alignItems: "center",
-    gap: vs(15), // Reduce gap between inputs
+    gap: vs(12), // Reduced from 15 to 12
   },
   nameInput: {
     // Figma: x:60, y:396 (relative to card)
@@ -451,27 +451,29 @@ const styles = StyleSheet.create({
   // Picker Section (Figma: x:60, y:606)
   pickerSection: {
     alignItems: "center",
-    marginTop: vs(15),
+    marginTop: vs(12), // Reduced from 15 to 12
   },
 
   // Terms Section (Figma: x:67, y:676)
   termsSection: {
     alignItems: "center",
-    marginTop: vs(15),
+    marginTop: vs(12), // Reduced from 15 to 12
     paddingHorizontal: s(7),
   },
 
   // Button Section (Figma: x:60, y:740, width:380)
   buttonSection: {
-    marginTop: vs(15),
+    marginTop: vs(12), // Reduced from 15 to 12
+    marginBottom: vs(3), // Reduced from 5 to 3
     paddingHorizontal: s(30), // (400 - 380) / 2 = 10px + 20px glass card padding
   },
 
   // Footer Section (Figma: y:820)
   footerSection: {
     alignItems: "center",
-    marginTop: vs(20),
-    marginBottom: vs(30), // Add bottom margin for safe area
+    marginTop: vs(5), // Reduced from 10 to 5
+    marginBottom: 0, // Remove bottom margin
+    paddingBottom: 0, // Remove bottom padding
   },
   footerText: {
     fontFamily: Fonts.primary,

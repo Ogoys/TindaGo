@@ -37,7 +37,7 @@ import { s, vs, ms } from '../../../src/constants/responsive';
 import { useUser } from '../../../src/contexts/UserContext';
 import { fetchProductById, fetchProductsByCategory } from '../../../src/api/products';
 import { fetchStoreById, fetchFeaturedStores } from '../../../src/api/stores';
-import { addToCart } from '../../../src/api/cart';
+import { addToCartWithValidation } from '../../../src/api/cart';
 import type { CartItem } from '../../../src/models/Cart';
 import { ref, get } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
@@ -284,18 +284,40 @@ export default function ProductDetailsScreen() {
         isAvailable: product.quantity > 0,
       };
 
-      const success = await addToCart(user.id, cartItem);
+      const result = await addToCartWithValidation(user.id, cartItem);
 
-      if (success) {
+      if (result.needsConfirmation) {
         Alert.alert(
-          'Success',
-          `${quantity} ${quantity > 1 ? 'items' : 'item'} added to cart`,
+          'Switch store?',
+          `Your cart has items from ${result.currentStore?.storeName}. Replace with ${result.newStore?.storeName}?`,
           [
+            { text: 'Keep current', style: 'cancel' },
             {
-              text: 'Continue Shopping',
-              onPress: () => router.back(),  // Go back to where user came from (home/see-more/category)
-              style: 'cancel'
-            },
+              text: 'Replace cart',
+              style: 'destructive',
+              onPress: async () => {
+                const forced = await addToCartWithValidation(user.id, cartItem, true);
+                if (forced.success) {
+                  Alert.alert(
+                    'Added to Cart',
+                    `${quantity} ${quantity > 1 ? 'items' : 'item'} from ${product.storeName}`,
+                    [
+                      { text: 'Browse Store', onPress: () => handleStorePress(product.storeId) },
+                      { text: 'View Cart', onPress: () => router.push('/(main)/(customer)/cart') },
+                    ]
+                  );
+                  setQuantity(1);
+                }
+              }
+            }
+          ]
+        );
+      } else if (result.success) {
+        Alert.alert(
+          'Added to Cart',
+          `${quantity} ${quantity > 1 ? 'items' : 'item'} from ${product.storeName}`,
+          [
+            { text: 'Browse Store', onPress: () => handleStorePress(product.storeId) },
             { text: 'View Cart', onPress: () => router.push('/(main)/(customer)/cart') },
           ]
         );
@@ -346,9 +368,14 @@ export default function ProductDetailsScreen() {
         isAvailable: relatedProduct.quantity > 0,
       };
 
-      const success = await addToCart(user.id, cartItem);
+      const result = await addToCartWithValidation(user.id, cartItem);
 
-      if (success) {
+      if (result.needsConfirmation) {
+        setToastMessage(`Switch cart to ${result.newStore?.storeName}?`);
+        setToastType('info');
+        setShowToast(true);
+        // For quick add, silently replace on confirm path could be a modal, keep toast for now
+      } else if (result.success) {
         setToastMessage(`${relatedProduct.productName} added to cart!`);
         setToastType('success');
         setShowToast(true);
@@ -655,7 +682,7 @@ export default function ProductDetailsScreen() {
         {/* Other Store Section - Same design as customer home Featured Stores */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Other Store</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push(`/(main)/(customer)/stores-list?excludeStoreId=${product.storeId}`)}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
@@ -1151,6 +1178,7 @@ const styles = StyleSheet.create({
   descriptionContainer: {
     paddingHorizontal: s(20),
     marginTop: vs(18),
+    marginBottom: vs(40), // Increased from 20 to 40 to create more space
   },
 
   descriptionTitle: {
@@ -1174,15 +1202,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: s(22),
-    marginTop: vs(40),
-    marginBottom: vs(10),
+    marginTop: vs(30), // Space above section headers
+    marginBottom: vs(15), // Space below section headers
   },
 
   sectionTitle: {
-    fontSize: ms(24),
+    fontSize: ms(20), // Reduced from 24 to 20 for better visibility
     fontWeight: '500',
     color: Colors.black,
-    lineHeight: vs(22),
+    lineHeight: vs(24), // Adjusted line height to match font size
   },
 
   seeMoreText: {

@@ -10,6 +10,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -21,7 +22,8 @@ import { Colors } from '../../../src/constants/Colors';
 import { Fonts } from '../../../src/constants/Fonts';
 import { ProductCard } from '../../../src/components/ui';
 import { useUser } from '../../../src/contexts/UserContext';
-import { addToCart } from '../../../src/api/cart';
+import { addToCartWithValidation } from '../../../src/api/cart';
+import { getSelectedStoreId } from '../../../src/lib/storage/selectedStore';
 
 /**
  * CUSTOMER SEARCH SCREEN
@@ -66,6 +68,15 @@ export default function SearchScreen() {
   const [searching, setSearching] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
+  const [selectedStoreId, setSelectedStoreIdState] = useState<string | null>(null);
+
+  // Load selected store ID for ranking with Firebase sync
+  useEffect(() => {
+    (async () => {
+      const id = await getSelectedStoreId(user?.id);
+      setSelectedStoreIdState(id);
+    })();
+  }, [user?.id]);
 
   // Fetch products from Firebase
   useEffect(() => {
@@ -102,7 +113,7 @@ export default function SearchScreen() {
     setRecentSearches([]);
   }, []);
 
-  // Search logic
+  // Search logic with selected store ranking
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredProducts([]);
@@ -122,11 +133,26 @@ export default function SearchScreen() {
       return nameMatch || categoryMatch || storeMatch || descriptionMatch;
     });
 
-    setFilteredProducts(results);
-    setSearching(false);
-  }, [searchQuery, allProducts]);
+    // Sort: Selected store products first, then others alphabetically
+    const sorted = results.sort((a, b) => {
+      // If user has a selected store, prioritize those products
+      if (selectedStoreId) {
+        const aIsSelected = a.storeId === selectedStoreId;
+        const bIsSelected = b.storeId === selectedStoreId;
+        
+        if (aIsSelected && !bIsSelected) return -1;
+        if (!aIsSelected && bIsSelected) return 1;
+      }
+      
+      // Otherwise sort by product name
+      return a.productName.localeCompare(b.productName);
+    });
 
-  // Add to cart function
+    setFilteredProducts(sorted);
+    setSearching(false);
+  }, [searchQuery, allProducts, selectedStoreId]);
+
+  // Add to cart function with store validation
   const handleQuickAdd = async (product: Product) => {
     if (!user) {
       router.push('/(auth)/signin' as any);
@@ -140,7 +166,7 @@ export default function SearchScreen() {
     setAddingProductId(product.id);
 
     try {
-      await addToCart(user.id, {
+      const result = await addToCartWithValidation(user.id, {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
@@ -154,8 +180,45 @@ export default function SearchScreen() {
         stock: product.quantity,
         isAvailable: product.quantity > 0,
       });
+
+      if (result.needsConfirmation) {
+        // Prompt to replace cart
+        Alert.alert(
+          'Switch store?',
+          `Your cart has items from ${result.currentStore?.storeName}. Replace with ${result.newStore?.storeName}?`,
+          [
+            { text: 'Keep current', style: 'cancel' },
+            {
+              text: 'Replace cart',
+              style: 'destructive',
+              onPress: async () => {
+                const forced = await addToCartWithValidation(user.id, {
+                  productId: product.id,
+                  productName: product.productName,
+                  productImage: product.productImage,
+                  storeId: product.storeId,
+                  storeName: product.storeName,
+                  quantity: 1,
+                  price: product.price,
+                  weight: product.productSize,
+                  unit: product.unit,
+                  subtotal: product.price,
+                  stock: product.quantity,
+                  isAvailable: product.quantity > 0,
+                }, true);
+                if (forced.success) {
+                  Alert.alert('Added!', `${product.productName} added to cart`);
+                }
+              }
+            }
+          ]
+        );
+      } else if (result.success) {
+        Alert.alert('Added!', `${product.productName} added to cart`);
+      }
     } catch (error) {
       console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'Failed to add to cart. Please try again.');
     } finally {
       setAddingProductId(null);
     }
@@ -272,21 +335,47 @@ export default function SearchScreen() {
               {filteredProducts.length} {filteredProducts.length === 1 ? 'result' : 'results'} found
             </Text>
 
+            {/* Show "Your Store" section if results include selected store products */}
+            {selectedStoreId && filteredProducts.some(p => p.storeId === selectedStoreId) && (
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionBadge}>
+                  <Ionicons name="checkmark-circle" size={ms(16)} color="#3BB77E" />
+                  <Text style={styles.sectionBadgeText}>Your Store</Text>
+                </View>
+              </View>
+            )}
+
             <View style={styles.productGrid}>
-              {filteredProducts.map((item) => (
-                <ProductCard
-                  key={item.id}
-                  title={item.productName}
-                  subtitle={`(${item.storeName})`}
-                  weight={`${item.productSize} ${item.unit}`}
-                  price={`₱${item.price.toFixed(2)}`}
-                  image={{ uri: item.productImage }}
-                  variant="grid"
-                  onAddPress={() => handleQuickAdd(item)}
-                  onPress={() => router.push(`/(main)/shared/product-details?id=${item.id}` as any)}
-                  isAdding={addingProductId === item.id}
-                />
-              ))}
+              {filteredProducts.map((item, index) => {
+                // Check if we need to show "Other Stores" divider
+                const isFirstOtherStore = selectedStoreId && 
+                  index > 0 && 
+                  filteredProducts[index - 1].storeId === selectedStoreId && 
+                  item.storeId !== selectedStoreId;
+
+                return (
+                  <React.Fragment key={item.id}>
+                    {isFirstOtherStore && (
+                      <View style={styles.divider}>
+                        <View style={styles.dividerLine} />
+                        <Text style={styles.dividerText}>Other Stores</Text>
+                        <View style={styles.dividerLine} />
+                      </View>
+                    )}
+                    <ProductCard
+                      title={item.productName}
+                      subtitle={`(${item.storeName})`}
+                      weight={`${item.productSize} ${item.unit}`}
+                      price={`₱${item.price.toFixed(2)}`}
+                      image={{ uri: item.productImage }}
+                      variant="grid"
+                      onAddPress={() => handleQuickAdd(item)}
+                      onPress={() => router.push(`/(main)/shared/product-details?id=${item.id}` as any)}
+                      isAdding={addingProductId === item.id}
+                    />
+                  </React.Fragment>
+                );
+              })}
             </View>
           </View>
         )}
@@ -448,6 +537,51 @@ const styles = StyleSheet.create({
     color: '#7A7B7B',
     marginBottom: vs(16),
     marginLeft: s(22),
+  },
+
+  // Section Header
+  sectionHeader: {
+    paddingHorizontal: s(22),
+    marginBottom: vs(12),
+  },
+
+  sectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: s(12),
+    paddingVertical: vs(6),
+    borderRadius: s(20),
+    alignSelf: 'flex-start',
+    gap: s(6),
+  },
+
+  sectionBadgeText: {
+    fontSize: ms(12),
+    fontFamily: Fonts.SEMIBOLD,
+    color: '#3BB77E',
+  },
+
+  // Divider between sections
+  divider: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s(22),
+    marginVertical: vs(16),
+    gap: s(12),
+  },
+
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E0E0E0',
+  },
+
+  dividerText: {
+    fontSize: ms(12),
+    fontFamily: Fonts.MEDIUM,
+    color: '#7A7B7B',
   },
 
   // Products Grid - 3 columns like see-more and category-detail

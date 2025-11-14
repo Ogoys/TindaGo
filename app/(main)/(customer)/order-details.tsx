@@ -309,6 +309,24 @@ export default function OrderDetailsScreen() {
                 </View>
                 <Text style={styles.paymentText}>{getPaymentMethodName(order.paymentMethod)}</Text>
               </>
+            ) : order.paymentMethod === 'gcash' ? (
+              <>
+                <Image
+                  source={require("../../../src/assets/images/payment/gcash-icon.png")}
+                  style={styles.paymentIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.paymentText}>{getPaymentMethodName(order.paymentMethod)}</Text>
+              </>
+            ) : order.paymentMethod === 'paymaya' ? (
+              <>
+                <Image
+                  source={require("../../../src/assets/images/payment/paymaya-icon.png")}
+                  style={styles.paymentIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.paymentText}>{getPaymentMethodName(order.paymentMethod)}</Text>
+              </>
             ) : (
               <>
                 <Image
@@ -511,14 +529,14 @@ const styles = StyleSheet.create({
     left: s(20),
     top: vs(230),
     width: s(400),
-    height: vs(260), // Increased from 240 to 260 for better spacing
+    height: vs(280), // Increased from 260 to 280 for more bottom space
   },
 
   // Status Card Background - Figma: 759:4030, white rectangle with shadow
   statusCardBackground: {
     position: "absolute",
     width: s(400),
-    height: vs(260), // Increased from 240 to 260
+    height: vs(280), // Increased from 260 to 280 to match card height
     backgroundColor: "#FFFFFF",
     borderRadius: s(20),
     shadowColor: "rgba(0, 0, 0, 0.25)",
@@ -713,7 +731,7 @@ const styles = StyleSheet.create({
   billCard: {
     position: "absolute",
     left: s(20),
-    top: vs(471), // Adjusted from 451 to 471 (191 + 260 + 20 margin)
+    top: vs(520), // Moved lower to avoid overlap (previously 471)
     width: s(400),
     height: vs(320),
   },
@@ -870,22 +888,22 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 
-  // PAYMENT METHOD LABEL - Figma: 759:4112, x:20, y:811 (adjusted)
+  // PAYMENT METHOD LABEL - Figma: 759:4112, x:20, y:751 (adjusted)
   paymentMethodLabel: {
     position: "absolute",
     left: s(20),
-    top: vs(970),
+    top: vs(850), // Moved significantly lower
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
     fontSize: ms(20),
     lineHeight: ms(20) * 1.1,
     color: "#1E1E1E",
   },
-  // PAYMENT CARD - Figma: 759:4114, x:20, y:853 (adjusted), width:400, height:60
+  // PAYMENT CARD - Figma: 759:4114, x:20, y:793, width:400, height:60
   paymentCard: {
     position: "absolute",
     left: s(20),
-    top: vs(853), // Adjusted from 833 to 853 (811 + 42 spacing)
+    top: vs(892), // Below the label (850 + 42 spacing)
     width: s(400),
     height: vs(60),
   },

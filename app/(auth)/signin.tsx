@@ -325,8 +325,8 @@ const styles = StyleSheet.create({
   // Header Section - Figma: x:169, y:322 (Login group center)
   headerSection: {
     alignItems: "center",
-    marginTop: vs(180), // Figma positioning relative to glass card
-    marginBottom: vs(30),
+    marginTop: vs(160), // Reduced from 180 to 160
+    marginBottom: vs(25), // Reduced from 30 to 25
   },
   title: {
     // Figma: fontSize:28, fontWeight:500, Clash Grotesk Variable
@@ -346,8 +346,8 @@ const styles = StyleSheet.create({
   // Form Section - Figma: inputs at x:60, y:396 and y:466
   formSection: {
     alignItems: "center",
-    gap: vs(20), // Figma spacing between inputs (466-396-50 = 20)
-    marginBottom: vs(5),
+    gap: vs(15), // Reduced from 20 to 15
+    marginBottom: vs(3), // Reduced from 5 to 3
   },
   emailInput: {
     marginTop: 0,
@@ -358,8 +358,8 @@ const styles = StyleSheet.create({
   // Forgot Password Section - Figma: x:301, y:526
   forgotPasswordContainer: {
     alignItems: "flex-end",
-    marginTop: vs(10),
-    marginBottom: vs(25),
+    marginTop: vs(8), // Reduced from 10 to 8
+    marginBottom: vs(20), // Reduced from 25 to 20
     paddingHorizontal: s(40), // Match form input padding
   },
   forgotPasswordText: {
@@ -373,16 +373,17 @@ const styles = StyleSheet.create({
 
   // Button Section - Figma: x:60, y:578, width:380
   buttonSection: {
-    marginTop: vs(20),
-    marginBottom: vs(20),
+    marginTop: vs(15), // Reduced from 20 to 15
+    marginBottom: vs(8), // Reduced from 10 to 8
     paddingHorizontal: s(30), // (400 - 380) / 2 = 10px + 20px glass card padding
   },
 
   // Footer Section - Figma: y:658 (register link)
   footerSection: {
     alignItems: "center",
-    marginTop: vs(10),
-    marginBottom: vs(30),
+    marginTop: vs(3), // Reduced from 5 to 3
+    marginBottom: 0, // Remove bottom margin
+    paddingBottom: 0, // Remove bottom padding
   },
   footerText: {
     // Figma: fontSize:14, fontWeight:500, Clash Grotesk Variable

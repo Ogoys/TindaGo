@@ -26,6 +26,6 @@ const styles = StyleSheet.create({
     // Figma buttons: Register at y:776, Sign in at y:841, both with width:400, height:50
     paddingHorizontal: s(20), // (440 - 400) / 2 = 20px horizontal padding
     gap: vs(15), // 841 - 776 - 50 = 15px gap between buttons
-    paddingBottom: vs(65), // 956 - 841 - 50 = 65px bottom padding
+    paddingBottom: vs(20), // Reduced from 65 to 20 to remove excess white space
   },
 });
