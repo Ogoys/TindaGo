@@ -10,14 +10,15 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import MapView, { PROVIDER_GOOGLE, Marker, Region, Callout, Polyline } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE, Marker, Region, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { database } from '@/lib/firebase';
-import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { getDistance } from 'geolib';
 import { s, vs } from '@/constants/responsive';
+import { MapErrorBoundary } from '@/components/MapErrorBoundary';
 
 interface StoreLocation {
   id: string;
@@ -49,6 +50,7 @@ const DISTANCE_FILTERS = [
 
 export default function StoresMapScreen() {
   const mapRef = useRef<MapView>(null);
+  const isMounted = useRef(true);
   const [stores, setStores] = useState<StoreLocation[]>([]);
   const [filteredStores, setFilteredStores] = useState<StoreLocation[]>([]);
   const [selectedStore, setSelectedStore] = useState<StoreLocation | null>(null);
@@ -60,16 +62,38 @@ export default function StoresMapScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState(999); // All stores
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [mapKey, setMapKey] = useState(0); // For retry mechanism
+  const [mapReady, setMapReady] = useState(false); // Delayed initialization
+  const [mapFullyLoaded, setMapFullyLoaded] = useState(false); // Native map ready
   const [showRoute, setShowRoute] = useState(false);
   const [routeCoordinates, setRouteCoordinates] = useState<Array<{latitude: number, longitude: number}>>([]);
   const [routeDistance, setRouteDistance] = useState<string | null>(null);
   const [routeDuration, setRouteDuration] = useState<string | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Delayed map initialization (prevents race condition)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isMounted.current) {
+        setMapReady(true);
+      }
+    }, 500); // 500ms delay to ensure Google Maps SDK fully loaded
+    return () => clearTimeout(timer);
+  }, [mapKey]);
+
   // Load user location
   useEffect(() => {
-    loadUserLocation();
-  }, []);
+    if (mapReady) {
+      loadUserLocation();
+    }
+  }, [mapReady]);
 
   const loadUserLocation = async () => {
     try {
@@ -112,15 +136,17 @@ export default function StoresMapScreen() {
         longitude: location.coords.longitude,
       };
 
-      setUserLocation(userCoords);
-      setRegion({
-        ...userCoords,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      });
-      setLocationPermissionDenied(false);
+      if (isMounted.current) {
+        setUserLocation(userCoords);
+        setRegion({
+          ...userCoords,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        });
+        setLocationPermissionDenied(false);
 
-      console.log('📍 User location loaded:', userCoords);
+        console.log('📍 User location loaded:', userCoords);
+      }
     } catch (error) {
       console.error('Error getting user location:', error);
       setIsLoading(false);
@@ -185,10 +211,12 @@ export default function StoresMapScreen() {
           // Sort by distance (closest first)
           storesList.sort((a, b) => (a.distance || 999) - (b.distance || 999));
 
-          setStores(storesList);
-          setFilteredStores(storesList);
+          if (isMounted.current) {
+            setStores(storesList);
+            setFilteredStores(storesList);
 
-          console.log(`✅ Loaded ${storesList.length} active stores with location`);
+            console.log(`✅ Loaded ${storesList.length} active stores with location`);
+          }
         } else {
           console.log('⚠️ No stores found');
         }
@@ -221,9 +249,14 @@ export default function StoresMapScreen() {
   }, [selectedFilter, stores]);
 
   const handleMarkerPress = (store: StoreLocation) => {
-    // Clear route when selecting new store
-    setShowRoute(false);
-    setRouteCoordinates([]);
+    if (!isMounted.current) return;
+    // Clear route when selecting different store
+    if (selectedStore?.id !== store.id) {
+      setShowRoute(false);
+      setRouteCoordinates([]);
+      setRouteDistance(null);
+      setRouteDuration(null);
+    }
     setSelectedStore(store);
   };
 
@@ -235,40 +268,57 @@ export default function StoresMapScreen() {
   };
 
   const handleShowRoute = async () => {
-    if (!selectedStore || !userLocation || isLoadingRoute) return;
+    if (!selectedStore || !userLocation || isLoadingRoute || !isMounted.current || !mapFullyLoaded) return;
     
     setIsLoadingRoute(true);
     
     try {
-      // Calculate route using OSRM
+      // Static route using OSRM (free, no card needed)
       const url = `https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${selectedStore.coordinates.longitude},${selectedStore.coordinates.latitude}?overview=full&geometries=geojson`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, { timeout: 5000 });
+      
+      if (!response.ok) throw new Error('Route API failed');
+      
       const data = await response.json();
       
-      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      if (data.code === 'Ok' && data.routes && data.routes.length > 0 && isMounted.current) {
         const route = data.routes[0];
         
-        // Convert coordinates
+        // Convert coordinates (static, no updates)
         const coords = route.geometry.coordinates.map((coord: [number, number]) => ({
           latitude: coord[1],
           longitude: coord[0],
         }));
         
-        setRouteCoordinates(coords);
-        setRouteDistance((route.distance / 1000).toFixed(2));
-        setRouteDuration(Math.round(route.duration / 60).toString());
-        setShowRoute(true);
-        
-        console.log('✅ Route displayed');
+        if (isMounted.current && coords.length >= 2) {
+          setRouteCoordinates(coords);
+          setRouteDistance((route.distance / 1000).toFixed(2));
+          setRouteDuration(Math.round(route.duration / 60).toString());
+          
+          // Wait a bit before showing polyline (prevents race condition)
+          setTimeout(() => {
+            if (isMounted.current) {
+              setShowRoute(true);
+              console.log('✅ Static route displayed');
+            }
+          }, 200);
+        }
+      } else {
+        throw new Error('No route found');
       }
     } catch (error) {
       console.error('❌ Route error:', error);
-      Alert.alert('Error', 'Could not calculate route');
+      if (isMounted.current) {
+        Alert.alert('Route Error', 'Could not calculate route. Please try again.');
+      }
     } finally {
-      setIsLoadingRoute(false);
+      if (isMounted.current) {
+        setIsLoadingRoute(false);
+      }
     }
   };
+
 
   const handleViewProducts = () => {
     if (!selectedStore) return;
@@ -279,7 +329,7 @@ export default function StoresMapScreen() {
   };
 
   const handleCenterOnUser = () => {
-    if (userLocation && mapRef.current) {
+    if (userLocation && mapRef.current && isMounted.current) {
       // Just set region via state - safest way
       setRegion({
         latitude: userLocation.latitude,
@@ -290,11 +340,28 @@ export default function StoresMapScreen() {
     }
   };
 
+  const handleRetry = () => {
+    console.log('🔄 Retrying map load...');
+    setMapKey((prev) => prev + 1);
+    setMapReady(false);
+    setMapFullyLoaded(false);
+    setShowRoute(false);
+    setRouteCoordinates([]);
+    setIsLoading(true);
+  };
+
+  const handleMapReady = () => {
+    if (isMounted.current) {
+      setMapFullyLoaded(true);
+      console.log('✅ Google Maps fully loaded');
+    }
+  };
+
   const handleBack = () => {
     router.back();
   };
 
-  if (isLoading && !locationPermissionDenied) {
+  if ((isLoading || !mapReady) && !locationPermissionDenied) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3BB77E" />
@@ -382,21 +449,28 @@ export default function StoresMapScreen() {
         </View>
       </View>
 
-      {/* Map */}
-      <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={region}
-        showsUserLocation
-        showsMyLocationButton={false}
-      >
-        {/* Store Markers */}
-        {filteredStores.map((store) => (
+      {/* Map with Error Boundary */}
+      <MapErrorBoundary onRetry={handleRetry}>
+        <MapView
+          key={mapKey}
+          ref={mapRef}
+          provider={PROVIDER_GOOGLE}
+          style={styles.map}
+          initialRegion={region}
+          showsUserLocation
+          showsMyLocationButton={false}
+          loadingEnabled
+          loadingIndicatorColor="#3BB77E"
+          onMapReady={handleMapReady}
+          moveOnMarkerPress={false}
+        >
+        {/* Store Markers - only show when map fully loaded */}
+        {mapFullyLoaded && filteredStores.map((store) => (
           <Marker
             key={store.id}
             coordinate={store.coordinates}
             onPress={() => handleMarkerPress(store)}
+            tracksViewChanges={false}
           >
             <View style={styles.markerContainer}>
               {store.logo ? (
@@ -409,15 +483,18 @@ export default function StoresMapScreen() {
           </Marker>
         ))}
         
-        {/* Route Polyline */}
-        {showRoute && routeCoordinates.length > 0 && (
+        {/* Static Route Polyline - only renders after map fully loaded */}
+        {mapFullyLoaded && showRoute && routeCoordinates.length >= 2 && (
           <Polyline
             coordinates={routeCoordinates}
             strokeColor="#0066FF"
             strokeWidth={4}
+            lineCap="round"
+            lineJoin="round"
           />
         )}
-      </MapView>
+        </MapView>
+      </MapErrorBoundary>
 
       {/* Center on User Button */}
       {userLocation && (
@@ -447,9 +524,9 @@ export default function StoresMapScreen() {
                   📍 {selectedStore.distance.toFixed(2)} km away
                 </Text>
               )}
-              {showRoute && routeDistance && (
+              {showRoute && routeDistance && routeDuration && (
                 <Text style={styles.infoDistance}>
-                  🚗 {routeDistance} km · {routeDuration} min
+                  🚗 {routeDistance} km · {routeDuration} min (via road)
                 </Text>
               )}
             </View>
@@ -463,11 +540,11 @@ export default function StoresMapScreen() {
           </View>
 
           <View style={styles.infoActions}>
-            {!showRoute && (
+            {!showRoute ? (
               <TouchableOpacity 
                 style={[styles.actionButton, styles.actionButtonSecondary]}
                 onPress={handleShowRoute}
-                disabled={isLoadingRoute}
+                disabled={isLoadingRoute || !mapFullyLoaded}
               >
                 {isLoadingRoute ? (
                   <ActivityIndicator size="small" color="#666" />
@@ -477,6 +554,17 @@ export default function StoresMapScreen() {
                     <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>Show Route</Text>
                   </>
                 )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.actionButtonSecondary]}
+                onPress={() => {
+                  setShowRoute(false);
+                  setRouteCoordinates([]);
+                }}
+              >
+                <Ionicons name="close" size={20} color="#666" />
+                <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>Hide Route</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.actionButton} onPress={handleNavigate}>
