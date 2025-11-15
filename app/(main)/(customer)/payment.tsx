@@ -115,7 +115,8 @@ const PaymentScreen = () => {
           if (user) {
             await clearCart(user.id);
           }
-          setCompletedOrderId(pendingOrderNumber);
+          // Use the orderId from the snapshot (Firebase key)
+          setCompletedOrderId(snapshot.key || pendingOrderNumber);
           setShowSuccessModal(true);
           setCartItems([]);
           setPendingOrderNumber(''); // Clear pending
@@ -309,8 +310,8 @@ const PaymentScreen = () => {
                 unsubscribe(); // Stop listening
                 // Clear cart
                 await clearCart(user.id);
-                // Show success modal
-                setCompletedOrderId(orderNumber);
+                // Show success modal with real orderId (Firebase key)
+                setCompletedOrderId(orderId);
                 setShowSuccessModal(true);
                 setCartItems([]);
                 setPendingOrderNumber(''); // Clear pending
@@ -345,8 +346,8 @@ const PaymentScreen = () => {
           // Clear cart after successful order
           await clearCart(user.id);
 
-          // Show success modal
-          setCompletedOrderId(orderNumber);
+          // Show success modal with real orderId (Firebase key)
+          setCompletedOrderId(orderId);
           setShowSuccessModal(true);
           setCartItems([]);
         } else {

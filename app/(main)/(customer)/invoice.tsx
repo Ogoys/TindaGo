@@ -1,0 +1,484 @@
+/**
+ * INVOICE SCREEN - Receipt-style invoice display
+ * 
+ * Figma: https://www.figma.com/design/8I1Nr3vQZllDDknSevstvH/TindaGo-Share?node-id=1428-1813&m=dev
+ * 
+ * Shows order invoice in receipt format with scalloped edges
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { ref, get } from 'firebase/database';
+import { database } from '../../../FirebaseConfig';
+import { s, vs, ms } from '../../../src/constants/responsive';
+import { Colors } from '../../../src/constants/Colors';
+import type { Order } from '../../../src/models/Order';
+// import * as MediaLibrary from 'expo-media-library';
+// import { captureRef } from 'react-native-view-shot';
+
+export default function InvoiceScreen() {
+  const params = useLocalSearchParams();
+  const orderId = params.id as string;
+  const testMode = params.test === 'true';
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const invoiceRef = useRef<View>(null);
+
+  useEffect(() => {
+    if (testMode) {
+      setOrder({
+        id: 'TEST-ORDER-001',
+        orderNumber: '213322RW23F5AWW',
+        customerId: 'test-customer',
+        customerName: 'Daniol Oppa',
+        customerPhone: '+63 912 345 6789',
+        storeId: 'test-store-123',
+        storeName: 'Golis sari-sari store',
+        items: [
+          { productId: '1', productName: 'Product 1', productImage: '', quantity: 5, price: 100.05, subtotal: 500.25 },
+          { productId: '2', productName: 'Product 2', productImage: '', quantity: 7, price: 0, subtotal: 0 },
+        ],
+        subtotal: 500.25,
+        total: 50.25,
+        status: 'preparing',
+        paymentMethod: 'gcash',
+        paymentStatus: 'paid',
+        createdAt: '2025-08-08T09:00:00Z',
+        updatedAt: new Date().toISOString(),
+      } as Order);
+      setLoading(false);
+      return;
+    }
+
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
+
+    loadOrder();
+  }, [orderId, testMode]);
+
+  const loadOrder = async () => {
+    try {
+      const orderRef = ref(database, `orders/${orderId}`);
+      const snapshot = await get(orderRef);
+      if (snapshot.exists()) {
+        setOrder({ ...snapshot.val(), id: orderId } as Order);
+      }
+    } catch (error) {
+      console.error('Error loading order:', error);
+      Alert.alert('Error', 'Failed to load invoice');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    // TEMPORARY: Show preview until you rebuild with native modules
+    Alert.alert(
+      'Download Invoice',
+      `Invoice will be saved as image to your gallery.\n\nOrder: ${order?.orderNumber || order?.id}\n\nTo enable download:\n1. Stop dev server\n2. Run: npx expo run:android (or ios)\n3. App will rebuild with native libraries`,
+      [{ text: 'OK' }]
+    );
+    
+    /* UNCOMMENT AFTER REBUILDING:
+    try {
+      setDownloading(true);
+
+      // Request media library permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Storage permission is required to save the invoice.');
+        setDownloading(false);
+        return;
+      }
+
+      // Capture the invoice view as image
+      if (invoiceRef.current) {
+        const uri = await captureRef(invoiceRef, {
+          format: 'png',
+          quality: 1,
+        });
+
+        // Save to device gallery
+        const asset = await MediaLibrary.createAssetAsync(uri);
+        
+        // Create album if it doesn't exist
+        const album = await MediaLibrary.getAlbumAsync('TindaGo Invoices');
+        if (album === null) {
+          await MediaLibrary.createAlbumAsync('TindaGo Invoices', asset, false);
+        } else {
+          await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+        }
+
+        Alert.alert(
+          'Invoice Downloaded',
+          `Invoice saved to gallery in "TindaGo Invoices" folder.\n\nOrder: ${order?.orderNumber || order?.id}`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      Alert.alert('Download Failed', 'Could not save invoice. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+    */
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' });
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading invoice...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!order) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Invoice not found</Text>
+          <TouchableOpacity style={styles.errorButton} onPress={() => router.back()}>
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color="#1E1E1E" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Invoice</Text>
+        <View style={styles.backBtn} />
+      </View>
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Receipt Card - Capturable View */}
+        <View ref={invoiceRef} collapsable={false} style={styles.captureContainer}>
+        <View style={styles.receiptCard}>
+          {/* Scalloped Top */}
+          <View style={styles.scallopTop}>
+            {[...Array(13)].map((_, i) => (
+              <View key={`top-${i}`} style={styles.scallopCircle} />
+            ))}
+          </View>
+
+          {/* Bill Content */}
+          <View style={styles.billContent}>
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Item Count</Text>
+              <Text style={styles.billValue}>{itemCount} {itemCount === 1 ? 'item' : 'items'}</Text>
+            </View>
+            
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Subtotal</Text>
+              <Text style={styles.billValue}>₱ {order.subtotal.toFixed(2)}</Text>
+            </View>
+
+            {/* Dashed Line */}
+            <View style={styles.dashedContainer}>
+              {[...Array(20)].map((_, i) => (
+                <View key={i} style={styles.dash} />
+              ))}
+            </View>
+
+            {/* Grand Total */}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Grand Total</Text>
+              <Text style={styles.totalValue}>₱ {order.total.toFixed(2)}</Text>
+            </View>
+          </View>
+
+          {/* Scalloped Bottom */}
+          <View style={styles.scallopBottom}>
+            {[...Array(13)].map((_, i) => (
+              <View key={`bot-${i}`} style={styles.scallopCircle} />
+            ))}
+          </View>
+        </View>
+
+        {/* Order Details Card */}
+        <View style={styles.detailsCard}>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Order ID</Text>
+            <Text style={styles.detailColon}>:</Text>
+            <Text style={styles.detailValue}>{order.orderNumber || order.id}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Date</Text>
+            <Text style={styles.detailColon}>:</Text>
+            <Text style={styles.detailValue}>{formatDate(order.createdAt)}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Shop</Text>
+            <Text style={styles.detailColon}>:</Text>
+            <Text style={styles.detailValue}>{order.storeName}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Buyer</Text>
+            <Text style={styles.detailColon}>:</Text>
+            <Text style={styles.detailValue}>{order.customerName}</Text>
+          </View>
+        </View>
+        </View>
+      </ScrollView>
+
+      {/* Download Button */}
+      <View style={styles.downloadContainer}>
+        <TouchableOpacity 
+          style={styles.downloadBtn} 
+          onPress={handleDownload}
+          disabled={downloading}
+        >
+          {downloading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <Ionicons name="download-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.downloadText}>Download Invoice</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F4F6F6',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 20,
+  },
+  errorButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  errorButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: s(20),
+    paddingVertical: vs(15),
+    backgroundColor: '#FFF',
+  },
+  backBtn: {
+    width: s(40),
+    height: s(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: ms(20),
+    fontWeight: '600',
+    color: '#1E1E1E',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: s(20),
+    paddingBottom: vs(100),
+  },
+  captureContainer: {
+    backgroundColor: '#F4F6F6',
+  },
+  receiptCard: {
+    backgroundColor: '#FFF',
+    borderRadius: s(20),
+    marginBottom: vs(20),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  scallopTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    position: 'absolute',
+    top: -10,
+    left: 0,
+    right: 0,
+    height: 20,
+    zIndex: 1,
+  },
+  scallopBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    position: 'absolute',
+    bottom: -10,
+    left: 0,
+    right: 0,
+    height: 20,
+    zIndex: 1,
+  },
+  scallopCircle: {
+    width: s(26),
+    height: vs(20),
+    backgroundColor: '#F4F6F6',
+    borderRadius: s(13),
+  },
+  billContent: {
+    paddingHorizontal: s(20),
+    paddingTop: vs(35),
+    paddingBottom: vs(35),
+  },
+  billRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vs(14),
+  },
+  billLabel: {
+    fontSize: ms(14),
+    fontWeight: '500',
+    color: '#1E1E1E',
+  },
+  billValue: {
+    fontSize: ms(14),
+    fontWeight: '600',
+    color: '#1E1E1E',
+  },
+  dashedContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: vs(18),
+    paddingHorizontal: s(5),
+  },
+  dash: {
+    width: s(7),
+    height: 2,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 1,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: vs(5),
+  },
+  totalLabel: {
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: '#FF8D2F',
+  },
+  totalValue: {
+    fontSize: ms(18),
+    fontWeight: '700',
+    color: '#FF8D2F',
+  },
+  detailsCard: {
+    backgroundColor: '#FFF',
+    padding: s(20),
+    borderRadius: s(20),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: vs(14),
+  },
+  detailLabel: {
+    fontSize: ms(14),
+    fontWeight: '600',
+    color: '#1E1E1E',
+    width: s(70),
+  },
+  detailColon: {
+    fontSize: ms(14),
+    fontWeight: '500',
+    color: '#1E1E1E',
+    marginHorizontal: s(8),
+  },
+  detailValue: {
+    flex: 1,
+    fontSize: ms(14),
+    fontWeight: '400',
+    color: '#555',
+    lineHeight: ms(20),
+  },
+  downloadContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFF',
+    paddingHorizontal: s(20),
+    paddingVertical: vs(15),
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  downloadBtn: {
+    backgroundColor: '#3BB77E',
+    height: vs(50),
+    borderRadius: s(15),
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadText: {
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: '#FFF',
+  },
+});

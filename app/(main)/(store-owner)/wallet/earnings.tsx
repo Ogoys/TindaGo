@@ -81,13 +81,12 @@ export default function EarningsScreen() {
       }
     });
 
-    const payoutsRef = ref(database, 'payouts');
-    const unsubscribePayouts = onValue(payoutsRef, () => {
-      if (!walletRef) computeFallback();
-    });
+    // OPTIMIZED: Removed real-time payouts listener (rarely changes)
+    // Payouts are only fetched in computeFallback when wallet is missing
 
     async function computeFallback() {
       try {
+        const payoutsRef = ref(database, 'payouts');
         const [ledgerSnap, payoutsSnap] = await Promise.all([
           get(ledgerRef),
           get(payoutsRef),
@@ -124,7 +123,6 @@ export default function EarningsScreen() {
     return () => {
       unsubscribeLedger();
       unsubscribeWallet();
-      unsubscribePayouts();
     };
   }, [user?.storeId, user?.id]);
 

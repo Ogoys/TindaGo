@@ -29,7 +29,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import { database } from "../../../../FirebaseConfig";
 import { useUser } from "../../../../src/contexts/UserContext";
 import { updateOrderStatus, cancelOrder } from "../../../../src/api/orders";
@@ -124,6 +124,7 @@ export default function StoreOrdersScreen() {
   const [loading, setLoading] = useState(true);
 
   // Fetch store orders from Firebase in real-time
+  // OPTIMIZED: Query only this store's orders instead of fetching all orders
   useEffect(() => {
     if (!user) {
       setLoading(false);
@@ -134,17 +135,23 @@ export default function StoreOrdersScreen() {
     // For now, using user.id as storeId (assumes store owner's user.id = their storeId)
     const storeId = user.id;
 
+    // Query Firebase for orders WHERE storeId = storeId
     const ordersRef = ref(database, 'orders');
-    const unsubscribe = onValue(ordersRef, (snapshot) => {
+    const storeOrdersQuery = query(
+      ordersRef,
+      orderByChild('storeId'),
+      equalTo(storeId)
+    );
+
+    const unsubscribe = onValue(storeOrdersQuery, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Filter orders for current store and map to array
+        // Map to array and sort by date (newest first)
         const storeOrders = Object.keys(data)
           .map(orderId => ({
             ...data[orderId],
             id: orderId,
           }))
-          .filter((order: Order) => order.storeId === storeId)
           .sort((a: Order, b: Order) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );

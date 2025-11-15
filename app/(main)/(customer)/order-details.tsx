@@ -16,6 +16,7 @@ import { database } from '../../../FirebaseConfig';
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { Colors } from "../../../src/constants/Colors";
 import type { Order } from '../../../src/models/Order';
+import { OrderProcessCompleteModal } from '../../../src/components/ui';
 
 /**
  * ORDER DETAILS PAGE - PIXEL-PERFECT FIGMA CONVERSION
@@ -33,12 +34,58 @@ import type { Order } from '../../../src/models/Order';
 export default function OrderDetailsScreen() {
   const params = useLocalSearchParams();
   const orderId = params.id as string;
+  const testMode = params.test === 'true'; // Enable test mode via ?test=true
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [hasShownModal, setHasShownModal] = useState(false);
 
-  // Fetch order data from Firebase
+  // Fetch order data from Firebase (or use mock data in test mode)
   useEffect(() => {
+    if (testMode) {
+      // Mock order data for testing
+      // You can change status to 'picked_up' to test the complete modal
+      setOrder({
+        id: 'TEST-ORDER-001',
+        orderNumber: 'ORD-2025-001234',
+        customerId: 'test-customer',
+        customerName: 'Test Customer',
+        customerPhone: '+63 912 345 6789',
+        storeId: 'test-store-123',
+        storeName: 'Sample Sari-Sari Store',
+        items: [
+          {
+            productId: 'test-product-1',
+            productName: 'Sample Product 1',
+            productImage: '',
+            quantity: 2,
+            price: 50.00,
+            subtotal: 100.00,
+          },
+          {
+            productId: 'test-product-2',
+            productName: 'Sample Product 2',
+            productImage: '',
+            quantity: 1,
+            price: 250.50,
+            subtotal: 250.50,
+          },
+        ],
+        subtotal: 350.50,
+        total: 350.50,
+        status: 'preparing', // Change to 'picked_up' or 'completed' to test modal
+        paymentMethod: 'gcash',
+        paymentStatus: 'paid',
+        xenditInvoiceId: 'XNDT-INV-2025-001234',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      } as Order);
+      setLoading(false);
+      return;
+    }
+
     if (!orderId) {
       setLoading(false);
       return;
@@ -48,7 +95,16 @@ export default function OrderDetailsScreen() {
     const unsubscribe = onValue(orderRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setOrder({ ...data, id: orderId } as Order);
+        const orderData = { ...data, id: orderId } as Order;
+        setOrder(orderData);
+        
+        // Show modal when order is completed (picked_up or completed status)
+        if ((orderData.status === 'picked_up' || orderData.status === 'completed') && !hasShownModal) {
+          setTimeout(() => {
+            setShowCompleteModal(true);
+            setHasShownModal(true);
+          }, 500); // Small delay for smooth transition
+        }
       } else {
         setOrder(null);
       }
@@ -56,7 +112,7 @@ export default function OrderDetailsScreen() {
     });
 
     return () => unsubscribe();
-  }, [orderId]);
+  }, [orderId, testMode, hasShownModal]);
 
   // Format date and time
   const formatDate = (date: Date | string | undefined) => {
@@ -214,7 +270,7 @@ export default function OrderDetailsScreen() {
         </TouchableOpacity>
 
         {/* TITLE - Figma: 759:4026, x:156, y:83, width:129, height:22 */}
-        <Text style={styles.title}>Order History</Text>
+        <Text style={styles.title}>Order Details</Text>
 
         {/* ORDER ID SECTION - Figma: 759:4027 & 759:4028, y:149 */}
         <View style={styles.orderIdContainer}>
@@ -289,7 +345,16 @@ export default function OrderDetailsScreen() {
           {/* Invoice - Figma: 759:4082 & 759:4083, y:676 */}
           <View style={styles.billRowInvoice}>
             <Text style={styles.billLabel}>Invoice</Text>
-            <TouchableOpacity activeOpacity={0.7}>
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => {
+                if (testMode) {
+                  router.push(`/(main)/(customer)/invoice?id=${order.id}&test=true` as any);
+                } else {
+                  router.push(`/(main)/(customer)/invoice?id=${order.id}` as any);
+                }
+              }}
+            >
               <Text style={styles.viewInvoiceLink}>View Invoice</Text>
             </TouchableOpacity>
           </View>
@@ -343,6 +408,23 @@ export default function OrderDetailsScreen() {
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Order Process Complete Modal */}
+      <OrderProcessCompleteModal
+        visible={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        orderId={order.id}
+      />
+
+      {/* Test Button - Only visible in test mode */}
+      {testMode && (
+        <TouchableOpacity
+          style={styles.testCompleteButton}
+          onPress={() => setShowCompleteModal(true)}
+        >
+          <Text style={styles.testCompleteButtonText}>🎉 Test Complete Modal</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -1138,5 +1220,27 @@ const styles = StyleSheet.create({
   // Progress Time Inactive - Pending timestamp
   progressTimeInactive: {
     color: 'rgba(30, 30, 30, 0.5)',
+  },
+
+  // Test Complete Button
+  testCompleteButton: {
+    position: 'absolute',
+    bottom: vs(20),
+    right: s(20),
+    backgroundColor: '#FF8D2F',
+    paddingHorizontal: s(20),
+    paddingVertical: vs(12),
+    borderRadius: s(25),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
+    zIndex: 9999,
+  },
+  testCompleteButtonText: {
+    fontSize: ms(14),
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

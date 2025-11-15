@@ -78,8 +78,8 @@ export function OrderCompleteModal({
 
   const handleTrackOrder = () => {
     onClose();
-    // Navigate to orders screen - user can see their order there
-    router.push("/(main)/(customer)/orders");
+    // Navigate to track-store screen with orderId
+    router.push(`/(main)/(customer)/track-store?orderId=${orderId}` as any);
   };
 
   const handleBackToHome = () => {
@@ -131,7 +131,7 @@ export function OrderCompleteModal({
                 </Text>
               </View>
 
-              {/* Track Order Button - Figma: x=83, y=357, width=234, height=40 */}
+              {/* Track Store Button - Figma: x=83, y=357, width=234, height=40 */}
               <Pressable
                 style={({ pressed }) => [
                   styles.trackButton,
@@ -139,7 +139,7 @@ export function OrderCompleteModal({
                 ]}
                 onPress={handleTrackOrder}
               >
-                <Text style={styles.trackButtonText}>Track Order</Text>
+                <Text style={styles.trackButtonText}>Track Store</Text>
               </Pressable>
 
               {/* Back to Home Button - Figma: x=83, y=407, width=234, height=40 */}

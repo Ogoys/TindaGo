@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View, Switch, Alert } from "react-native";
 import { auth, database } from "@/lib/firebase";
-import { ref, get, update, onValue } from "firebase/database";
+import { ref, get, update, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { Typography } from "../../../src/components/ui/Typography";
 import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
@@ -120,19 +120,23 @@ export default function StoreHomeScreen() {
       console.log('✅ Store status updated in Firebase');
 
       // 2. Update ALL products from this store
+      // OPTIMIZED: Query only this store's products instead of fetching all products
       const productsRef = ref(database, 'products');
-      const snapshot = await get(productsRef);
+      const storeProductsQuery = query(
+        productsRef,
+        orderByChild('storeOwnerId'),
+        equalTo(user.uid)
+      );
+      const snapshot = await get(storeProductsQuery);
 
       if (snapshot.exists()) {
         const products = snapshot.val();
         const updates: Record<string, any> = {};
 
-        // Find all products from this store and update their storeIsOpen
+        // Update all products' storeIsOpen status
         Object.keys(products).forEach(productId => {
-          if (products[productId].storeOwnerId === user.uid) {
-            updates[`products/${productId}/storeIsOpen`] = newStatus;
-            console.log(`📦 Will update product: ${products[productId].productName}`);
-          }
+          updates[`products/${productId}/storeIsOpen`] = newStatus;
+          console.log(`📦 Will update product: ${products[productId].productName}`);
         });
 
         console.log(`🔢 Found ${Object.keys(updates).length} products to update`);

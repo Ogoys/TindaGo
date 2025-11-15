@@ -34,7 +34,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from "../../../src/constants/Colors";
@@ -89,23 +89,30 @@ export default function OrdersScreen() {
   const cartCount = useCartCount(user?.id);
 
   // Fetch user orders from Firebase with REAL-TIME updates
+  // OPTIMIZED: Query only user's orders instead of fetching all orders
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
 
+    // Query Firebase for orders WHERE customerId = user.id
     const ordersRef = ref(database, 'orders');
-    const unsubscribe = onValue(ordersRef, (snapshot) => {
+    const userOrdersQuery = query(
+      ordersRef,
+      orderByChild('customerId'),
+      equalTo(user.id)
+    );
+
+    const unsubscribe = onValue(userOrdersQuery, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Filter orders for current user and map to array
+        // Map to array and sort by date (newest first)
         const userOrders = Object.keys(data)
           .map(orderId => ({
             ...data[orderId],
             id: orderId,
           }))
-          .filter((order: Order) => order.customerId === user.id)
           .sort((a: Order, b: Order) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );

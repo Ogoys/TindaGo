@@ -95,70 +95,8 @@ const CartScreen = () => {
     performCleanup();
   }, [user, cartItems.length]); // Run when cart items count changes
 
-  // Real-time product availability monitoring
-  useEffect(() => {
-    if (!user || cartItems.length === 0) return;
-
-    const productRefs: any[] = [];
-    const unsubscribes: (() => void)[] = [];
-
-    // Monitor each product's availability status
-    cartItems.forEach(item => {
-      const productRef = ref(database, `products/${item.productId}`);
-      productRefs.push(productRef);
-
-      const unsubscribe = onValue(productRef, async (snapshot) => {
-        if (snapshot.exists()) {
-          const product = snapshot.val();
-
-          // Check if store is closed
-          if (product.storeIsOpen === false) {
-            console.log(`Store for ${item.productName} is now closed, removing from cart...`);
-            await removeFromCart(user.id, item.productId);
-
-            // Show toast notification for store closure
-            setToastMessage(`${item.storeName} is now closed. ${item.productName} removed from cart.`);
-            setToastType('info');
-            setShowToast(true);
-            return; // Exit early to avoid multiple removals
-          }
-
-          // Check if product became unavailable
-          if (product.status === 'out_of_stock') {
-            console.log(`Product ${item.productName} is now out of stock, removing from cart...`);
-            await removeFromCart(user.id, item.productId);
-
-            // Show professional modal
-            setRemovedProduct({
-              name: item.productName,
-              image: item.productImage,
-              reason: 'out_of_stock',
-            });
-            setShowRemovedModal(true);
-          }
-        } else {
-          // Product was deleted from database
-          console.log(`Product ${item.productName} was deleted, removing from cart...`);
-          await removeFromCart(user.id, item.productId);
-
-          // Show professional modal
-          setRemovedProduct({
-            name: item.productName,
-            image: item.productImage,
-            reason: 'deleted',
-          });
-          setShowRemovedModal(true);
-        }
-      });
-
-      unsubscribes.push(unsubscribe);
-    });
-
-    // Cleanup all listeners
-    return () => {
-      unsubscribes.forEach(unsub => unsub());
-    };
-  }, [user, cartItems]);
+  // REMOVED: Real-time product monitoring to prevent memory leak
+  // Product availability will be checked when user proceeds to checkout
 
   const removeItem = async (productId: string) => {
     if (!user) return;

@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
 import { useUser } from '../../../../src/contexts/UserContext';
 import type { Order } from '../../../../src/models/Order';
@@ -36,22 +36,29 @@ export default function OrderHistoryScreen() {
   const [loading, setLoading] = useState(true);
 
   // Fetch completed orders from Firebase
+  // OPTIMIZED: Query only user's orders instead of fetching all orders
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
 
+    // Query Firebase for orders WHERE customerId = user.id
     const ordersRef = ref(database, 'orders');
-    const unsubscribe = onValue(ordersRef, (snapshot) => {
+    const userOrdersQuery = query(
+      ordersRef,
+      orderByChild('customerId'),
+      equalTo(user.id)
+    );
+
+    const unsubscribe = onValue(userOrdersQuery, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Filter for completed/picked_up orders for current user
+        // Filter for completed/picked_up orders only (client-side filter for status)
         const completedOrders = Object.keys(data)
           .map(orderId => ({ ...data[orderId], id: orderId }))
           .filter((order: Order) =>
-            order.customerId === user.id &&
-            (order.status === 'picked_up' || order.status === 'completed')
+            order.status === 'picked_up' || order.status === 'completed'
           )
           .sort((a: Order, b: Order) =>
             new Date(b.completedAt || b.updatedAt).getTime() -

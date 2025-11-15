@@ -58,14 +58,8 @@ export default function WalletScreen() {
       }
     });
 
-    const unsubPayouts = onValue(payoutsRef, () => {
-      // if wallet missing, recompute fallback from payouts changes too
-      computeFallback(true);
-    });
-
-    const unsubLedger = onValue(ledgerRef, () => {
-      computeFallback(true);
-    });
+    // OPTIMIZED: Removed real-time listeners for payouts and ledger (rarely change)
+    // They are now only fetched in computeFallback when wallet is missing
 
     async function computeFallback(fromListener = false) {
       try {
@@ -108,8 +102,6 @@ export default function WalletScreen() {
 
     return () => {
       unsubWallet();
-      unsubPayouts();
-      unsubLedger();
     };
   }, [user?.storeId, user?.id]);
 

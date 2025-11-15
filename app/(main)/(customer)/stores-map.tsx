@@ -300,8 +300,39 @@ export default function StoresMapScreen() {
   const handleNavigate = () => {
     if (!selectedStore) return;
 
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedStore.coordinates.latitude},${selectedStore.coordinates.longitude}`;
-    Linking.openURL(url);
+    // Use platform-specific deep links to auto-start navigation
+    const destination = `${selectedStore.coordinates.latitude},${selectedStore.coordinates.longitude}`;
+
+    let url: string;
+
+    if (Platform.OS === 'ios') {
+      // iOS: Google Maps app with auto-start navigation
+      url = `comgooglemaps://?daddr=${destination}&directionsmode=driving&navigate=1`;
+      
+      // Fallback to Apple Maps if Google Maps not installed
+      Linking.canOpenURL(url).then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          // Apple Maps with navigation
+          Linking.openURL(`maps://?daddr=${destination}&dirflg=d`);
+        }
+      });
+    } else {
+      // Android: Google Maps with auto-start navigation
+      url = `google.navigation:q=${destination}&mode=d`;
+      
+      Linking.canOpenURL(url).then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          // Fallback to web Google Maps
+          Linking.openURL(
+            `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`
+          );
+        }
+      });
+    }
   };
 
   const handleShowRoute = async () => {
