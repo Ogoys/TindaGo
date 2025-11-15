@@ -16,6 +16,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { ref, get, update } from 'firebase/database';
+import { uploadImageToCloudinary } from '../../../../src/lib/upload/cloudinary';
 import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
@@ -172,16 +173,27 @@ const EditProductScreen = () => {
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
 
-        // Convert image to Base64
-        const base64 = await FileSystem.readAsStringAsync(imageUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        // Show uploading indicator
+        Alert.alert('Uploading...', 'Please wait while we upload your image to the cloud.');
 
-        // Create the data URL format
-        const imageBase64 = `data:image/jpeg;base64,${base64}`;
-        setSelectedImage(imageBase64);
+        try {
+          // Upload to Cloudinary
+          const cloudinaryUrl = await uploadImageToCloudinary(
+            imageUri,
+            `products/${auth.currentUser?.uid}`
+          );
 
-        console.log('Image selected and converted to Base64');
+          setSelectedImage(cloudinaryUrl);
+          console.log('✅ Image uploaded to Cloudinary:', cloudinaryUrl);
+          
+          Alert.alert('Success', 'Product image uploaded successfully!');
+        } catch (uploadError) {
+          console.error('❌ Error uploading to Cloudinary:', uploadError);
+          Alert.alert(
+            'Upload Failed',
+            'Failed to upload image to cloud. Please check your internet connection and try again.'
+          );
+        }
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -359,7 +371,8 @@ const EditProductScreen = () => {
         quantity: formattedQuantity,
         productSize: productSize.trim(),
         unit: selectedUnit,
-        productImage: selectedImage,
+        productImage: selectedImage,  // Legacy field for backward compatibility
+        productImageUrl: selectedImage?.startsWith('https://res.cloudinary.com/') ? selectedImage : undefined, // NEW: Cloudinary URL
         storeId: currentUser.uid,
         storeName: storeName,
         storeOwnerName: storeOwnerName,

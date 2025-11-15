@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ref, onValue } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { s, vs, ms } from '../../../src/constants/responsive';
 import { Colors } from '../../../src/constants/Colors';
@@ -62,13 +62,13 @@ export default function StoresListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch stores and products
-  useEffect(() => {
-    // Fetch all active stores
-    const storesRef = ref(database, 'stores');
-    const unsubscribeStores = onValue(storesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
+  // Fetch stores and products (one-time)
+  const loadData = React.useCallback(async (cancelled: { current: boolean }) => {
+    try {
+      // STORES (single read)
+      const storesSnap = await get(ref(database, 'stores'));
+      if (!cancelled.current && storesSnap.exists()) {
+        const data = storesSnap.val();
         const storesList: Store[] = Object.keys(data)
           .map(key => {
             const storeData = data[key];
@@ -87,23 +87,20 @@ export default function StoresListScreen() {
             };
           })
           .filter(store => {
-            // Filter by status
             if (store.status !== 'approved' && store.status !== 'active') return false;
-            // Exclude specific store if provided
             if (excludeStoreId && store.id === excludeStoreId) return false;
             return true;
           });
 
         setStores(storesList);
+      } else if (!cancelled.current) {
+        setStores([]);
       }
-      setLoading(false);
-    });
 
-    // Fetch all products to count per store
-    const productsRef = ref(database, 'products');
-    const unsubscribeProducts = onValue(productsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
+      // PRODUCTS (single read)
+      const productsSnap = await get(ref(database, 'products'));
+      if (!cancelled.current && productsSnap.exists()) {
+        const data = productsSnap.val();
         const productsList: Product[] = Object.keys(data)
           .map(key => ({
             id: key,
@@ -113,18 +110,32 @@ export default function StoresListScreen() {
           .filter(p => p.status === 'available');
 
         setProducts(productsList);
+      } else if (!cancelled.current) {
+        setProducts([]);
       }
-    });
+    } catch (e) {
+      console.error('Error loading stores list:', e);
+      if (!cancelled.current) {
+        setStores([]);
+        setProducts([]);
+      }
+    } finally {
+      if (!cancelled.current) setLoading(false);
+    }
+  }, [excludeStoreId]);
 
-    return () => {
-      unsubscribeStores();
-      unsubscribeProducts();
-    };
-  }, []);
+  useEffect(() => {
+    const cancelled = { current: false };
+    loadData(cancelled);
+    return () => { cancelled.current = true; };
+  }, [loadData]);
 
-  const onRefresh = () => {
+  // Pull to refresh - now actually reloads data
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    const cancelled = { current: false };
+    await loadData(cancelled);
+    setRefreshing(false);
   };
 
   const getProductCount = (storeId: string) => {

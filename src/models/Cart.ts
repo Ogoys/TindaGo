@@ -18,7 +18,8 @@ export interface Cart {
 export interface CartItem {
   productId: string;
   productName: string;
-  productImage: string;
+  productImage?: string;      // Legacy base64 image (optional for backward compatibility)
+  productImageUrl?: string;   // NEW - Cloudinary URL (Phase 2)
   storeId: string;
   storeName: string;
   quantity: number;

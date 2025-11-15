@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, get } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
 import { useUser } from '../../../../src/contexts/UserContext';
 import { Colors } from '../../../../src/constants/Colors';
@@ -89,8 +89,8 @@ export default function EarningsScreen() {
     async function computeFallback() {
       try {
         const [ledgerSnap, payoutsSnap] = await Promise.all([
-          onGet(ledgerRef),
-          onGet(payoutsRef),
+          get(ledgerRef),
+          get(payoutsRef),
         ]);
         let earned = 0;
         let pendingTxn = 0;
@@ -119,12 +119,6 @@ export default function EarningsScreen() {
         setAvailable(availableCalc);
         setPending(pendingTxn);
       } catch {}
-    }
-
-    // helper: single get without importing get here again
-    async function onGet(r: any) {
-      const g = await import('firebase/database');
-      return g.get(r);
     }
 
     return () => {

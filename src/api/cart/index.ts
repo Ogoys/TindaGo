@@ -65,8 +65,13 @@ export async function checkCartStore(userId: string, newStoreId: string): Promis
  */
 export async function addToCart(userId: string, item: CartItem): Promise<boolean> {
   try {
+    // Remove undefined fields to prevent Firebase errors
+    const cleanItem = Object.fromEntries(
+      Object.entries(item).filter(([_, value]) => value !== undefined)
+    ) as CartItem;
+
     const cartItemRef = ref(database, `carts/${userId}/items/${item.productId}`);
-    await set(cartItemRef, item);
+    await set(cartItemRef, cleanItem);
 
     // Update cart metadata (including store info)
     await updateCartMetadata(userId, item.storeId, item.storeName);

@@ -43,6 +43,7 @@ import {
   RETURN_REASONS,
   REFUND_METHODS 
 } from '../../../../src/models/Return';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 interface Product {
   id: string;
@@ -53,7 +54,8 @@ interface Product {
   quantity: number;
   productSize: string;
   unit: string;
-  productImage: string;
+  productImage?: string;       // Legacy base64
+  productImageUrl?: string;    // New Cloudinary URL
   status: 'available' | 'out_of_stock';
 }
 
@@ -287,6 +289,7 @@ const RecordReturnScreen = () => {
         productId: p.id,
         productName: p.productName,
         productImage: p.productImage,
+        productImageUrl: p.productImageUrl,
         quantity: p.returnQuantity,
         price: p.price,
         refundAmount: p.refundAmount,
@@ -430,7 +433,13 @@ const RecordReturnScreen = () => {
 
                 {/* Product Image and Info */}
                 <View style={styles.productMainRow}>
-                  <Image source={{ uri: product.productImage }} style={styles.selectedProductImage} />
+                  {getProductImageSource(product) ? (
+                    <Image source={getProductImageSource(product)!} style={styles.selectedProductImage} />
+                  ) : (
+                    <View style={[styles.selectedProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Text style={{ fontSize: 10, color: '#999' }}>No Image</Text>
+                    </View>
+                  )}
                   
                   <View style={styles.selectedProductInfo}>
                     <Text style={styles.selectedProductName} numberOfLines={2}>
@@ -628,7 +637,13 @@ const RecordReturnScreen = () => {
                     onPress={() => handleAddProduct(product)}
                     activeOpacity={0.7}
                   >
-                    <Image source={{ uri: product.productImage }} style={styles.selectorProductImage} />
+                    {getProductImageSource(product) ? (
+                      <Image source={getProductImageSource(product)!} style={styles.selectorProductImage} />
+                    ) : (
+                      <View style={[styles.selectorProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Text style={{ fontSize: 10, color: '#999' }}>No Image</Text>
+                      </View>
+                    )}
                     <View style={styles.selectorProductInfo}>
                       <Text style={styles.selectorProductName} numberOfLines={1}>
                         {product.productName}

@@ -27,6 +27,17 @@ export interface StoreRegistrationData {
     logo?: string | null;
     coverImage?: string | null;
   };
+  location?: {
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+    address: string;
+    formattedAddress: string;
+    city?: string;
+    setAt: any; // Firebase serverTimestamp
+    setMethod: 'gps' | 'manual';
+  };
   documents?: {
     barangayBusinessClearance?: DocumentInfo;
     businessPermit?: DocumentInfo;
@@ -141,8 +152,11 @@ export class StoreRegistrationService {
         city: storeData.city,
         zipCode: storeData.zipCode,
         businessType: 'Sari-Sari Store',
-        logo: storeData.logo,
-        coverImage: storeData.coverImage,
+        // Support both Cloudinary URLs and legacy base64
+        logo: storeData.logo,                           // Cloudinary URL (new) or base64 (legacy)
+        logoUrl: storeData.logo?.startsWith('https://res.cloudinary.com/') ? storeData.logo : undefined,
+        coverImage: storeData.coverImage,               // Cloudinary URL (new) or base64 (legacy)
+        coverImageUrl: storeData.coverImage?.startsWith('https://res.cloudinary.com/') ? storeData.coverImage : undefined,
       },
       status: STORE_STATUS.PENDING_DOCUMENTS,
       createdAt: timestamp,
@@ -286,7 +300,8 @@ export class StoreRegistrationService {
       documents: {
         barangayBusinessClearance: documents.barangayBusinessClearance ? {
           name: documents.barangayBusinessClearance.name || '',
-          uri: documents.barangayBusinessClearance.uri || '',
+          uri: documents.barangayBusinessClearance.uri || '',         // Legacy base64
+          url: documents.barangayBusinessClearance.url || undefined,  // NEW: Cloudinary URL
           type: documents.barangayBusinessClearance.mimeType || '',
           uploaded: true,
           uploadedAt: serverTimestamp(),
@@ -299,7 +314,8 @@ export class StoreRegistrationService {
         },
         businessPermit: documents.businessPermit ? {
           name: documents.businessPermit.name || '',
-          uri: documents.businessPermit.uri || '',
+          uri: documents.businessPermit.uri || '',         // Legacy base64
+          url: documents.businessPermit.url || undefined,  // NEW: Cloudinary URL
           type: documents.businessPermit.mimeType || '',
           uploaded: true,
           uploadedAt: serverTimestamp(),
@@ -312,7 +328,8 @@ export class StoreRegistrationService {
         },
         dtiRegistration: documents.dtiRegistration ? {
           name: documents.dtiRegistration.name || '',
-          uri: documents.dtiRegistration.uri || '',
+          uri: documents.dtiRegistration.uri || '',         // Legacy base64
+          url: documents.dtiRegistration.url || undefined,  // NEW: Cloudinary URL
           type: documents.dtiRegistration.mimeType || '',
           uploaded: true,
           uploadedAt: serverTimestamp(),
@@ -325,7 +342,8 @@ export class StoreRegistrationService {
         },
         validId: documents.validId ? {
           name: documents.validId.name || '',
-          uri: documents.validId.uri || '',
+          uri: documents.validId.uri || '',         // Legacy base64
+          url: documents.validId.url || undefined,  // NEW: Cloudinary URL
           type: documents.validId.mimeType || '',
           uploaded: true,
           uploadedAt: serverTimestamp(),

@@ -4,7 +4,7 @@
  * Firebase operations for product data
  */
 
-import { ref, get, query, orderByChild, equalTo, limitToFirst } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import type { Product } from '@/models';
 
@@ -32,15 +32,20 @@ export async function fetchProductById(productId: string): Promise<Product | nul
 
 /**
  * Fetch products by category (only available products for customers)
+ * Uses one-time get() with client-side filtering (Phase 1 optimization)
  */
 export async function fetchProductsByCategory(categoryId: string, includeOutOfStock: boolean = false): Promise<Product[]> {
   try {
     const productsRef = ref(database, 'products');
-    const categoryQuery = query(productsRef, orderByChild('categoryId'), equalTo(categoryId));
-    const snapshot = await get(categoryQuery);
+    const snapshot = await get(productsRef);
 
     if (snapshot.exists()) {
-      const products = Object.values(snapshot.val()) as Product[];
+      const data = snapshot.val();
+      // Map and filter by categoryId client-side
+      const products = Object.keys(data)
+        .map(id => ({ id, ...data[id] }))
+        .filter(p => p.categoryId === categoryId) as Product[];
+      
       // Filter out out-of-stock products unless explicitly requested
       return includeOutOfStock ? products : products.filter(p => p.status === 'available');
     }
@@ -53,17 +58,22 @@ export async function fetchProductsByCategory(categoryId: string, includeOutOfSt
 
 /**
  * Fetch best selling products (only available products for customers)
+ * Uses one-time get() with client-side filtering (Phase 1 optimization)
  */
 export async function fetchBestSellingProducts(limit: number = 10): Promise<Product[]> {
   try {
     const productsRef = ref(database, 'products');
-    const bestSellingQuery = query(productsRef, orderByChild('isBestSelling'), equalTo(true), limitToFirst(limit));
-    const snapshot = await get(bestSellingQuery);
+    const snapshot = await get(productsRef);
 
     if (snapshot.exists()) {
-      const allProducts = Object.values(snapshot.val()) as Product[];
-      // Filter to only show available products
-      return allProducts.filter(p => p.status === 'available');
+      const data = snapshot.val();
+      // Map and filter for best selling products client-side
+      const allProducts = Object.keys(data)
+        .map(id => ({ id, ...data[id] }))
+        .filter(p => p.isBestSelling === true && p.status === 'available') as Product[];
+      
+      // Apply limit client-side
+      return allProducts.slice(0, limit);
     }
     return [];
   } catch (error) {
@@ -74,17 +84,22 @@ export async function fetchBestSellingProducts(limit: number = 10): Promise<Prod
 
 /**
  * Fetch popular picks (only available products for customers)
+ * Uses one-time get() with client-side filtering (Phase 1 optimization)
  */
 export async function fetchPopularPicks(limit: number = 10): Promise<Product[]> {
   try {
     const productsRef = ref(database, 'products');
-    const popularQuery = query(productsRef, orderByChild('isPopular'), equalTo(true), limitToFirst(limit));
-    const snapshot = await get(popularQuery);
+    const snapshot = await get(productsRef);
 
     if (snapshot.exists()) {
-      const allProducts = Object.values(snapshot.val()) as Product[];
-      // Filter to only show available products
-      return allProducts.filter(p => p.status === 'available');
+      const data = snapshot.val();
+      // Map and filter for popular products client-side
+      const allProducts = Object.keys(data)
+        .map(id => ({ id, ...data[id] }))
+        .filter(p => p.isPopular === true && p.status === 'available') as Product[];
+      
+      // Apply limit client-side
+      return allProducts.slice(0, limit);
     }
     return [];
   } catch (error) {
@@ -140,20 +155,24 @@ export async function fetchAllProducts(includeOutOfStock: boolean = false): Prom
 
 /**
  * Fetch products by store ID (only available products for customers by default)
+ * Uses one-time get() with client-side filtering (Phase 1 optimization)
  */
 export async function fetchProductsByStore(storeId: string, includeOutOfStock: boolean = false): Promise<Product[]> {
   try {
+    // Fetch all products once (no index required)
     const productsRef = ref(database, 'products');
-    const storeProductsQuery = query(productsRef, orderByChild('storeId'), equalTo(storeId));
-    const snapshot = await get(storeProductsQuery);
+    const snapshot = await get(productsRef);
 
     if (snapshot.exists()) {
       const data = snapshot.val();
-      // Map products with their IDs
-      const allProducts = Object.keys(data).map(productId => ({
-        id: productId,
-        ...data[productId]
-      })) as Product[];
+      // Map products with their IDs and filter by storeId client-side
+      const allProducts = Object.keys(data)
+        .map(productId => ({
+          id: productId,
+          ...data[productId]
+        }))
+        .filter(product => product.storeId === storeId) as Product[];
+      
       // Filter to only show available products unless explicitly requested
       return includeOutOfStock ? allProducts : allProducts.filter(p => p.status === 'available');
     }

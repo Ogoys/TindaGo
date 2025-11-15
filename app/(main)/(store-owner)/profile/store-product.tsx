@@ -33,6 +33,7 @@ import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 interface CategoryItem {
   id: string;
@@ -50,7 +51,8 @@ interface Product {
   quantity: number;
   productSize: string;
   unit: string;
-  productImage: string;
+  productImage?: string;       // Legacy base64 field
+  productImageUrl?: string;    // New Cloudinary URL field
   storeOwnerId: string;
   createdAt: string;
   status: 'available' | 'out_of_stock';
@@ -322,10 +324,16 @@ const StoreProductScreen = () => {
                     activeOpacity={0.7}
                   >
                     {/* Product Image - Figma: width: 120, height: 120 */}
-                    <Image
-                      source={{ uri: product.productImage }}
-                      style={styles.productImage}
-                    />
+                    {getProductImageSource(product) ? (
+                      <Image
+                        source={getProductImageSource(product)!}
+                        style={styles.productImage}
+                      />
+                    ) : (
+                      <View style={[styles.productImage, styles.productImagePlaceholder]}>
+                        <Text style={styles.placeholderText}>No Image</Text>
+                      </View>
+                    )}
 
                     {/* Product Info Container */}
                     <View style={styles.productInfo}>
@@ -404,10 +412,16 @@ const StoreProductScreen = () => {
 
               {selectedProduct && (
                 <>
-                  <Image
-                    source={{ uri: selectedProduct.productImage }}
-                    style={styles.detailsProductImage}
-                  />
+                  {getProductImageSource(selectedProduct) ? (
+                    <Image
+                      source={getProductImageSource(selectedProduct)!}
+                      style={styles.detailsProductImage}
+                    />
+                  ) : (
+                    <View style={[styles.detailsProductImage, styles.detailsImagePlaceholder]}>
+                      <Text style={styles.placeholderText}>No Image</Text>
+                    </View>
+                  )}
 
                   <View style={styles.detailsContent}>
                     <Text style={styles.detailsProductName}>
@@ -673,6 +687,18 @@ const styles = StyleSheet.create({
     width: s(120),
     height: vs(120),
     borderRadius: s(16),
+  },
+
+  productImagePlaceholder: {
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  placeholderText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: Colors.textSecondary,
   },
 
   productInfo: {

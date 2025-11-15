@@ -21,6 +21,7 @@ import { Fonts } from '../../../src/constants/Fonts';
 import { s, vs } from '../../../src/constants/responsive';
 import type { CartItem as CartItemType } from '../../../src/models/Cart';
 import { ProductRemovedModal, Toast } from '../../../src/components/ui';
+import { getProductImageSource } from '../../../src/lib/helpers/imageHelper';
 
 const CartScreen = () => {
   const router = useRouter();
@@ -317,9 +318,9 @@ const CartScreen = () => {
                   activeOpacity={0.7}
                 >
                   {/* Product Image */}
-                  {item.productImage ? (
+                  {getProductImageSource(item) ? (
                     <Image
-                      source={{ uri: item.productImage }}
+                      source={getProductImageSource(item)!}
                       style={styles.productImage}
                       resizeMode="cover"
                     />

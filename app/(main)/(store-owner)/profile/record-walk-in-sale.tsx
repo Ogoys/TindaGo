@@ -35,6 +35,7 @@ import { Fonts } from '../../../../src/constants/Fonts';
 import { createWalkInSale } from '../../../../src/api/walkInSales';
 import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
 import { WalkInSaleItem } from '../../../../src/models/WalkInSale';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 interface Product {
   id: string;
@@ -45,7 +46,8 @@ interface Product {
   quantity: number;
   productSize: string;
   unit: string;
-  productImage: string;
+  productImage?: string;       // Legacy base64
+  productImageUrl?: string;    // New Cloudinary URL
   status: 'available' | 'out_of_stock';
 }
 
@@ -245,6 +247,7 @@ const RecordWalkInSaleScreen = () => {
         productId: p.id,
         productName: p.productName,
         productImage: p.productImage,
+        productImageUrl: p.productImageUrl,
         quantity: p.saleQuantity,
         price: p.price,
         subtotal: p.subtotal,
@@ -345,9 +348,15 @@ const RecordWalkInSaleScreen = () => {
                 <Text style={styles.removeButtonText}>✕</Text>
               </TouchableOpacity>
 
-              {/* Product Image and Basic Info */}
+              {/* Product Image and Info */}
               <View style={styles.productMainRow}>
-                <Image source={{ uri: product.productImage }} style={styles.selectedProductImage} />
+                {getProductImageSource(product) ? (
+                  <Image source={getProductImageSource(product)!} style={styles.selectedProductImage} />
+                ) : (
+                  <View style={[styles.selectedProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                    <Text style={{ fontSize: 10, color: '#999' }}>No Image</Text>
+                  </View>
+                )}
                 
                 <View style={styles.selectedProductInfo}>
                   <Text style={styles.selectedProductName} numberOfLines={2}>
@@ -468,7 +477,13 @@ const RecordWalkInSaleScreen = () => {
                     onPress={() => handleAddProduct(product)}
                     activeOpacity={0.7}
                   >
-                    <Image source={{ uri: product.productImage }} style={styles.selectorProductImage} />
+                    {getProductImageSource(product) ? (
+                      <Image source={getProductImageSource(product)!} style={styles.selectorProductImage} />
+                    ) : (
+                      <View style={[styles.selectorProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Text style={{ fontSize: 10, color: '#999' }}>No Image</Text>
+                      </View>
+                    )}
                     <View style={styles.selectorProductInfo}>
                       <Text style={styles.selectorProductName} numberOfLines={1}>
                         {product.productName}

@@ -14,12 +14,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ref, onValue, query, orderByChild, equalTo } from "firebase/database";
+import { ref, get, query, orderByChild, equalTo } from "firebase/database";
 import { database } from "../../../FirebaseConfig";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { BottomNavigation, Toast, ProductCard } from "../../../src/components/ui";
 import { useUser } from "../../../src/contexts/UserContext";
 import { addToCart, addToCartWithValidation } from "../../../src/api/cart";
+import { getProductImageSource } from "../../../src/lib/helpers/imageHelper";
 import { useCartCount } from "../../../src/hooks";
 import { getSelectedStoreId } from "../../../src/lib/storage/selectedStore";
 import * as Location from 'expo-location';
@@ -206,15 +207,15 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  // Fetch products and stores from Firebase
-  useEffect(() => {
-    console.log('🔥 Fetching products and stores from Firebase...');
+  // Fetch products and stores from Firebase (one-time load)
+  const loadData = React.useCallback(async (cancelled: { current: boolean }) => {
+    try {
+      console.log('🔥 Loading products and stores from Firebase...');
 
-    // Fetch all available products
-    const productsRef = ref(database, 'products');
-    const unsubscribeProducts = onValue(productsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
+      // 1) PRODUCTS (single read)
+      const productsSnap = await get(ref(database, 'products'));
+      if (!cancelled.current && productsSnap.exists()) {
+        const data = productsSnap.val();
         const productsList: Product[] = Object.keys(data)
           .map(key => ({
             id: key,
@@ -223,8 +224,6 @@ export default function HomeScreen() {
           .filter(product => {
             // Only show available products from OPEN stores
             if (product.status !== 'available') return false;
-
-            // Filter out products from closed stores
             if (product.storeIsOpen === false) return false;
 
             // Log products with missing data
@@ -236,7 +235,7 @@ export default function HomeScreen() {
                 productSize: product.productSize || 'MISSING',
                 unit: product.unit || 'MISSING',
               });
-              return false; // Skip incomplete products
+              return false;
             }
 
             return true;
@@ -244,23 +243,19 @@ export default function HomeScreen() {
 
         console.log(`✅ Fetched ${productsList.length} complete available products`);
         setAllProducts(productsList);
-      } else {
+      } else if (!cancelled.current) {
         console.log('⚠️ No products found');
         setAllProducts([]);
       }
-      setLoading(false);
-    });
 
-    // Fetch all approved/active stores
-    const storesRef = ref(database, 'stores');
-    const unsubscribeStores = onValue(storesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
+      // 2) STORES (single read)
+      const storesSnap = await get(ref(database, 'stores'));
+      if (!cancelled.current && storesSnap.exists()) {
+        const data = storesSnap.val();
         const storesList: Store[] = Object.keys(data)
           .map(key => {
             const storeData = data[key];
 
-            // Extract logo and coverImage from nested businessInfo or flat structure
             const logo = storeData.logo || storeData.businessInfo?.logo || null;
             const coverImage = storeData.coverImage || storeData.businessInfo?.coverImage || null;
             const storeName = storeData.storeName || storeData.businessInfo?.storeName || 'Unknown Store';
@@ -279,14 +274,13 @@ export default function HomeScreen() {
               city,
               description,
               status: storeData.status || 'active',
+              isOpen: storeData.isOpen ?? true,
             };
           })
           .filter(store => {
-            // Only show approved/active stores that are currently open
             const isActiveStore = store.status === 'approved' || store.status === 'active';
-            const isOpenStore = data[store.id]?.isOpen !== false; // Only hide stores explicitly marked as closed
+            const isOpenStore = data[store.id]?.isOpen !== false;
 
-            // Debug log for store visibility
             if (isActiveStore && !isOpenStore) {
               console.log(`🔴 Store HIDDEN (closed): ${store.storeName}`);
             } else if (isActiveStore && isOpenStore) {
@@ -298,7 +292,6 @@ export default function HomeScreen() {
 
         console.log(`✅ Fetched ${storesList.length} open stores (filtered by isOpen status)`);
 
-        // Debug: Log store data to verify logo and coverImage
         storesList.forEach(store => {
           console.log(`📦 Store: ${store.storeName}`);
           console.log(`   - Logo: ${store.logo ? '✓ Has logo' : '✗ No logo'}`);
@@ -312,24 +305,35 @@ export default function HomeScreen() {
         });
 
         setAllStores(storesList);
-      } else {
+      } else if (!cancelled.current) {
         console.log('⚠️ No stores found');
         setAllStores([]);
       }
-    });
-
-    // Cleanup subscriptions
-    return () => {
-      unsubscribeProducts();
-      unsubscribeStores();
-    };
+    } catch (error) {
+      console.error('Error loading home data:', error);
+      if (!cancelled.current) {
+        setAllProducts([]);
+        setAllStores([]);
+      }
+    } finally {
+      if (!cancelled.current) setLoading(false);
+    }
   }, []);
 
-  // Pull to refresh
-  const onRefresh = () => {
+  useEffect(() => {
+    const cancelled = { current: false };
+    loadData(cancelled);
+    return () => {
+      cancelled.current = true;
+    };
+  }, [loadData]);
+
+  // Pull to refresh - now actually reloads data
+  const onRefresh = async () => {
     setRefreshing(true);
-    // Data will refresh via real-time listeners
-    setTimeout(() => setRefreshing(false), 1000);
+    const cancelled = { current: false };
+    await loadData(cancelled);
+    setRefreshing(false);
   };
 
   // Extract user initials from name or email
@@ -382,6 +386,7 @@ export default function HomeScreen() {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
+        productImageUrl: product.productImageUrl,
         storeId: product.storeId,
         storeName: product.storeName,
         quantity: 1,
@@ -408,6 +413,7 @@ export default function HomeScreen() {
                   productId: product.id,
                   productName: product.productName,
                   productImage: product.productImage,
+                  productImageUrl: product.productImageUrl,
                   storeId: product.storeId,
                   storeName: product.storeName,
                   quantity: 1,
@@ -685,11 +691,13 @@ export default function HomeScreen() {
         {/* Picture Background - Figma: 759:523 Rectangle 24 */}
         <View style={styles.popularPickPictureBackground} />
         {/* Product Image - Figma: 759:524 */}
-        <Image
-          source={{ uri: product.productImage }}
-          style={styles.popularPickImage}
-          resizeMode="contain"
-        />
+        {getProductImageSource(product) && (
+          <Image
+            source={getProductImageSource(product)!}
+            style={styles.popularPickImage}
+            resizeMode="contain"
+          />
+        )}
       </View>
 
       {/* Labels Group - Figma: 759:525 */}
@@ -851,7 +859,7 @@ export default function HomeScreen() {
                     subtitle={product.productSize && product.unit ? `${product.productSize} ${product.unit}` : ''}
                     weight={''}
                     price={product.price ? `₱${product.price.toFixed(2)}` : '₱0.00'}
-                    image={product.productImage ? { uri: product.productImage } : undefined}
+                    image={getProductImageSource(product)}
                     variant="horizontal"
                     onAddPress={() => handleQuickAdd(product)}
                     onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
@@ -941,7 +949,7 @@ export default function HomeScreen() {
                   subtitle={product.storeName ? `(${product.storeName})` : ''}
                   weight={product.productSize && product.unit ? `${product.productSize} ${product.unit}` : ''}
                   price={product.price ? `₱${product.price.toFixed(2)}` : '₱0.00'}
-                  image={product.productImage ? { uri: product.productImage } : undefined}
+                  image={getProductImageSource(product)}
                   variant="horizontal"
                   onAddPress={() => handleQuickAdd(product)}
                   onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}
@@ -1045,7 +1053,7 @@ export default function HomeScreen() {
                   subtitle={product.storeName ? `(${product.storeName})` : ''}
                   weight={product.productSize && product.unit ? `${product.productSize} ${product.unit}` : ''}
                   price={product.price ? `₱${product.price.toFixed(2)}` : '₱0.00'}
-                  image={product.productImage ? { uri: product.productImage } : undefined}
+                  image={getProductImageSource(product)}
                   variant="horizontal"
                   onAddPress={() => handleQuickAdd(product)}
                   onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}` as any)}

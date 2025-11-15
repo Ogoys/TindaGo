@@ -9,6 +9,7 @@ import { Colors } from "../../../../src/constants/Colors";
 import { s, vs, ms } from "../../../../src/constants/responsive";
 import { StoreRegistrationService } from "@/services/store";
 import { useUser } from "../../../../src/contexts/UserContext";
+import { getStoreLogoSource } from "../../../../src/lib/helpers/imageHelper";
 
 interface SettingItemProps {
   title: string;
@@ -52,6 +53,7 @@ export default function ProfileScreen() {
   const [userData, setUserData] = useState({
     ownerName: 'Store Owner',
     ownerEmail: 'owner@gmail.com',
+    logoUrl: null as string | null,
     logo: null as string | null,
   });
   const [loading, setLoading] = useState(true);
@@ -72,9 +74,10 @@ export default function ProfileScreen() {
 
           // Get store registration data for logo
           const registrationData = await StoreRegistrationService.getRegistrationData(user.uid);
+          const logoUrl = registrationData?.businessInfo?.logoUrl || null;
           const logo = registrationData?.businessInfo?.logo || null;
 
-          console.log('🏪 Store logo:', logo ? 'Logo exists' : 'No logo');
+          console.log('🏪 Store logo:', logoUrl || logo ? 'Logo exists' : 'No logo');
 
           if (userSnapshot.exists()) {
             const data = userSnapshot.val();
@@ -83,6 +86,7 @@ export default function ProfileScreen() {
             setUserData({
               ownerName: data.name || 'Store Owner',
               ownerEmail: data.email || user.email || 'owner@gmail.com',
+              logoUrl: logoUrl,
               logo: logo,
             });
           } else {
@@ -91,6 +95,7 @@ export default function ProfileScreen() {
             setUserData({
               ownerName: 'Store Owner',
               ownerEmail: user.email || 'owner@gmail.com',
+              logoUrl: logoUrl,
               logo: logo,
             });
           }
@@ -234,20 +239,23 @@ export default function ProfileScreen() {
 
         {/* Profile Section - Figma: x: 20, y: 149, width: 400, height: 80 */}
         <View style={styles.profileSection}>
-          {/* Profile Avatar / Store Logo - Dynamic from Firebase - Default to store logo icon */}
-          {userData.logo && !loading ? (
-            <Image
-              source={{ uri: userData.logo }}
-              style={styles.profileAvatar}
-              resizeMode="cover"
-            />
-          ) : (
-            <Image
-              source={require("../../../../src/assets/images/stores/store-profile-placeholder.png")}
-              style={styles.profileAvatar}
-              resizeMode="contain"
-            />
-          )}
+          {/* Profile Avatar / Store Logo - Dynamic from Firebase with Cloudinary fallback */}
+          {(() => {
+            const logoSource = getStoreLogoSource(userData);
+            return logoSource && !loading ? (
+              <Image
+                source={logoSource}
+                style={styles.profileAvatar}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={require("../../../../src/assets/images/stores/store-profile-placeholder.png")}
+                style={styles.profileAvatar}
+                resizeMode="contain"
+              />
+            );
+          })()}
 
           {/* Name Section - Figma: x: 100, y: 171 */}
           <View style={styles.nameSection}>

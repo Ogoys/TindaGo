@@ -7,6 +7,7 @@ import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import { auth } from '@/lib/firebase';
 import { s, vs } from "@/constants/responsive";
 import { StoreRegistrationService } from '@/services';
+import { uploadImageToCloudinary } from '@/lib/upload/cloudinary';
 
 interface StoreFormData {
   storeName: string;
@@ -192,20 +193,43 @@ export default function StoreDetailsScreen() {
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
 
-        // Convert image to Base64 (same as add-product)
-        const base64 = await FileSystem.readAsStringAsync(imageUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        // Show uploading indicator
+        Alert.alert(
+          "Uploading...",
+          `Please wait while we upload your ${type === 'logo' ? 'store logo' : 'cover image'}.`
+        );
 
-        // Create the data URL format
-        const imageBase64 = `data:image/jpeg;base64,${base64}`;
+        try {
+          // Upload image to Cloudinary
+          const cloudinaryUrl = await uploadImageToCloudinary(
+            imageUri,
+            type === 'logo' ? `stores/${auth.currentUser?.uid}/logo` : `stores/${auth.currentUser?.uid}/cover`
+          );
 
-        setFormData(prev => ({
-          ...prev,
-          [type]: imageBase64
-        }));
+          // Also create base64 for backward compatibility (optional)
+          const base64 = await FileSystem.readAsStringAsync(imageUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const imageBase64 = `data:image/jpeg;base64,${base64}`;
 
-        console.log(`✅ ${type} converted to Base64 and saved`);
+          // Store both Cloudinary URL and base64
+          setFormData(prev => ({
+            ...prev,
+            [type]: cloudinaryUrl,           // Store Cloudinary URL as primary
+            [`${type}Legacy`]: imageBase64   // Keep base64 for backward compatibility
+          }));
+
+          console.log(`✅ ${type} uploaded to Cloudinary`);
+          console.log(`  - Cloudinary URL: ${cloudinaryUrl}`);
+
+          Alert.alert("Success", `${type === 'logo' ? 'Store logo' : 'Cover image'} uploaded successfully!`);
+        } catch (uploadError) {
+          console.error(`❌ Error uploading ${type} to Cloudinary:`, uploadError);
+          Alert.alert(
+            "Upload Failed",
+            `Failed to upload ${type} to cloud. Please check your internet connection and try again.`
+          );
+        }
       }
     } catch (error) {
       console.error(`❌ Error picking ${type}:`, error);

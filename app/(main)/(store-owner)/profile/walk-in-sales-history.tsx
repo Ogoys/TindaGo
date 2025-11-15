@@ -24,6 +24,7 @@ import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { getWalkInSales } from '../../../../src/api/walkInSales';
 import { WalkInSale } from '../../../../src/models/WalkInSale';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 const WalkInSalesHistoryScreen = () => {
   const [sales, setSales] = useState<WalkInSale[]>([]);
@@ -169,20 +170,33 @@ const WalkInSalesHistoryScreen = () => {
 
                 <Text style={styles.itemsTitle}>Items:</Text>
 
-                {selectedSale.items.map((item, index) => (
-                  <View key={index} style={styles.itemCard}>
-                    <Image source={{ uri: item.productImage }} style={styles.itemImage} />
-                    <View style={styles.itemInfo}>
+                {selectedSale.items.map((item, index) => {
+                  const imageSource = getProductImageSource(
+                    item.productImageUrl,
+                    item.productImage
+                  );
+                  
+                  return (
+                    <View key={index} style={styles.itemCard}>
+                      {imageSource ? (
+                        <Image source={imageSource} style={styles.itemImage} />
+                      ) : (
+                        <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
+                          <Text style={styles.placeholderText}>No Image</Text>
+                        </View>
+                      )}
+                      <View style={styles.itemInfo}>
                       <Text style={styles.itemName}>{item.productName}</Text>
                       <Text style={styles.itemSize}>
                         {item.productSize} {item.unit}
                       </Text>
                       <Text style={styles.itemPrice}>
                         {item.quantity} x ₱{item.price.toFixed(2)} = ₱{item.subtotal.toFixed(2)}
-                      </Text>
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
 
                 <View style={styles.totalRow}>
                   <Text style={styles.totalLabel}>Total Amount</Text>
@@ -414,6 +428,18 @@ const styles = StyleSheet.create({
     width: s(50),
     height: s(50),
     borderRadius: s(8),
+  },
+
+  itemImagePlaceholder: {
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  placeholderText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(10),
+    color: Colors.textSecondary,
   },
 
   itemInfo: {

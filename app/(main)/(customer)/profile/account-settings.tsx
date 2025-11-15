@@ -56,6 +56,9 @@ import {
   EmailAuthProvider,
 } from 'firebase/auth';
 import { updateUserProfileData, subscribeToUserProfile } from '../../../../src/api/users';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadImageToCloudinary } from '../../../../src/lib/upload/cloudinary';
+import { getUserAvatarSource } from '../../../../src/lib/helpers/imageHelper';
 
 interface EditableField {
   label: string;
@@ -85,6 +88,10 @@ export default function AccountSettings() {
   const [originalEmail, setOriginalEmail] = useState('');
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState('');
 
+  // Profile picture states
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   // User initials for avatar
   const getUserInitials = (): string => {
     if (fullName) {
@@ -107,10 +114,12 @@ export default function AccountSettings() {
         const name = profile.name || auth.currentUser?.displayName || user.email?.split('@')[0] || '';
         const userEmail = profile.email || user.email || '';
         const phone = profile.phoneNumber || '';
+        const avatarUrl = profile.avatarUrl || profile.avatar || null;
 
         setFullName(name);
         setEmail(userEmail);
         setPhoneNumber(phone);
+        setProfilePicture(avatarUrl);
 
         // Store original values
         setOriginalFullName(name);
@@ -140,21 +149,104 @@ export default function AccountSettings() {
       [
         {
           text: 'Take Photo',
-          onPress: () => {
-            // TODO: Implement camera functionality
-            Alert.alert('Coming Soon', 'Camera feature will be available soon');
-          },
+          onPress: handleTakePhoto,
         },
         {
           text: 'Choose from Gallery',
-          onPress: () => {
-            // TODO: Implement gallery picker
-            Alert.alert('Coming Soon', 'Gallery picker will be available soon');
-          },
+          onPress: handleChooseFromGallery,
         },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
+  };
+
+  // Handle taking photo with camera
+  const handleTakePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Camera permission is required to take photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfilePicture(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
+    }
+  };
+
+  // Handle choosing from gallery
+  const handleChooseFromGallery = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Gallery permission is required to choose photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfilePicture(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error choosing photo:', error);
+      Alert.alert('Error', 'Failed to choose photo. Please try again.');
+    }
+  };
+
+  // Upload profile picture to Cloudinary
+  const uploadProfilePicture = async (imageUri: string) => {
+    if (!user) return;
+
+    setUploadingAvatar(true);
+    
+    try {
+      console.log('📸 Uploading profile picture to Cloudinary...');
+      
+      // Upload to Cloudinary
+      const cloudinaryUrl = await uploadImageToCloudinary(
+        imageUri,
+        `users/${user.id}/avatar`
+      );
+
+      console.log('✅ Profile picture uploaded:', cloudinaryUrl);
+
+      // Update Firebase with Cloudinary URL
+      const success = await updateUserProfileData(user.id, {
+        avatar: cloudinaryUrl,      // Legacy field
+        avatarUrl: cloudinaryUrl,   // NEW: Explicit Cloudinary URL field
+      });
+
+      if (success) {
+        setProfilePicture(cloudinaryUrl);
+        Alert.alert('Success', 'Profile picture updated successfully!');
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (error) {
+      console.error('❌ Error uploading profile picture:', error);
+      Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   // Handle password change
@@ -490,21 +582,34 @@ export default function AccountSettings() {
 
         {/* Profile Avatar with Upload Button - Figma: x: 160, y: 155 (120x120) */}
         <View style={styles.avatarContainer}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{getUserInitials()}</Text>
-          </View>
+          {profilePicture ? (
+            <Image
+              source={{ uri: profilePicture }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{getUserInitials()}</Text>
+            </View>
+          )}
 
           {/* Plus button for upload - Figma: x: 241, y: 245 (30x30) */}
           <TouchableOpacity
             style={styles.uploadButton}
             onPress={handleProfilePictureUpload}
             activeOpacity={0.8}
+            disabled={uploadingAvatar}
           >
-            <Image
-              source={require('../../../../src/assets/images/customer-account-settings/plus-icon.png')}
-              style={styles.plusIcon}
-              resizeMode="contain"
-            />
+            {uploadingAvatar ? (
+              <ActivityIndicator size="small" color={Colors.white} />
+            ) : (
+              <Image
+                source={require('../../../../src/assets/images/customer-account-settings/plus-icon.png')}
+                style={styles.plusIcon}
+                resizeMode="contain"
+              />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -720,6 +825,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#3B82F6', // Figma: Blue color
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: s(120),
+    height: s(120),
+    borderRadius: s(60),
   },
   avatarText: {
     fontFamily: 'Clash Grotesk Variable',

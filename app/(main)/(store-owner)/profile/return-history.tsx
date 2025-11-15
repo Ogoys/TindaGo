@@ -36,6 +36,7 @@ import {
   deleteReturn,
 } from '../../../../src/api/returns';
 import { Return, RETURN_REASONS, REFUND_METHODS } from '../../../../src/models/Return';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 type FilterRefundMethod = 'all' | 'cash' | 'wallet' | 'store_credit' | 'none';
 
@@ -273,10 +274,22 @@ const ReturnHistoryScreen = () => {
 
               {/* Items */}
               <Text style={styles.sectionTitle}>Returned Items</Text>
-              {selectedReturn.items.map((item, index) => (
-                <View key={index} style={styles.itemCard}>
-                  <Image source={{ uri: item.productImage }} style={styles.itemImage} />
-                  <View style={styles.itemInfo}>
+              {selectedReturn.items.map((item, index) => {
+                const imageSource = getProductImageSource(
+                  item.productImageUrl,
+                  item.productImage
+                );
+                
+                return (
+                  <View key={index} style={styles.itemCard}>
+                    {imageSource ? (
+                      <Image source={imageSource} style={styles.itemImage} />
+                    ) : (
+                      <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
+                        <Text style={styles.placeholderText}>No Image</Text>
+                      </View>
+                    )}
+                    <View style={styles.itemInfo}>
                     <Text style={styles.itemName}>{item.productName}</Text>
                     <Text style={styles.itemSize}>{item.productSize} {item.unit}</Text>
                     <Text style={styles.itemReason}>
@@ -294,10 +307,11 @@ const ReturnHistoryScreen = () => {
                   </View>
                   <View style={styles.itemRight}>
                     <Text style={styles.itemQuantity}>×{item.quantity}</Text>
-                    <Text style={styles.itemRefund}>₱{item.refundAmount.toFixed(2)}</Text>
+                      <Text style={styles.itemRefund}>₱{item.refundAmount.toFixed(2)}</Text>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
 
               {/* Total */}
               <View style={styles.totalRow}>
@@ -880,6 +894,18 @@ const styles = StyleSheet.create({
     height: s(60),
     borderRadius: s(8),
     marginRight: s(12),
+  },
+
+  itemImagePlaceholder: {
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  placeholderText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(10),
+    color: Colors.textSecondary,
   },
 
   itemInfo: {

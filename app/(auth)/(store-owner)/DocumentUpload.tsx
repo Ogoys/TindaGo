@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Colors } from "@/constants/Colors";
 import { s, vs } from "@/constants/responsive";
 import { StoreRegistrationService } from '@/services';
+import { uploadDocumentToCloudinary } from '@/lib/upload/cloudinary';
 
 interface DocumentUploadData {
   barangayBusinessClearance: any;
@@ -84,43 +85,66 @@ export default function DocumentUploadScreen() {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const document = result.assets[0];
         const documentUri = document.uri;
+        const fileName = document.name || `${documentType}.pdf`;
 
-        // Convert document to Base64 (same as add-product)
-        const base64 = await FileSystem.readAsStringAsync(documentUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        // Show uploading indicator
+        Alert.alert(
+          "Uploading...",
+          "Please wait while we upload your document to the cloud."
+        );
 
-        // Determine MIME type based on file extension or type
-        let mimeType = 'application/pdf'; // Default for PDFs
-        if (document.mimeType) {
-          mimeType = document.mimeType;
-        } else if (document.name && document.name.toLowerCase().includes('.jpg')) {
-          mimeType = 'image/jpeg';
-        } else if (document.name && document.name.toLowerCase().includes('.png')) {
-          mimeType = 'image/png';
+        try {
+          // Upload document to Cloudinary
+          const cloudinaryUrl = await uploadDocumentToCloudinary(
+            documentUri,
+            fileName,
+            `store-documents/${auth.currentUser?.uid}`
+          );
+
+          // Determine MIME type for backward compatibility
+          let mimeType = 'application/pdf';
+          if (document.mimeType) {
+            mimeType = document.mimeType;
+          } else if (fileName.toLowerCase().includes('.jpg')) {
+            mimeType = 'image/jpeg';
+          } else if (fileName.toLowerCase().includes('.png')) {
+            mimeType = 'image/png';
+          }
+
+          // Also create base64 for backward compatibility (optional)
+          const base64 = await FileSystem.readAsStringAsync(documentUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const documentBase64 = `data:${mimeType};base64,${base64}`;
+
+          // Create document info object with both Cloudinary URL and base64
+          const documentInfo = {
+            name: fileName,
+            url: cloudinaryUrl,          // NEW: Cloudinary URL
+            uri: documentBase64,         // OLD: base64 for backward compatibility
+            mimeType: mimeType,
+            size: document.size || 0,
+            uploaded: true,
+            uploadedAt: new Date().toISOString()
+          };
+
+          setFormData({ ...formData, [documentType]: documentInfo });
+          setErrors({ ...errors, [documentType]: "" });
+
+          console.log(`✅ ${documentType} uploaded to Cloudinary`);
+          console.log(`  - Name: ${documentInfo.name}`);
+          console.log(`  - Cloudinary URL: ${cloudinaryUrl}`);
+          console.log(`  - Type: ${documentInfo.mimeType}`);
+          console.log(`  - Size: ${documentInfo.size} bytes`);
+
+          Alert.alert("Success", `${documentType} uploaded successfully!`);
+        } catch (uploadError) {
+          console.error(`❌ Error uploading ${documentType} to Cloudinary:`, uploadError);
+          Alert.alert(
+            "Upload Failed",
+            "Failed to upload document to cloud. Please check your internet connection and try again."
+          );
         }
-
-        // Create the data URL format
-        const documentBase64 = `data:${mimeType};base64,${base64}`;
-
-        // Create document info object with base64 data
-        const documentInfo = {
-          name: document.name || `${documentType}.pdf`,
-          uri: documentBase64, // Store base64 instead of local URI
-          mimeType: mimeType, // Changed from 'type' to 'mimeType' to match StoreRegistrationService
-          size: document.size || 0,
-          uploaded: true,
-          uploadedAt: new Date().toISOString()
-        };
-
-        setFormData({ ...formData, [documentType]: documentInfo });
-        setErrors({ ...errors, [documentType]: "" });
-
-        console.log(`✅ ${documentType} converted to Base64 and saved locally`);
-        console.log(`  - Name: ${documentInfo.name}`);
-        console.log(`  - Type: ${documentInfo.mimeType}`);
-        console.log(`  - Size: ${documentInfo.size} bytes`);
-        console.log(`  - Base64 preview: ${documentBase64.substring(0, 100)}...`);
       }
     } catch (error) {
       console.error(`❌ Error picking ${documentType}:`, error);

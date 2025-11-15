@@ -33,14 +33,17 @@ import { fetchProductsByStore } from '../../../src/api/products';
 import { ProductCard } from '../../../src/components/ui';
 import { useUser } from '../../../src/contexts/UserContext';
 import { addToCartWithValidation } from '../../../src/api/cart';
+import { getProductImageSource, getStoreLogoSource, getStoreCoverSource } from '../../../src/lib/helpers/imageHelper';
 
 // Firebase Store interface matching actual database structure
 interface Store {
   id: string;
   storeName: string;
   ownerName: string;
-  logo?: string;
-  coverImage?: string;
+  logo?: string;               // Legacy base64 field
+  logoUrl?: string;            // NEW: Cloudinary URL field
+  coverImage?: string;         // Legacy base64 field
+  coverImageUrl?: string;      // NEW: Cloudinary URL field
   address?: string;
   city?: string;
   description?: string;
@@ -60,7 +63,8 @@ interface Store {
 interface Product {
   id: string;
   productName: string;
-  productImage: string;
+  productImage: string; // Legacy base64 field
+  productImageUrl?: string; // New Cloudinary URL field
   description: string;
   price: number;
   category: string;
@@ -150,6 +154,7 @@ export default function StoreDetailsScreen() {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
+        productImageUrl: product.productImageUrl,
         storeId: product.storeId,
         storeName: product.storeName,
         quantity: 1,
@@ -175,6 +180,7 @@ export default function StoreDetailsScreen() {
                   productId: product.id,
                   productName: product.productName,
                   productImage: product.productImage,
+                  productImageUrl: product.productImageUrl,
                   storeId: product.storeId,
                   storeName: product.storeName,
                   quantity: 1,
@@ -250,9 +256,9 @@ export default function StoreDetailsScreen() {
       >
         {/* Store Cover Image */}
         <View style={styles.coverImageContainer}>
-          {store.coverImage ? (
+          {getStoreCoverSource(store) ? (
             <Image
-              source={{ uri: store.coverImage }}
+              source={getStoreCoverSource(store)!}
               style={styles.coverImage}
               resizeMode="cover"
             />
@@ -267,9 +273,9 @@ export default function StoreDetailsScreen() {
 
         {/* Store Logo */}
         <View style={styles.logoContainer}>
-          {store.logo ? (
+          {getStoreLogoSource(store) ? (
             <Image
-              source={{ uri: store.logo }}
+              source={getStoreLogoSource(store)!}
               style={styles.storeLogo}
               resizeMode="cover"
             />
@@ -393,7 +399,7 @@ export default function StoreDetailsScreen() {
                   title={product.productName}
                   subtitle={`${product.productSize} ${product.unit}`}
                   price={`₱${product.price.toFixed(2)}`}
-                  image={{ uri: product.productImage }}
+                  image={getProductImageSource(product)}
                   variant="grid"
                   onAddPress={() => handleAddToCart(product)}
                   onPress={() => router.push(`/(main)/shared/product-details?id=${product.id}`)}

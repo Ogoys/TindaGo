@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ref, onValue } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { s, vs, ms } from '../../../src/constants/responsive';
 import { Colors } from '../../../src/constants/Colors';
@@ -24,6 +24,7 @@ import { ProductCard } from '../../../src/components/ui';
 import { useUser } from '../../../src/contexts/UserContext';
 import { addToCartWithValidation } from '../../../src/api/cart';
 import { getSelectedStoreId } from '../../../src/lib/storage/selectedStore';
+import { getProductImageSource } from '../../../src/lib/helpers/imageHelper';
 
 /**
  * CUSTOMER SEARCH SCREEN
@@ -47,7 +48,8 @@ interface Product {
   quantity: number;
   productSize: string;
   unit: string;
-  productImage: string;
+  productImage: string; // Legacy base64 field
+  productImageUrl?: string; // New Cloudinary URL field
   storeOwnerId: string;
   storeId: string;
   storeName: string;
@@ -78,33 +80,41 @@ export default function SearchScreen() {
     })();
   }, [user?.id]);
 
-  // Fetch products from Firebase
+  // Fetch products from Firebase (one-time)
   useEffect(() => {
-    const productsRef = ref(database, 'products');
-    const unsubscribe = onValue(productsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const productsList: Product[] = Object.keys(data)
-          .map(key => ({
-            id: key,
-            ...data[key],
-          }))
-          .filter(product => {
-            // Only show available products from open stores
-            if (product.status !== 'available') return false;
-            if (product.storeIsOpen === false) return false;
-            if (!product.productName || !product.price || !product.storeName) return false;
-            return true;
-          });
+    let cancelled = false;
 
-        setAllProducts(productsList);
-      } else {
-        setAllProducts([]);
+    async function load() {
+      try {
+        const snap = await get(ref(database, 'products'));
+        if (!cancelled && snap.exists()) {
+          const data = snap.val();
+          const productsList: Product[] = Object.keys(data)
+            .map(key => ({
+              id: key,
+              ...data[key],
+            }))
+            .filter(product => {
+              if (product.status !== 'available') return false;
+              if (product.storeIsOpen === false) return false;
+              if (!product.productName || !product.price || !product.storeName) return false;
+              return true;
+            });
+
+          setAllProducts(productsList);
+        } else if (!cancelled) {
+          setAllProducts([]);
+        }
+      } catch (e) {
+        console.error('Error loading products for search:', e);
+        if (!cancelled) setAllProducts([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
-    });
+    }
 
-    return () => unsubscribe();
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   // Load recent searches from storage (simplified for now)
@@ -170,6 +180,7 @@ export default function SearchScreen() {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
+        productImageUrl: product.productImageUrl,
         storeId: product.storeId,
         storeName: product.storeName,
         quantity: 1,
@@ -196,6 +207,7 @@ export default function SearchScreen() {
                   productId: product.id,
                   productName: product.productName,
                   productImage: product.productImage,
+                  productImageUrl: product.productImageUrl,
                   storeId: product.storeId,
                   storeName: product.storeName,
                   quantity: 1,
@@ -367,7 +379,7 @@ export default function SearchScreen() {
                       subtitle={`(${item.storeName})`}
                       weight={`${item.productSize} ${item.unit}`}
                       price={`₱${item.price.toFixed(2)}`}
-                      image={{ uri: item.productImage }}
+                      image={getProductImageSource(item)}
                       variant="grid"
                       onAddPress={() => handleQuickAdd(item)}
                       onPress={() => router.push(`/(main)/shared/product-details?id=${item.id}` as any)}

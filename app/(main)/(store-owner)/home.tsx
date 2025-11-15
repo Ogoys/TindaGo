@@ -38,7 +38,7 @@ export default function StoreHomeScreen() {
 
             const businessInfo = registrationData.businessInfo || {};
             const personalInfo = registrationData.personalInfo || {};
-            const location = registrationData.location || {};
+            const location = registrationData.location || { address: '', city: '' };
 
             // Prefer location data from map picker, fallback to businessInfo
             const displayAddress = location.address || businessInfo.address || 'Address not set';

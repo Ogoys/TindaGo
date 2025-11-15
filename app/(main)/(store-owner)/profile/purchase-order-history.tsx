@@ -38,6 +38,7 @@ import {
   deletePurchaseOrder,
 } from '../../../../src/api/purchaseOrders';
 import { PurchaseOrder, PurchaseOrderItem } from '../../../../src/models/PurchaseOrder';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 type FilterStatus = 'all' | 'pending' | 'received' | 'cancelled';
 
@@ -332,19 +333,32 @@ const PurchaseOrderHistoryScreen = () => {
 
               {/* Items */}
               <Text style={styles.sectionTitle}>Items</Text>
-              {selectedOrder.items.map((item, index) => (
-                <View key={index} style={styles.itemCard}>
-                  <Image source={{ uri: item.productImage }} style={styles.itemImage} />
-                  <View style={styles.itemInfo}>
+              {selectedOrder.items.map((item, index) => {
+                const imageSource = getProductImageSource(
+                  item.productImageUrl,
+                  item.productImage
+                );
+                
+                return (
+                  <View key={index} style={styles.itemCard}>
+                    {imageSource ? (
+                      <Image source={imageSource} style={styles.itemImage} />
+                    ) : (
+                      <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
+                        <Text style={styles.placeholderText}>No Image</Text>
+                      </View>
+                    )}
+                    <View style={styles.itemInfo}>
                     <Text style={styles.itemName}>{item.productName}</Text>
                     <Text style={styles.itemSize}>{item.productSize} {item.unit}</Text>
                     <Text style={styles.itemCost}>
                       ₱{item.costPerUnit.toFixed(2)} × {item.quantity}
                     </Text>
+                    </View>
+                    <Text style={styles.itemSubtotal}>₱{item.subtotal.toFixed(2)}</Text>
                   </View>
-                  <Text style={styles.itemSubtotal}>₱{item.subtotal.toFixed(2)}</Text>
-                </View>
-              ))}
+                );
+              })}
 
               {/* Total */}
               <View style={styles.totalRow}>
@@ -938,6 +952,18 @@ const styles = StyleSheet.create({
     height: s(60),
     borderRadius: s(8),
     marginRight: s(12),
+  },
+
+  itemImagePlaceholder: {
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  placeholderText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(10),
+    color: Colors.textSecondary,
   },
 
   itemInfo: {

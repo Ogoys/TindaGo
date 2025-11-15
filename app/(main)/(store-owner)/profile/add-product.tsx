@@ -21,6 +21,7 @@ import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import * as Haptics from 'expo-haptics';
+import { uploadImageToCloudinary } from '../../../../src/lib/upload/cloudinary';
 
 interface CategoryItem {
   id: string;
@@ -136,22 +137,15 @@ const AddProductScreen = () => {
         mediaTypes: ['images'], // Modern syntax: array of strings (lowercase)
         allowsEditing: true,
         aspect: [1, 1], // Square aspect ratio for product images
-        quality: 0.8, // Reduce quality to keep Base64 size manageable
+        quality: 0.8, // Good quality but optimized
       });
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
-
-        // Convert image to Base64
-        const base64 = await FileSystem.readAsStringAsync(imageUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        // Create the data URL format
-        const imageBase64 = `data:image/jpeg;base64,${base64}`;
-        setSelectedImage(imageBase64);
-
-        console.log('Image selected and converted to Base64');
+        
+        // Store the local URI temporarily (will upload to Cloudinary when saving)
+        setSelectedImage(imageUri);
+        console.log('✅ Image selected:', imageUri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -521,7 +515,22 @@ const AddProductScreen = () => {
       console.log('✅ No duplicate found - proceeding with save');
 
       // ========================================
-      // 12. FORMAT DATA
+      // 12. UPLOAD IMAGE TO CLOUDINARY
+      // ========================================
+      console.log('☁️ Uploading image to Cloudinary...');
+      let productImageUrl: string;
+      
+      try {
+        productImageUrl = await uploadImageToCloudinary(selectedImage, 'products');
+        console.log('✅ Image uploaded successfully:', productImageUrl);
+      } catch (uploadError) {
+        console.error('❌ Cloudinary upload failed:', uploadError);
+        Alert.alert('Upload Error', 'Failed to upload image. Please check your internet connection and try again.');
+        return;
+      }
+
+      // ========================================
+      // 13. FORMAT DATA
       // ========================================
       const formattedProductName = formatProductName(productName);
       const formattedPrice = formatPrice(priceNum);
@@ -533,7 +542,7 @@ const AddProductScreen = () => {
       console.log('  - Quantity:', formattedQuantity);
 
       // ========================================
-      // 13. PREPARE PRODUCT DATA
+      // 14. PREPARE PRODUCT DATA
       // ========================================
       const productData = {
         productName: formattedProductName,
@@ -544,7 +553,7 @@ const AddProductScreen = () => {
         productSize: productSize.trim(),
         unit: selectedUnit,
         expiryDate: expiryDate.trim() || null, // Include expiry date if provided
-        productImage: selectedImage, // Base64 string
+        productImageUrl: productImageUrl, // Cloudinary URL (NEW - Phase 2)
         storeOwnerId: currentUser.uid,
         storeId: currentUser.uid,
         storeName: storeName,
@@ -557,16 +566,16 @@ const AddProductScreen = () => {
       console.log('🏪 Store Info:', storeName, 'by', storeOwnerName);
 
       // ========================================
-      // 14. SAVE TO FIREBASE
+      // 15. SAVE TO FIREBASE
       // ========================================
-      console.log('💾 Saving to Firebase...');
+      console.log('💾 Saving product data to Firebase...');
       const newProductRef = push(productsRef);
       await set(newProductRef, productData);
 
       console.log('✅ Product saved successfully:', productData.productName);
 
       // ========================================
-      // 15. SUCCESS FEEDBACK
+      // 16. SUCCESS FEEDBACK
       // ========================================
       Alert.alert('Success', 'Product added successfully!', [
         { text: 'OK', onPress: () => router.back() }

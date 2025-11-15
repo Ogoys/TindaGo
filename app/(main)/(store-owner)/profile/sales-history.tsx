@@ -32,6 +32,7 @@ import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { ms, s, vs } from '../../../../src/constants/responsive';
 import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 interface SaleTransaction {
   id: string;
@@ -504,13 +505,25 @@ const SalesHistoryScreen = () => {
 
                 <Text style={styles.itemsTitle}>Items:</Text>
 
-                {selectedTransaction.items.map((item, index) => (
-                  <View key={index} style={styles.itemCard}>
-                    <Image
-                      source={{ uri: item.productImage || item.image }}
-                      style={styles.itemImage}
-                    />
-                    <View style={styles.itemInfo}>
+                {selectedTransaction.items.map((item, index) => {
+                  const imageSource = getProductImageSource(
+                    item.productImageUrl || item.imageUrl,
+                    item.productImage || item.image
+                  );
+                  
+                  return (
+                    <View key={index} style={styles.itemCard}>
+                      {imageSource ? (
+                        <Image
+                          source={imageSource}
+                          style={styles.itemImage}
+                        />
+                      ) : (
+                        <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
+                          <Text style={styles.placeholderText}>No Image</Text>
+                        </View>
+                      )}
+                      <View style={styles.itemInfo}>
                       <Text style={styles.itemName}>{item.productName || item.name}</Text>
                       <Text style={styles.itemSize}>
                         {item.productSize || item.size} {item.unit}
@@ -518,9 +531,10 @@ const SalesHistoryScreen = () => {
                       <Text style={styles.itemPrice}>
                         {item.quantity} x ₱{item.price.toFixed(2)} = ₱{item.subtotal.toFixed(2)}
                       </Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
 
                 <View style={styles.totalBreakdown}>
                   <View style={styles.breakdownRow}>
@@ -1025,6 +1039,18 @@ const styles = StyleSheet.create({
     width: s(50),
     height: s(50),
     borderRadius: s(8),
+  },
+
+  itemImagePlaceholder: {
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  placeholderText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(10),
+    color: Colors.textSecondary,
   },
 
   itemInfo: {

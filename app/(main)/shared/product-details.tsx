@@ -41,6 +41,7 @@ import { addToCartWithValidation } from '../../../src/api/cart';
 import type { CartItem } from '../../../src/models/Cart';
 import { ref, get } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
+import { getProductImageSource, getStoreLogoSource, getStoreCoverSource } from '../../../src/lib/helpers/imageHelper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -48,7 +49,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface Product {
   id: string;
   productName: string;
-  productImage: string;
+  productImage: string; // Legacy base64 field
+  productImageUrl?: string; // New Cloudinary URL field
   description: string;
   price: number;
   category: string;
@@ -221,15 +223,13 @@ export default function ProductDetailsScreen() {
     loadProductData();
   }, [id]);
 
-  // Get product images (use real Firebase image URL)
+  // Get product images (use Cloudinary or fallback)
   const getProductImages = () => {
-    if (!product || !product.productImage) return [];
-    // Use real product image from Firebase
-    return [
-      { uri: product.productImage },
-      { uri: product.productImage },
-      { uri: product.productImage },
-    ];
+    if (!product) return [];
+    const imageSource = getProductImageSource(product);
+    if (!imageSource) return [];
+    // Use the same image 3 times for carousel effect
+    return [imageSource, imageSource, imageSource];
   };
 
   // Quantity controls with stock validation
@@ -273,6 +273,7 @@ export default function ProductDetailsScreen() {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
+        productImageUrl: product.productImageUrl,
         storeId: product.storeId,
         storeName: product.storeName,
         quantity: quantity,
@@ -357,6 +358,7 @@ export default function ProductDetailsScreen() {
         productId: relatedProduct.id,
         productName: relatedProduct.productName,
         productImage: relatedProduct.productImage,
+        productImageUrl: relatedProduct.productImageUrl,
         storeId: relatedProduct.storeId,
         storeName: relatedProduct.storeName,
         quantity: 1,
@@ -668,7 +670,7 @@ export default function ProductDetailsScreen() {
                   subtitle={relatedProduct.storeName ? `(${relatedProduct.storeName})` : ''}
                   weight={relatedProduct.productSize && relatedProduct.unit ? `${relatedProduct.productSize} ${relatedProduct.unit}` : ''}
                   price={relatedProduct.price ? `₱${relatedProduct.price.toFixed(2)}` : '₱0.00'}
-                  image={relatedProduct.productImage ? { uri: relatedProduct.productImage } : undefined}
+                  image={getProductImageSource(relatedProduct)}
                   variant="horizontal"
                   onAddPress={() => handleQuickAddRelated(relatedProduct)}
                   onPress={() => router.push(`/(main)/shared/product-details?id=${relatedProduct.id}`)}
@@ -701,9 +703,9 @@ export default function ProductDetailsScreen() {
                 <View style={styles.storeCardWhiteBackground} />
 
                 {/* Store Cover Image or Default Background */}
-                {otherStore.coverImage ? (
+                {getStoreCoverSource(otherStore) ? (
                   <Image
-                    source={{ uri: otherStore.coverImage }}
+                    source={getStoreCoverSource(otherStore)!}
                     style={styles.storeImageBackground}
                     resizeMode="cover"
                   />
@@ -717,9 +719,9 @@ export default function ProductDetailsScreen() {
 
                 {/* Store Logo */}
                 <View style={styles.storeLogoContainer}>
-                  {otherStore.logo ? (
+                  {getStoreLogoSource(otherStore) ? (
                     <Image
-                      source={{ uri: otherStore.logo }}
+                      source={getStoreLogoSource(otherStore)!}
                       style={styles.storeLogo}
                       resizeMode="cover"
                     />

@@ -150,10 +150,6 @@ export default function TestMapScreen() {
             [{ text: 'Great!' }]
           );
         }}
-        onError={(error) => {
-          console.error('❌ Map error:', error);
-          Alert.alert('Map Error', 'Failed to load map. Check your API key.');
-        }}
       >
         {/* Sample store markers */}
         {sampleStores.map((store) => (

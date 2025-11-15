@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { ref, onValue } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { addToCartWithValidation } from '../../../src/api/cart';
 import { useUser } from '../../../src/contexts/UserContext';
@@ -21,6 +21,7 @@ import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { ProductCard, Toast } from "../../../src/components/ui";
+import { getProductImageSource } from "../../../src/lib/helpers/imageHelper";
 
 // Product interface matching Firebase schema
 interface Product {
@@ -32,7 +33,8 @@ interface Product {
   quantity: number;
   productSize: string;
   unit: string;
-  productImage: string;
+  productImage: string; // Legacy base64 field
+  productImageUrl?: string; // New Cloudinary URL field
   storeOwnerId: string;
   storeId: string;
   storeName: string;
@@ -70,32 +72,44 @@ export default function SeeMoreScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
 
-  // Fetch all products from Firebase
+  // Fetch all products from Firebase (one-time per section)
   useEffect(() => {
-    const productsRef = ref(database, 'products');
-    const unsubscribe = onValue(productsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const productsList: Product[] = Object.keys(data)
-          .map(key => ({
-            id: key,
-            ...data[key],
-          }))
-          .filter(product =>
-            product.status === 'available' &&
-            product.storeIsOpen !== false  // Only show products from open stores
-          );
+    let cancelled = false;
 
-        setAllProducts(productsList);
-        setFilteredProducts(getSectionProducts(productsList, section));
-      } else {
-        setAllProducts([]);
-        setFilteredProducts([]);
+    async function load() {
+      try {
+        const snap = await get(ref(database, 'products'));
+        if (!cancelled && snap.exists()) {
+          const data = snap.val();
+          const productsList: Product[] = Object.keys(data)
+            .map(key => ({
+              id: key,
+              ...data[key],
+            }))
+            .filter(product =>
+              product.status === 'available' &&
+              product.storeIsOpen !== false  // Only show products from open stores
+            );
+
+          setAllProducts(productsList);
+          setFilteredProducts(getSectionProducts(productsList, section));
+        } else if (!cancelled) {
+          setAllProducts([]);
+          setFilteredProducts([]);
+        }
+      } catch (e) {
+        console.error('Error loading products for see-more:', e);
+        if (!cancelled) {
+          setAllProducts([]);
+          setFilteredProducts([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
-    });
+    }
 
-    return () => unsubscribe();
+    load();
+    return () => { cancelled = true; };
   }, [section]);
 
   // Filter products based on search query
@@ -188,6 +202,7 @@ export default function SeeMoreScreen() {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
+        productImageUrl: product.productImageUrl,
         storeId: product.storeId,
         storeName: product.storeName,
         quantity: 1,
@@ -321,7 +336,7 @@ export default function SeeMoreScreen() {
                 subtitle={product.storeName ? `(${product.storeName})` : ''}
                 weight={product.productSize && product.unit ? `${product.productSize} ${product.unit}` : ''}
                 price={product.price ? `₱${product.price.toFixed(2)}` : '₱0.00'}
-                image={product.productImage ? { uri: product.productImage } : undefined}
+                image={getProductImageSource(product)}
                 variant="grid"
                 onAddPress={() => handleAddProduct(product)}
                 onPress={() => handleProductPress(product.id)}

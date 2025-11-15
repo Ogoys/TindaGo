@@ -213,6 +213,7 @@ const PaymentScreen = () => {
           productId: item.productId,
           productName: item.productName,
           productImage: item.productImage,
+          productImageUrl: item.productImageUrl,
           quantity: item.quantity,
           price: item.price,
           weight: item.weight || '',
