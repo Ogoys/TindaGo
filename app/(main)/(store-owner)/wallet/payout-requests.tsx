@@ -36,7 +36,7 @@ import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 
-type PaymentMethod = 'bank' | 'gcash' | 'paymaya';
+type PaymentMethod = 'gcash' | 'paymaya';
 
 const MIN_PAYOUT = 100;
 
@@ -203,7 +203,7 @@ export default function PayoutRequest() {
             </View>
             <View style={styles.balanceTextContainer}>
               <Typography style={styles.balanceLabel}>Available Balance</Typography>
-              <Typography style={styles.balanceValue}>₱{availableBalance.toFixed(2)}</Typography>
+              <Typography style={styles.balanceValue}>₱{availableBalance.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
             </View>
           </View>
 
@@ -244,9 +244,16 @@ export default function PayoutRequest() {
               <Typography style={styles.formLabel}>Payment Method</Typography>
               <View style={styles.methodContainer}>
                 {[
-                  { value: 'bank' as PaymentMethod, label: 'Bank Transfer', icon: '🏦' },
-                  { value: 'gcash' as PaymentMethod, label: 'GCash', icon: '💰' },
-                  { value: 'paymaya' as PaymentMethod, label: 'PayMaya', icon: '💳' },
+                  { 
+                    value: 'gcash' as PaymentMethod, 
+                    label: 'GCash', 
+                    image: require('../../../../src/assets/images/payment/gcash-icon.png')
+                  },
+                  { 
+                    value: 'paymaya' as PaymentMethod, 
+                    label: 'PayMaya', 
+                    image: require('../../../../src/assets/images/payment/paymaya-icon.png')
+                  },
                 ].map((option) => (
                   <TouchableOpacity
                     key={option.value}
@@ -260,7 +267,11 @@ export default function PayoutRequest() {
                     }}
                     disabled={submitting}
                   >
-                    <Text style={styles.methodIcon}>{option.icon}</Text>
+                    <Image
+                      source={option.image}
+                      style={styles.methodImage}
+                      resizeMode="contain"
+                    />
                     <Text
                       style={[
                         styles.methodText,
@@ -299,14 +310,12 @@ export default function PayoutRequest() {
 
             {/* Account Number */}
             <View style={styles.formGroup}>
-              <Typography style={styles.formLabel}>
-                {method === 'bank' ? 'Account Number' : 'Mobile Number'}
-              </Typography>
+              <Typography style={styles.formLabel}>Mobile Number</Typography>
               <TextInput
                 style={[styles.input, errors.accountNumber && styles.inputError]}
-                placeholder={method === 'bank' ? 'Bank account number' : '09XX XXX XXXX'}
+                placeholder="09XX XXX XXXX"
                 placeholderTextColor={Colors.textSecondary}
-                keyboardType={method === 'bank' ? 'number-pad' : 'phone-pad'}
+                keyboardType="phone-pad"
                 value={accountNumber}
                 onChangeText={(text) => {
                   setAccountNumber(text);
@@ -422,26 +431,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.primary,
     borderRadius: s(16),
-    padding: s(20),
-    marginBottom: vs(24),
+    padding: s(24),
+    marginBottom: vs(28),
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: s(8),
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: s(10),
+    elevation: 6,
   },
   balanceIconContainer: {
-    width: s(50),
-    height: s(50),
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: s(25),
+    width: s(56),
+    height: s(56),
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: s(28),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: s(16),
+    marginRight: s(18),
   },
   balanceIcon: {
-    width: s(28),
-    height: s(28),
+    width: s(30),
+    height: s(30),
     tintColor: Colors.white,
   },
   balanceTextContainer: {
@@ -449,29 +458,33 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontFamily: Fonts.primary,
-    fontSize: ms(13),
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: vs(4),
+    fontSize: ms(14),
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.95)',
+    marginBottom: vs(6),
+    letterSpacing: 0.3,
   },
   balanceValue: {
     fontFamily: Fonts.primary,
-    fontSize: ms(28),
+    fontSize: ms(22),
     fontWeight: '700',
     color: Colors.white,
+    letterSpacing: 0.5,
   },
 
   // Form Container
   formContainer: {
-    gap: vs(20),
+    gap: vs(24),
   },
   formGroup: {
-    gap: vs(8),
+    gap: vs(10),
   },
   formLabel: {
     fontFamily: Fonts.primary,
-    fontSize: ms(14),
+    fontSize: ms(15),
     fontWeight: '600',
     color: Colors.darkGray,
+    marginBottom: vs(2),
   },
 
   // Input Styles
@@ -537,51 +550,55 @@ const styles = StyleSheet.create({
 
   // Payment Method
   methodContainer: {
-    gap: vs(12),
+    gap: vs(14),
   },
   methodOption: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    borderRadius: s(12),
+    borderRadius: s(14),
     borderWidth: 2,
     borderColor: '#E0E0E0',
-    padding: s(16),
+    padding: s(18),
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: s(2),
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: s(4),
+    elevation: 2,
   },
   methodOptionSelected: {
     borderColor: Colors.primary,
-    backgroundColor: 'rgba(59, 183, 126, 0.05)',
+    backgroundColor: 'rgba(59, 183, 126, 0.08)',
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.15,
   },
-  methodIcon: {
-    fontSize: ms(24),
-    marginRight: s(12),
+  methodImage: {
+    width: s(48),
+    height: s(48),
+    marginRight: s(16),
   },
   methodText: {
     flex: 1,
     fontFamily: Fonts.primary,
-    fontSize: ms(15),
+    fontSize: ms(16),
     fontWeight: '600',
     color: Colors.textSecondary,
   },
   methodTextSelected: {
     color: Colors.primary,
+    fontWeight: '700',
   },
   methodCheckmark: {
-    width: s(24),
-    height: s(24),
+    width: s(26),
+    height: s(26),
     backgroundColor: Colors.primary,
-    borderRadius: s(12),
+    borderRadius: s(13),
     justifyContent: 'center',
     alignItems: 'center',
   },
   methodCheckmarkText: {
     color: Colors.white,
-    fontSize: ms(14),
+    fontSize: ms(15),
     fontWeight: '700',
   },
 

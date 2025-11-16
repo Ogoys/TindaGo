@@ -1115,13 +1115,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: vs(83),
+    top: vs(80),
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '700', // Bold weight for Add Product title
-    fontSize: ms(20), // Back to original Figma size
-    lineHeight: vs(22), // Back to original line height
+    fontSize: ms(18), // Reduced for better visibility
+    lineHeight: ms(24),
     color: Colors.darkGray,
     textAlign: 'center',
+    includeFontPadding: false,
   },
 
   // Upload Section - Figma: x: 22, y: 145, width: 398, height: 177

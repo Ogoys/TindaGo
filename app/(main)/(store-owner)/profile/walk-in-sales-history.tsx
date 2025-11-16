@@ -241,10 +241,11 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(20),
-    lineHeight: vs(24),
+    fontSize: ms(18),
+    lineHeight: ms(24),
     color: Colors.darkGray,
     marginLeft: s(70),
+    includeFontPadding: false,
   },
 
   scrollContent: {

@@ -143,12 +143,12 @@ const StoreProductScreen = () => {
   };
 
   const handleAddProduct = () => {
-    router.push('/(main)/(store-owner)/profile/add-product');
+    router.push('/(main)/(store-owner)/inventory/add-product');
   };
 
   const handleEditProduct = (product: Product) => {
     router.push({
-      pathname: '/(main)/(store-owner)/profile/edit-product',
+      pathname: '/(main)/(store-owner)/inventory/edit-product',
       params: { productId: product.id }
     });
   };
@@ -870,11 +870,12 @@ const styles = StyleSheet.create({
   categoriesLabel: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(20),
-    lineHeight: vs(22),
+    fontSize: ms(18),
+    lineHeight: ms(24),
     color: Colors.darkGray,
     marginTop: vs(30),
     marginBottom: vs(12),
+    includeFontPadding: false,
   },
 
   // Categories ScrollView - Figma: x: 0, y: 281, height: 139

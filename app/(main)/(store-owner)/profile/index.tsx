@@ -50,11 +50,16 @@ export default function ProfileScreen() {
   const { logout: contextLogout } = useUser();
 
   // User data state
-  const [userData, setUserData] = useState({
+  const [userData, setUserData] = useState<{
+    ownerName: string;
+    ownerEmail: string;
+    logoUrl?: string;
+    logo?: string;
+  }>({
     ownerName: 'Store Owner',
     ownerEmail: 'owner@gmail.com',
-    logoUrl: null as string | null,
-    logo: null as string | null,
+    logoUrl: undefined,
+    logo: undefined,
   });
   const [loading, setLoading] = useState(true);
 
@@ -74,10 +79,9 @@ export default function ProfileScreen() {
 
           // Get store registration data for logo
           const registrationData = await StoreRegistrationService.getRegistrationData(user.uid);
-          const logoUrl = registrationData?.businessInfo?.logoUrl || null;
-          const logo = registrationData?.businessInfo?.logo || null;
+          const logo = registrationData?.businessInfo?.logo || undefined;
 
-          console.log('🏪 Store logo:', logoUrl || logo ? 'Logo exists' : 'No logo');
+          console.log('🏪 Store logo:', logo ? 'Logo exists' : 'No logo');
 
           if (userSnapshot.exists()) {
             const data = userSnapshot.val();
@@ -86,7 +90,7 @@ export default function ProfileScreen() {
             setUserData({
               ownerName: data.name || 'Store Owner',
               ownerEmail: data.email || user.email || 'owner@gmail.com',
-              logoUrl: logoUrl,
+              logoUrl: logo,
               logo: logo,
             });
           } else {
@@ -95,7 +99,7 @@ export default function ProfileScreen() {
             setUserData({
               ownerName: 'Store Owner',
               ownerEmail: user.email || 'owner@gmail.com',
-              logoUrl: logoUrl,
+              logoUrl: logo,
               logo: logo,
             });
           }
@@ -114,12 +118,12 @@ export default function ProfileScreen() {
 
 
   const handleEditProfile = () => {
-    // Navigate to edit profile screen
-    console.log("Edit profile pressed");
+    // Navigate to My Account screen for editing profile
+    router.push('/(main)/(store-owner)/profile/my-account');
   };
 
   const handleMyAccount = () => {
-    console.log("My Account pressed");
+    router.push('/(main)/(store-owner)/profile/my-account');
   };
 
   const handleNotificationSettings = () => {

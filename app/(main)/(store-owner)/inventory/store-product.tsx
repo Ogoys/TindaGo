@@ -146,12 +146,12 @@ const StoreProductScreen = () => {
   };
 
   const handleAddProduct = () => {
-    router.push('/(main)/(store-owner)/profile/add-product');
+    router.push('/(main)/(store-owner)/inventory/add-product');
   };
 
   const handleEditProduct = (product: Product) => {
     router.push({
-      pathname: '/(main)/(store-owner)/profile/edit-product',
+      pathname: '/(main)/(store-owner)/inventory/edit-product',
       params: { productId: product.id }
     });
   };
@@ -628,40 +628,47 @@ const StoreProductScreen = () => {
                       ₱{selectedProduct.price.toFixed(2)}
                     </Text>
 
-                    <View style={styles.detailsRow}>
-                      <Text style={styles.detailsLabel}>Status:</Text>
-                      <Text style={[
-                        styles.detailsValue,
-                        { color: selectedProduct.status === 'available' ? Colors.primary : Colors.textSecondary }
-                      ]}>
-                        {selectedProduct.status === 'available' ? 'Available' : 'Out of Stock'}
-                      </Text>
-                    </View>
+                    {/* Product Information Section */}
+                    <View style={styles.infoSection}>
+                      <Text style={styles.sectionTitle}>Product Information</Text>
+                      
+                      <View style={styles.detailsRow}>
+                        <Text style={styles.detailsLabel}>Status</Text>
+                        <Text style={[
+                          styles.detailsValue,
+                          styles.statusBadge,
+                          { backgroundColor: selectedProduct.status === 'available' ? Colors.primary : Colors.textSecondary }
+                        ]}>
+                          {selectedProduct.status === 'available' ? '✓ Available' : '✕ Out of Stock'}
+                        </Text>
+                      </View>
 
-                    <View style={styles.detailsRow}>
-                      <Text style={styles.detailsLabel}>Size:</Text>
-                      <Text style={styles.detailsValue}>
-                        {selectedProduct.productSize} {selectedProduct.unit}
-                      </Text>
-                    </View>
+                      <View style={styles.detailsRow}>
+                        <Text style={styles.detailsLabel}>Size</Text>
+                        <Text style={styles.detailsValue}>
+                          {selectedProduct.productSize} {selectedProduct.unit}
+                        </Text>
+                      </View>
 
-                    <View style={styles.detailsRow}>
-                      <Text style={styles.detailsLabel}>Quantity:</Text>
-                      <Text style={[
-                        styles.detailsValue,
-                        selectedProduct.quantity === 0 ? { color: '#E92B45', fontWeight: '700' } :
-                        selectedProduct.quantity < 10 ? { color: '#FF9800', fontWeight: '600' } :
-                        { color: Colors.primary }
-                      ]}>
-                        {selectedProduct.quantity} {selectedProduct.unit || 'pieces'}
-                        {selectedProduct.quantity === 0 && ' - OUT OF STOCK'}
-                        {selectedProduct.quantity > 0 && selectedProduct.quantity < 10 && ' - LOW STOCK!'}
-                      </Text>
+                      <View style={styles.detailsRow}>
+                        <Text style={styles.detailsLabel}>Quantity</Text>
+                        <Text style={[
+                          styles.detailsValue,
+                          styles.quantityValue,
+                          selectedProduct.quantity === 0 ? { color: '#E92B45' } :
+                          selectedProduct.quantity < 10 ? { color: '#FF9800' } :
+                          { color: Colors.primary }
+                        ]}>
+                          {selectedProduct.quantity}
+                          {selectedProduct.quantity === 0 && ' - OUT OF STOCK'}
+                          {selectedProduct.quantity > 0 && selectedProduct.quantity < 10 && ' - LOW STOCK'}
+                        </Text>
+                      </View>
                     </View>
 
                     {/* Stock Adjustment Controls */}
                     <View style={styles.stockAdjustmentSection}>
-                      <Text style={styles.stockAdjustmentTitle}>Adjust Stock:</Text>
+                      <Text style={styles.stockAdjustmentTitle}>Adjust Stock</Text>
                       
                       {/* Quick adjustment buttons */}
                       <View style={styles.stockButtonRow}>
@@ -714,39 +721,44 @@ const StoreProductScreen = () => {
                       </View>
                     </View>
 
-                    {/* Expiry Date Display */}
-                    {selectedProduct.expiryDate && (
+                    {/* Additional Details Section */}
+                    <View style={styles.infoSection}>
+                      <Text style={styles.sectionTitle}>Additional Details</Text>
+                      
+                      {selectedProduct.expiryDate && (
+                        <View style={styles.detailsRow}>
+                          <Text style={styles.detailsLabel}>Expiry Date</Text>
+                          <Text style={[
+                            styles.detailsValue,
+                            new Date(selectedProduct.expiryDate) < new Date() ? { color: '#E92B45', fontWeight: '700' } :
+                            new Date(selectedProduct.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) ? { color: '#FF9800', fontWeight: '700' } :
+                            { color: Colors.darkGray, fontWeight: '600' }
+                          ]}>
+                            {new Date(selectedProduct.expiryDate).toLocaleDateString()}
+                            {new Date(selectedProduct.expiryDate) < new Date() && ' ⚠️'}
+                            {new Date(selectedProduct.expiryDate) >= new Date() && 
+                             new Date(selectedProduct.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && 
+                             ' ⚠️'}
+                          </Text>
+                        </View>
+                      )}
+
                       <View style={styles.detailsRow}>
-                        <Text style={styles.detailsLabel}>Expiry Date:</Text>
-                        <Text style={[
-                          styles.detailsValue,
-                          new Date(selectedProduct.expiryDate) < new Date() ? { color: '#E92B45', fontWeight: '700' } :
-                          new Date(selectedProduct.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) ? { color: '#FF9800', fontWeight: '600' } :
-                          { color: Colors.darkGray }
-                        ]}>
-                          {new Date(selectedProduct.expiryDate).toLocaleDateString()}
-                          {new Date(selectedProduct.expiryDate) < new Date() && ' - EXPIRED!'}
-                          {new Date(selectedProduct.expiryDate) >= new Date() && 
-                           new Date(selectedProduct.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && 
-                           ' - Expiring Soon'}
+                        <Text style={styles.detailsLabel}>Date Added</Text>
+                        <Text style={styles.detailsValue}>
+                          {selectedProduct.createdAt
+                            ? new Date(selectedProduct.createdAt).toLocaleDateString()
+                            : 'N/A'
+                          }
                         </Text>
                       </View>
-                    )}
-
-                    <View style={styles.descriptionSection}>
-                      <Text style={styles.detailsLabel}>Description:</Text>
-                      <Text style={styles.detailsDescription}>
-                        {selectedProduct.description}
-                      </Text>
                     </View>
 
-                    <View style={styles.detailsRow}>
-                      <Text style={styles.detailsLabel}>Added:</Text>
-                      <Text style={styles.detailsValue}>
-                        {selectedProduct.createdAt
-                          ? new Date(selectedProduct.createdAt).toLocaleDateString()
-                          : 'N/A'
-                        }
+                    {/* Description Section */}
+                    <View style={styles.descriptionSection}>
+                      <Text style={styles.sectionTitle}>Description</Text>
+                      <Text style={styles.detailsDescription}>
+                        {selectedProduct.description || 'No description available.'}
                       </Text>
                     </View>
                   </View>
@@ -1125,9 +1137,9 @@ const styles = StyleSheet.create({
   productDetailsModal: {
     backgroundColor: Colors.white,
     borderRadius: s(20),
-    width: s(380),
-    maxHeight: '80%',
-    margin: s(20),
+    width: '90%',
+    maxWidth: s(420),
+    maxHeight: '85%',
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
@@ -1139,18 +1151,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: s(15),
     right: s(15),
-    width: s(30),
-    height: s(30),
-    borderRadius: s(15),
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    width: s(36),
+    height: s(36),
+    borderRadius: s(18),
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
   },
 
   closeButtonText: {
-    fontSize: ms(16),
-    fontWeight: '600',
+    fontSize: ms(20),
+    fontWeight: '700',
     color: Colors.darkGray,
   },
 
@@ -1163,75 +1175,81 @@ const styles = StyleSheet.create({
   },
 
   detailsContent: {
-    padding: s(20),
+    padding: s(24),
+    paddingTop: s(20),
   },
 
   detailsProductName: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(24),
-    lineHeight: vs(28),
+    fontSize: ms(26),
+    lineHeight: vs(32),
     color: Colors.darkGray,
-    marginBottom: vs(8),
+    marginBottom: vs(6),
   },
 
   detailsCategory: {
     fontFamily: Fonts.primary,
     fontWeight: '500',
-    fontSize: ms(14),
-    lineHeight: vs(16),
+    fontSize: ms(15),
+    lineHeight: vs(18),
     color: Colors.textSecondary,
-    marginBottom: vs(12),
+    marginBottom: vs(10),
   },
 
   detailsPrice: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(28),
-    lineHeight: vs(32),
+    fontSize: ms(32),
+    lineHeight: vs(38),
     color: Colors.primary,
-    marginBottom: vs(20),
+    marginBottom: vs(24),
   },
 
   detailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: vs(12),
-    paddingVertical: vs(8),
+    marginBottom: vs(14),
+    paddingVertical: vs(10),
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
   },
 
   detailsLabel: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(16),
-    lineHeight: vs(18),
+    fontSize: ms(17),
+    lineHeight: vs(22),
     color: Colors.darkGray,
+    flex: 1,
   },
 
   detailsValue: {
     fontFamily: Fonts.primary,
     fontWeight: '500',
-    fontSize: ms(16),
-    lineHeight: vs(18),
+    fontSize: ms(17),
+    lineHeight: vs(22),
     color: Colors.textSecondary,
+    flex: 1.5,
+    textAlign: 'right',
   },
 
   descriptionSection: {
-    marginTop: vs(8),
-    marginBottom: vs(16),
+    marginTop: vs(4),
+    marginBottom: vs(20),
+    paddingTop: vs(16),
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
   },
 
   detailsDescription: {
     fontFamily: Fonts.primary,
     fontWeight: '400',
     fontSize: ms(16),
-    lineHeight: vs(22),
+    lineHeight: vs(24),
     color: Colors.darkGray,
-    marginTop: vs(8),
-    textAlign: 'justify',
+    marginTop: vs(10),
   },
 
   // Stock Info Styles
@@ -1273,48 +1291,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  // Section Styles
+  infoSection: {
+    marginBottom: vs(20),
+  },
+
+  sectionTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(18),
+    lineHeight: vs(24),
+    color: Colors.darkGray,
+    marginBottom: vs(12),
+    paddingBottom: vs(8),
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
+  },
+
+  statusBadge: {
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: Colors.white,
+    paddingHorizontal: s(12),
+    paddingVertical: vs(6),
+    borderRadius: s(6),
+    overflow: 'hidden',
+  },
+
+  quantityValue: {
+    fontWeight: '700',
+    fontSize: ms(18),
+  },
+
   // Stock Adjustment Styles
   stockAdjustmentSection: {
-    marginTop: vs(16),
-    marginBottom: vs(16),
+    marginTop: vs(4),
+    marginBottom: vs(20),
     paddingTop: vs(16),
-    borderTopWidth: 2,
-    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
   },
 
   stockAdjustmentTitle: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(16),
+    fontSize: ms(18),
+    lineHeight: vs(24),
     color: Colors.darkGray,
-    marginBottom: vs(12),
+    marginBottom: vs(14),
+    paddingBottom: vs(8),
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
   },
 
   stockButtonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: vs(12),
+    marginBottom: vs(14),
+    gap: s(8),
   },
 
   stockButton: {
     flex: 1,
-    marginHorizontal: s(4),
-    paddingVertical: vs(12),
+    paddingVertical: vs(14),
     backgroundColor: Colors.primary,
-    borderRadius: s(8),
+    borderRadius: s(10),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 5,
+    elevation: 4,
   },
 
   stockButtonText: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(16),
+    fontSize: ms(17),
     color: Colors.white,
   },
 
@@ -1325,34 +1379,36 @@ const styles = StyleSheet.create({
 
   stockInput: {
     flex: 1,
-    height: vs(45),
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: s(8),
-    paddingHorizontal: s(12),
+    height: vs(50),
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: s(10),
+    paddingHorizontal: s(16),
     fontFamily: Fonts.primary,
-    fontSize: ms(16),
-    marginRight: s(8),
+    fontSize: ms(17),
+    fontWeight: '500',
+    marginRight: s(10),
+    color: Colors.darkGray,
   },
 
   setStockButton: {
-    paddingVertical: vs(12),
-    paddingHorizontal: s(20),
+    paddingVertical: vs(14),
+    paddingHorizontal: s(24),
     backgroundColor: Colors.primary,
-    borderRadius: s(8),
+    borderRadius: s(10),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 5,
+    elevation: 4,
   },
 
   setStockButtonText: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(16),
+    fontSize: ms(17),
     color: Colors.white,
   },
 

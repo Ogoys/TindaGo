@@ -406,7 +406,7 @@ export default function InventoryDashboardScreen() {
           <View style={styles.actionsGrid}>
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => router.push('/(main)/(store-owner)/profile/add-product')}
+              onPress={() => router.push('/(main)/(store-owner)/inventory/add-product')}
             >
               <Text style={styles.actionIcon}>➕</Text>
               <Text style={styles.actionText}>Add Product</Text>
@@ -505,8 +505,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(20),
+    fontSize: ms(18),
+    lineHeight: ms(24),
     color: Colors.darkGray,
+    includeFontPadding: false,
   },
   refreshButton: {
     width: s(30),

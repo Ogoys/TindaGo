@@ -96,12 +96,12 @@ export default function StoreOwnerLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="inventory"
         options={{
-          title: "Profile",
+          title: "Inventory",
           tabBarIcon: ({ focused }) => (
             <Image
-              source={require('../../../src/assets/images/store-owner-dashboard/person-icon.png')}
+              source={require('../../../src/assets/images/store-owner-dashboard/purchase-order-icon.png')}
               style={{
                 width: s(30),
                 height: s(30),
@@ -113,12 +113,12 @@ export default function StoreOwnerLayout() {
         }}
       />
       <Tabs.Screen
-        name="inventory"
+        name="profile"
         options={{
-          title: "Inventory",
+          title: "Profile",
           tabBarIcon: ({ focused }) => (
             <Image
-              source={require('../../../src/assets/images/store-owner-dashboard/purchase-order-icon.png')}
+              source={require('../../../src/assets/images/store-owner-dashboard/person-icon.png')}
               style={{
                 width: s(30),
                 height: s(30),
