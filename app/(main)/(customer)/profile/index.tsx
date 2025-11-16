@@ -93,19 +93,11 @@ export default function CustomerProfile() {
       },
     },
     {
-      id: 'help-support',
-      label: 'Help & Support',
+      id: 'help',
+      label: 'Help',
       icon: require('../../../../src/assets/images/customer-profile-nav/support-icon.png'),
       onPress: () => {
-        router.push('/(main)/(customer)/profile/help-support');
-      },
-    },
-    {
-      id: 'terms-privacy',
-      label: 'Term & Privacy Policy',
-      icon: require('../../../../src/assets/images/customer-profile-nav/privacy-icon.png'),
-      onPress: () => {
-        router.push('/(main)/(customer)/profile/terms-privacy');
+        router.push('/(main)/(customer)/profile/help-center');
       },
     },
     {

@@ -112,9 +112,6 @@ export default function ProfileScreen() {
     fetchUserData();
   }, []);
 
-  const handleBack = () => {
-    router.back();
-  };
 
   const handleEditProfile = () => {
     // Navigate to edit profile screen
@@ -194,7 +191,7 @@ export default function ProfileScreen() {
   };
 
   const handleHelp = () => {
-    console.log("Help pressed");
+    router.push('/(main)/(store-owner)/profile/help-center');
   };
 
   const handleLogout = async () => {
@@ -236,14 +233,8 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Fixed Back Button and Settings Title */}
+      {/* Settings Title */}
       <View style={styles.fixedHeader}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <Image
-            source={require("../../../../src/assets/images/store-owner-profile/chevron-left.png")}
-            style={styles.backIcon}
-          />
-        </TouchableOpacity>
         <Text style={styles.settingsTitle}>Settings</Text>
       </View>
 
@@ -320,24 +311,9 @@ export default function ProfileScreen() {
             onPress={handleStoreLocation}
           />
           <SettingItem
-            title="Store Product"
-            iconName="cube"
-            onPress={handleStoreProduct}
-          />
-          <SettingItem
-            title="Inventory Dashboard"
-            iconName="pie-chart"
-            onPress={handleInventoryDashboard}
-          />
-          <SettingItem
             title="Sales Dashboard"
             iconName="stats-chart"
             onPress={handleSalesDashboard}
-          />
-          <SettingItem
-            title="Sales History"
-            iconName="time"
-            onPress={handleSalesHistory}
           />
           <SettingItem
             title="Reviews & Ratings"
@@ -345,30 +321,9 @@ export default function ProfileScreen() {
             onPress={handleReviews}
           />
           <SettingItem
-            title="Record Walk-in Sale"
-            iconName="cash"
-            onPress={handleRecordWalkInSale}
-          />
-          <SettingItem
-            title="Record Damages & Spoilages"
-            iconName="alert-circle"
-            onPress={handleRecordDamage}
-          />
-          <SettingItem
-            title="Expired Products"
-            iconName="warning"
-            onPress={handleExpiredProducts}
-            iconColor="#E92B45"
-          />
-          <SettingItem
-            title="Record Purchase Order"
-            iconName="add-circle"
-            onPress={handleRecordPurchaseOrder}
-          />
-          <SettingItem
-            title="Purchase Order History"
-            iconName="receipt"
-            onPress={handlePurchaseOrderHistory}
+            title="Sales History"
+            iconName="bar-chart"
+            onPress={handleSalesHistory}
           />
           <SettingItem
             title="Record Customer Return"

@@ -6,11 +6,12 @@ import { s, vs } from "../../../src/constants/responsive";
 export default function StoreOwnerLayout() {
   const pathname = usePathname();
 
-  // Hide bottom tabs when inside wallet or profile subdirectories
-  // Show tabs ONLY on: /home, /orders, /wallet (index), /profile (index)
+  // Hide bottom tabs when inside wallet, profile, or inventory subdirectories
+  // Show tabs ONLY on: /home, /orders, /wallet (index), /profile (index), /inventory (index)
   const hideTabsWallet = pathname?.startsWith('/(main)/(store-owner)/wallet/') && pathname !== '/(main)/(store-owner)/wallet';
   const hideTabsProfile = pathname?.startsWith('/(main)/(store-owner)/profile/') && pathname !== '/(main)/(store-owner)/profile';
-  const hideTabs = hideTabsWallet || hideTabsProfile;
+  const hideTabsInventory = pathname?.startsWith('/(main)/(store-owner)/inventory/') && pathname !== '/(main)/(store-owner)/inventory';
+  const hideTabs = hideTabsWallet || hideTabsProfile || hideTabsInventory;
 
   return (
     <Tabs
@@ -101,6 +102,23 @@ export default function StoreOwnerLayout() {
           tabBarIcon: ({ focused }) => (
             <Image
               source={require('../../../src/assets/images/store-owner-dashboard/person-icon.png')}
+              style={{
+                width: s(30),
+                height: s(30),
+                tintColor: focused ? Colors.primary : Colors.textSecondary,
+              }}
+              resizeMode="contain"
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="inventory"
+        options={{
+          title: "Inventory",
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={require('../../../src/assets/images/store-owner-dashboard/purchase-order-icon.png')}
               style={{
                 width: s(30),
                 height: s(30),

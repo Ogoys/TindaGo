@@ -165,16 +165,21 @@ export async function fetchProductsByStore(storeId: string, includeOutOfStock: b
 
     if (snapshot.exists()) {
       const data = snapshot.val();
-      // Map products with their IDs and filter by storeId client-side
+      // Map products with their IDs and filter by storeId OR storeOwnerId client-side
+      // Some products may use storeOwnerId instead of storeId
       const allProducts = Object.keys(data)
         .map(productId => ({
           id: productId,
           ...data[productId]
         }))
-        .filter(product => product.storeId === storeId) as Product[];
+        .filter(product => product.storeId === storeId || product.storeOwnerId === storeId) as Product[];
       
       // Filter to only show available products unless explicitly requested
-      return includeOutOfStock ? allProducts : allProducts.filter(p => p.status === 'available');
+      // Also filter out products with quantity <= 0
+      const filtered = includeOutOfStock ? allProducts : allProducts.filter(p => p.status === 'available' && (p.quantity > 0 || p.stock > 0));
+      
+      console.log(`📦 Fetched ${filtered.length} products for store ${storeId}`);
+      return filtered;
     }
     return [];
   } catch (error) {
