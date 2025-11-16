@@ -37,9 +37,6 @@ interface StoreData {
   email?: string;
   address?: string;
   city?: string;
-  operatingHours?: {
-    [key: string]: string;
-  };
   coordinates?: {
     latitude: number;
     longitude: number;
@@ -94,15 +91,6 @@ export default function StoreInfoScreen() {
             email: regData.businessInfo?.email || userData.email || user.email || '',
             address: locationAddress,
             city: locationCity,
-            operatingHours: regData.operatingHours || {
-              Monday: '8:00 AM - 6:00 PM',
-              Tuesday: '8:00 AM - 6:00 PM',
-              Wednesday: '8:00 AM - 6:00 PM',
-              Thursday: '8:00 AM - 6:00 PM',
-              Friday: '8:00 AM - 6:00 PM',
-              Saturday: '9:00 AM - 5:00 PM',
-              Sunday: 'Closed',
-            },
             coordinates: regData.location?.coordinates || regData.businessInfo?.coordinates || regData.coordinates || undefined,
             status: regData.status || 'active',
             isOpen: regData.isOpen ?? true,
@@ -316,30 +304,6 @@ export default function StoreInfoScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Operating Hours Section */}
-        {storeData.operatingHours && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="time" size={20} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>Operating Hours</Text>
-            </View>
-
-            {Object.entries(storeData.operatingHours).map(([day, hours]) => (
-              <View key={day} style={styles.hoursRow}>
-                <Text style={styles.dayText}>{day}</Text>
-                <Text
-                  style={[
-                    styles.hoursText,
-                    hours === 'Closed' && styles.closedText,
-                  ]}
-                >
-                  {hours}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         {/* Location Section */}
         <View style={styles.section}>
@@ -561,25 +525,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1E1E1E',
     fontWeight: '500',
-  },
-  hoursRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  dayText: {
-    fontSize: 14,
-    color: '#1E1E1E',
-    fontWeight: '500',
-  },
-  hoursText: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  closedText: {
-    color: '#FF4444',
   },
   addressContainer: {
     marginBottom: 16,
