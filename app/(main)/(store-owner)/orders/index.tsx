@@ -56,69 +56,6 @@ const FILTER_TABS: FilterTab[] = [
   { label: 'Cancel', status: 'cancelled' },
 ];
 
-// MOCK DATA - 1 sample per status for visualization/testing
-const MOCK_ORDERS: Partial<Order>[] = [
-  {
-    id: 'mock-pending-1',
-    orderNumber: '#SAMPLE-001',
-    customerName: 'Sample Customer',
-    customerPhone: '+63 912 345 6789',
-    total: 589.00,
-    paymentMethod: 'cash',
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'mock-preparing-1',
-    orderNumber: '#SAMPLE-002',
-    customerName: 'Test User',
-    customerPhone: '+63 923 456 7890',
-    total: 750.00,
-    paymentMethod: 'gcash',
-    status: 'preparing',
-    createdAt: new Date(Date.now() - 15 * 60000).toISOString(), // 15 min ago
-    updatedAt: new Date(Date.now() - 15 * 60000).toISOString(),
-  },
-  {
-    id: 'mock-ready-1',
-    orderNumber: '#SAMPLE-003',
-    customerName: 'Demo Customer',
-    customerPhone: '+63 934 567 8901',
-    total: 1200.00,
-    paymentMethod: 'paymaya',
-    status: 'ready',
-    createdAt: new Date(Date.now() - 60 * 60000).toISOString(), // 1 hour ago
-    updatedAt: new Date(Date.now() - 60 * 60000).toISOString(),
-  },
-  {
-    id: 'mock-pickedup-1',
-    orderNumber: '#SAMPLE-004',
-    customerName: 'Completed Order',
-    customerPhone: '+63 945 678 9012',
-    total: 450.00,
-    paymentMethod: 'cash',
-    status: 'picked_up',
-    createdAt: new Date(Date.now() - 120 * 60000).toISOString(), // 2 hours ago
-    updatedAt: new Date(Date.now() - 120 * 60000).toISOString(),
-    completedAt: new Date(Date.now() - 120 * 60000).toISOString(),
-  },
-  {
-    id: 'mock-cancelled-1',
-    orderNumber: '#SAMPLE-005',
-    customerName: 'Cancelled Test',
-    customerPhone: '+63 956 789 0123',
-    total: 350.00,
-    paymentMethod: 'gcash',
-    status: 'cancelled',
-    cancellationReason: 'Customer requested cancellation',
-    cancelledBy: 'customer',
-    createdAt: new Date(Date.now() - 24 * 60 * 60000).toISOString(), // 1 day ago
-    updatedAt: new Date(Date.now() - 24 * 60 * 60000).toISOString(),
-    cancelledAt: new Date(Date.now() - 24 * 60 * 60000).toISOString(),
-  },
-];
-
 export default function StoreOrdersScreen() {
   const { user } = useUser();
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('pending');
@@ -253,11 +190,8 @@ export default function StoreOrdersScreen() {
     }
   };
 
-  // Merge mock data with real orders for visualization
-  const allOrders = [...(MOCK_ORDERS as Order[]), ...realOrders];
-
   // Filter orders based on selected status
-  const filteredOrders = allOrders.filter(order => order.status === selectedFilter);
+  const filteredOrders = realOrders.filter(order => order.status === selectedFilter);
 
   const handleBack = () => {
     router.back();
@@ -270,12 +204,6 @@ export default function StoreOrdersScreen() {
 
   // PREPARING STATUS: Mark order as ready for pickup
   const handleReadyForPickup = async (orderId: string, orderNumber: string) => {
-    // Don't update mock data
-    if (orderId.startsWith('mock-')) {
-      Alert.alert("Demo Order", "This is a sample order for visualization. Real orders will update Firebase.");
-      return;
-    }
-
     Alert.alert(
       "Mark as Ready?",
       `Order ${orderNumber} will be marked as ready for pickup. Customer will be notified.`,
@@ -306,12 +234,6 @@ export default function StoreOrdersScreen() {
 
   // READY STATUS: Confirm customer picked up the order
   const handleOrderPickup = async (orderId: string, orderNumber: string) => {
-    // Don't update mock data
-    if (orderId.startsWith('mock-')) {
-      Alert.alert("Demo Order", "This is a sample order for visualization. Real orders will update Firebase.");
-      return;
-    }
-
     Alert.alert(
       "Confirm Order Pickup?",
       `Has the customer picked up order ${orderNumber}?`,

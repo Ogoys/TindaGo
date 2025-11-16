@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     marginBottom: vs(8),
   },
   balanceValue: {
-    fontSize: s(40),
+    fontSize: s(32),
     fontWeight: '700',
     color: 'white',
     marginBottom: vs(4),

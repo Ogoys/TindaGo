@@ -18,15 +18,16 @@ export default function StoreOwnerLayout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: Colors.white,
-          height: hideTabs ? 0 : vs(120),
-          paddingBottom: hideTabs ? 0 : vs(20),
-          paddingTop: hideTabs ? 0 : vs(20),
-          borderTopWidth: 0,
+          height: hideTabs ? 0 : vs(80),
+          paddingBottom: hideTabs ? 0 : vs(12),
+          paddingTop: hideTabs ? 0 : vs(8),
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
           shadowColor: Colors.shadow,
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: hideTabs ? 0 : 0.25,
-          shadowRadius: hideTabs ? 0 : s(5),
-          elevation: hideTabs ? 0 : 10,
+          shadowOpacity: hideTabs ? 0 : 0.1,
+          shadowRadius: hideTabs ? 0 : s(8),
+          elevation: hideTabs ? 0 : 8,
           display: hideTabs ? 'none' : 'flex',
         },
         tabBarActiveTintColor: Colors.primary,
@@ -36,6 +37,9 @@ export default function StoreOwnerLayout() {
           fontWeight: "500",
           marginTop: vs(4),
           display: hideTabs ? 'none' : 'flex',
+        },
+        tabBarIconStyle: {
+          marginTop: vs(8),
         },
       }}
     >

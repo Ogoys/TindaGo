@@ -72,11 +72,6 @@ export default function EnableLocationScreen() {
     router.replace('/(main)/(customer)/home');
   };
 
-  const handleTestMaps = () => {
-    // Navigate to test map screen
-    router.push('/test-map');
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
@@ -106,17 +101,6 @@ export default function EnableLocationScreen() {
       {/* Bottom Button */}
       <View style={styles.bottomContainer}>
         
-        {/* Test Maps Button (For Testing) */}
-        <TouchableOpacity
-          style={styles.testButton}
-          onPress={handleTestMaps}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.testButtonText}>
-            🗺️ Test Google Maps
-          </Text>
-        </TouchableOpacity>
-
         {/* Allow Location Access Button */}
         <TouchableOpacity
           style={styles.allowButton}
@@ -183,29 +167,6 @@ const styles = StyleSheet.create({
   bottomContainer: {
     paddingHorizontal: s(20),
     paddingBottom: vs(40),
-  },
-
-  // Test Button (For Testing)
-  testButton: {
-    width: '100%',
-    height: vs(56),
-    backgroundColor: '#2196F3',
-    borderRadius: s(28),
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: vs(12),
-    shadowColor: 'rgba(33, 150, 243, 0.3)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  testButtonText: {
-    fontFamily: Fonts.primary,
-    fontWeight: '500',
-    fontSize: ms(16),
-    color: '#FFFFFF',
   },
 
   // Allow Button

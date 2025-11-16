@@ -18,7 +18,6 @@ import { ref, get, query, orderByChild, equalTo } from "firebase/database";
 import { database } from "../../../FirebaseConfig";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { BottomNavigation, Toast, ProductCard } from "../../../src/components/ui";
-import { DevTestButton } from "../../../src/components/dev/DevTestButton";
 import { useUser } from "../../../src/contexts/UserContext";
 import { addToCart, addToCartWithValidation } from "../../../src/api/cart";
 import { getProductImageSource } from "../../../src/lib/helpers/imageHelper";
@@ -1091,9 +1090,6 @@ export default function HomeScreen() {
         type="success"
         onDismiss={() => setShowToast(false)}
       />
-
-      {/* Dev Test Button - Only visible in development */}
-      <DevTestButton />
     </SafeAreaView>
   );
 }

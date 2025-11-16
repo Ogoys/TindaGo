@@ -51,36 +51,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// MOCK DATA - 1 sample order for visualization
-const MOCK_ORDERS: Partial<Order>[] = [
-  {
-    id: 'mock-customer-order-1',
-    orderNumber: '#DEMO-2024-001',
-    customerId: 'demo',
-    customerName: 'Demo Customer',
-    customerPhone: '+63 912 345 6789',
-    storeId: 'demo-store',
-    storeName: 'Sample Sari-Sari Store',
-    items: [
-      {
-        productId: 'demo-1',
-        productName: 'Sample Product',
-        productImage: '',
-        quantity: 2,
-        price: 50,
-        subtotal: 100,
-      },
-    ],
-    subtotal: 100,
-    total: 105,
-    status: 'preparing',
-    paymentMethod: 'cash',
-    paymentStatus: 'pending',
-    createdAt: new Date(Date.now() - 30 * 60000).toISOString(), // 30 min ago
-    updatedAt: new Date(Date.now() - 30 * 60000).toISOString(),
-  },
-];
-
 export default function OrdersScreen() {
   const { user } = useUser();
   const [realOrders, setRealOrders] = useState<Order[]>([]);
@@ -174,8 +144,8 @@ export default function OrdersScreen() {
     }
   };
 
-  // Merge mock orders with real orders
-  const orders = [...(MOCK_ORDERS as Order[]), ...realOrders];
+  // Use real orders only
+  const orders = realOrders;
 
   const toggleOrder = (orderId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

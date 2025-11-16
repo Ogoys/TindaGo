@@ -60,8 +60,6 @@ interface Product {
   quantity: number;  // Firebase uses 'quantity' for stock count
   productSize: string;
   unit: string;
-  rating?: number;
-  totalReviews?: number;
   storeOwnerId: string;
   createdAt: string;
   updatedAt: string;
@@ -628,25 +626,6 @@ export default function ProductDetailsScreen() {
           </View>
         </View>
 
-        {/* Rating Section - Full width below product info */}
-        <View style={styles.ratingSection}>
-          <View style={styles.ratingContainer}>
-            <Image
-              source={require('../../../src/assets/images/product-details/star-icon.png')}
-              style={styles.starIcon}
-            />
-            <Text style={styles.ratingText}>
-              {product.rating ? product.rating.toFixed(1) : '0.0'} / 5.0
-            </Text>
-            {product.totalReviews && (
-              <Text style={styles.reviewCount}>({product.totalReviews} Reviews)</Text>
-            )}
-            {!product.rating && (
-              <Text style={styles.noRatingText}>(No ratings yet)</Text>
-            )}
-          </View>
-        </View>
-
         {/* Description Section - Figma: x:20, y:606, width:400, height:82 */}
         <View style={styles.descriptionContainer}>
           <Text style={styles.descriptionTitle}>Description</Text>
@@ -1195,47 +1174,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primary,
     lineHeight: vs(30),
-  },
-
-  // Rating Section - Full width below product info
-  ratingSection: {
-    paddingHorizontal: s(20),
-    marginTop: vs(10),
-    marginBottom: vs(5),
-  },
-
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(8),
-  },
-
-  starIcon: {
-    width: s(16),
-    height: s(16),
-  },
-
-  ratingText: {
-    fontSize: ms(14),
-    fontWeight: '500',
-    color: Colors.darkGray,
-    lineHeight: vs(18),
-  },
-
-  reviewCount: {
-    fontSize: ms(12),
-    fontWeight: '400',
-    color: 'rgba(0, 0, 0, 0.5)',
-    lineHeight: vs(18),
-    marginLeft: s(5),
-  },
-
-  noRatingText: {
-    fontSize: ms(12),
-    fontWeight: '400',
-    color: 'rgba(0, 0, 0, 0.4)',
-    fontStyle: 'italic',
-    lineHeight: vs(18),
   },
 
   // Description Section - Figma: x:20, y:606, width:400, height:82

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View, Switch, Alert } from "react-native";
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View, Switch, Alert, ActivityIndicator } from "react-native";
 import { router } from 'expo-router';
 import { auth, database } from "@/lib/firebase";
 import { ref, get, update, onValue, query, orderByChild, equalTo } from "firebase/database";
@@ -8,10 +8,28 @@ import { Colors } from "../../../src/constants/Colors";
 import { Fonts } from "../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { StoreRegistrationService } from "@/services/store";
+import type { Order } from "../../../src/models/Order";
+
+type FilterStatus = 'pending' | 'preparing' | 'ready' | 'picked_up' | 'cancelled';
+
+interface FilterTab {
+  label: string;
+  status: FilterStatus;
+}
+
+const FILTER_TABS: FilterTab[] = [
+  { label: 'Pending', status: 'pending' },
+  { label: 'Preparing', status: 'preparing' },
+  { label: 'Out for Pickup', status: 'ready' },
+  { label: 'Pickup', status: 'picked_up' },
+  { label: 'Cancel', status: 'cancelled' },
+];
 
 export default function StoreHomeScreen() {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
-  const [selectedFilter, setSelectedFilter] = useState('Pending');
+  const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('pending');
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Store data from Firebase
   const [storeData, setStoreData] = useState({
@@ -99,6 +117,49 @@ export default function StoreHomeScreen() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Fetch all store orders
+  useEffect(() => {
+    const fetchAllOrders = async () => {
+      try {
+        setLoadingOrders(true);
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const ordersRef = ref(database, 'orders');
+        const storeOrdersQuery = query(
+          ordersRef,
+          orderByChild('storeId'),
+          equalTo(user.uid)
+        );
+
+        const snapshot = await get(storeOrdersQuery);
+
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const orders = Object.keys(data)
+            .map(orderId => ({
+              ...data[orderId],
+              id: orderId,
+            }))
+            .sort((a: Order, b: Order) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+
+          setAllOrders(orders as Order[]);
+        } else {
+          setAllOrders([]);
+        }
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        setAllOrders([]);
+      } finally {
+        setLoadingOrders(false);
+      }
+    };
+
+    fetchAllOrders();
   }, []);
 
   // Auto-disable expired products on mount
@@ -251,7 +312,10 @@ export default function StoreHomeScreen() {
     },
   ];
 
-  const filterTabs = ['Pending', 'Preparing', 'Out for Pickup', 'Pickup', 'Reject'];
+  // Filter orders based on selected status
+  const filteredOrders = allOrders
+    .filter(order => order.status === selectedFilter)
+    .slice(0, 2); // Limit to 2 orders for home screen preview
 
   return (
     <View style={styles.container}>
@@ -428,11 +492,11 @@ export default function StoreHomeScreen() {
           </View>
         </View>
 
-        {/* Order Update Section - Figma: Label Group at 23,870 395x24 */}
+          {/* Order Update Section - Figma: Label Group at 23,870 395x24 */}
         <View style={styles.orderUpdateSection}>
           <View style={styles.orderUpdateHeader}>
             <Typography style={styles.orderUpdateTitle}>Order update</Typography>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(main)/(store-owner)/orders' as any)}>
               <Typography style={styles.seeMoreText}>See more</Typography>
             </TouchableOpacity>
           </View>
@@ -444,22 +508,23 @@ export default function StoreHomeScreen() {
             style={styles.filterScrollView}
             contentContainerStyle={styles.filterContainer}
           >
-            {filterTabs.map((filter, index) => (
+            {FILTER_TABS.map((tab) => (
               <TouchableOpacity
-                key={filter}
+                key={tab.status}
                 style={[
                   styles.filterPill,
-                  selectedFilter === filter && styles.filterPillActive
+                  selectedFilter === tab.status && styles.filterPillActive
                 ]}
-                onPress={() => setSelectedFilter(filter)}
+                onPress={() => setSelectedFilter(tab.status)}
+                activeOpacity={0.7}
               >
                 <Typography
                   style={[
                     styles.filterText,
-                    selectedFilter === filter ? styles.filterTextActive : {}
+                    selectedFilter === tab.status ? styles.filterTextActive : {}
                   ]}
                 >
-                  {filter}
+                  {tab.label}
                 </Typography>
               </TouchableOpacity>
             ))}
@@ -468,11 +533,24 @@ export default function StoreHomeScreen() {
 
         {/* Order List Cards */}
         <View style={styles.orderListContainer}>
-          {[0, 1].map((cardIndex) => (
-            <TouchableOpacity
-              key={cardIndex}
-              style={styles.orderCard}
-            >
+          {loadingOrders ? (
+            <View style={styles.loadingOrders}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          ) : filteredOrders.length === 0 ? (
+            <View style={styles.emptyOrders}>
+              <Typography style={styles.emptyOrdersText}>
+                No {FILTER_TABS.find(t => t.status === selectedFilter)?.label.toLowerCase()} orders
+              </Typography>
+            </View>
+          ) : (
+            filteredOrders.map((order) => (
+              <TouchableOpacity
+                key={order.id}
+                style={styles.orderCard}
+                onPress={() => router.push(`/(main)/(store-owner)/orders/details?id=${order.id}&status=${order.status}` as any)}
+                activeOpacity={0.8}
+              >
               {/* Order Card Background - Figma: Rectangle 64 400x200 with 16px radius */}
               <View style={styles.orderCardBackground} />
 
@@ -490,9 +568,22 @@ export default function StoreHomeScreen() {
               <View style={styles.orderHeader}>
                 <View style={styles.orderHeaderLeft}>
                   <Typography style={styles.orderNoLabel}>Order No</Typography>
-                  <Typography style={styles.orderNoValue}>#12345</Typography>
+                  <Typography style={styles.orderNoValue}>{order.orderNumber}</Typography>
                 </View>
-                <Typography style={styles.orderTime}>1 min ago</Typography>
+                <Typography style={styles.orderTime}>
+                  {(() => {
+                    const now = new Date();
+                    const orderDate = new Date(order.createdAt);
+                    const diffMs = now.getTime() - orderDate.getTime();
+                    const diffMins = Math.floor(diffMs / 60000);
+                    if (diffMins < 1) return 'Just now';
+                    if (diffMins < 60) return `${diffMins} min ago`;
+                    const diffHours = Math.floor(diffMins / 60);
+                    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    const diffDays = Math.floor(diffHours / 24);
+                    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                  })()}
+                </Typography>
               </View>
 
               {/* Separator Line - Figma: Vector 43 at 30,1044 */}
@@ -508,7 +599,7 @@ export default function StoreHomeScreen() {
                     resizeMode="contain"
                   />
                   <View style={styles.orderDetailText}>
-                    <Typography style={styles.customerName}>Dotarot{'\n'}Maynard</Typography>
+                    <Typography style={styles.customerName}>{order.customerName}</Typography>
                   </View>
                 </View>
 
@@ -520,7 +611,7 @@ export default function StoreHomeScreen() {
                     resizeMode="contain"
                   />
                   <View style={styles.orderDetailText}>
-                    <Typography style={styles.phoneNumber}>+6398 032{'\n'}4213</Typography>
+                    <Typography style={styles.phoneNumber}>{order.customerPhone || 'N/A'}</Typography>
                   </View>
                 </View>
               </View>
@@ -535,7 +626,7 @@ export default function StoreHomeScreen() {
                     resizeMode="contain"
                   />
                   <View style={styles.orderDetailText}>
-                    <Typography style={styles.orderPrice}>₱589.00</Typography>
+                    <Typography style={styles.orderPrice}>₱{order.total.toFixed(2)}</Typography>
                   </View>
                 </View>
 
@@ -547,12 +638,18 @@ export default function StoreHomeScreen() {
                     resizeMode="contain"
                   />
                   <View style={styles.orderDetailText}>
-                    <Typography style={styles.paymentMethod}>PAYMAYA</Typography>
+                    <Typography style={styles.paymentMethod}>
+                      {order.paymentMethod === 'gcash' ? 'GCash' :
+                       order.paymentMethod === 'paymaya' ? 'PayMaya' :
+                       order.paymentMethod === 'cash' ? 'Cash' :
+                       order.paymentMethod.toUpperCase()}
+                    </Typography>
                   </View>
                 </View>
               </View>
             </TouchableOpacity>
-          ))}
+            ))
+          )}
         </View>
 
       </ScrollView>
@@ -1217,4 +1314,24 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
   },
 
+  // Loading Orders
+  loadingOrders: {
+    paddingVertical: vs(60),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Empty Orders
+  emptyOrders: {
+    paddingVertical: vs(60),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  emptyOrdersText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: ms(16),
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
 });

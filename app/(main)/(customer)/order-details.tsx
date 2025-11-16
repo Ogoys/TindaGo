@@ -421,16 +421,6 @@ export default function OrderDetailsScreen() {
         onClose={() => setShowCompleteModal(false)}
         orderId={order.id}
       />
-
-      {/* Test Button - Only visible in test mode */}
-      {testMode && (
-        <TouchableOpacity
-          style={styles.testCompleteButton}
-          onPress={() => setShowCompleteModal(true)}
-        >
-          <Text style={styles.testCompleteButtonText}>🎉 Test Complete Modal</Text>
-        </TouchableOpacity>
-      )}
     </SafeAreaView>
   );
 }
@@ -1226,27 +1216,5 @@ const styles = StyleSheet.create({
   // Progress Time Inactive - Pending timestamp
   progressTimeInactive: {
     color: 'rgba(30, 30, 30, 0.5)',
-  },
-
-  // Test Complete Button
-  testCompleteButton: {
-    position: 'absolute',
-    bottom: vs(20),
-    right: s(20),
-    backgroundColor: '#FF8D2F',
-    paddingHorizontal: s(20),
-    paddingVertical: vs(12),
-    borderRadius: s(25),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
-    zIndex: 9999,
-  },
-  testCompleteButtonText: {
-    fontSize: ms(14),
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
 });
