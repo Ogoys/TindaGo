@@ -81,46 +81,34 @@ const SalesDashboardScreen = () => {
       // Fetch walk-in sales
       const walkInSales = await getWalkInSales(currentUser.uid);
 
-      // Fetch app orders and their ledger transactions (OPTIMIZED: single get() call)
-      const ordersRef = ref(database, 'orders');
-      const ordersQuery = query(
-        ordersRef,
-        orderByChild('storeOwnerId'),
-        equalTo(currentUser.uid)
-      );
-
-      const snapshot = await get(ordersQuery);
+      // Fetch ledger transactions (SAME AS WALLET/EARNINGS SCREEN)
+      const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
+      const ledgerSnapshot = await get(ledgerRef);
+      
       const appOrders: Transaction[] = [];
       
-      if (snapshot.exists()) {
-        const data = snapshot.val();
+      if (ledgerSnapshot.exists()) {
+        const ledgerData = ledgerSnapshot.val();
         
-        // Fetch ledger transactions for commission data
-        const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
-        const ledgerSnapshot = await get(ledgerRef);
-        
-        const ledgerData = ledgerSnapshot.exists() ? ledgerSnapshot.val() : {};
-        
-        Object.keys(data).forEach(key => {
-          const order = data[key];
-          // Only include completed orders
-          if (order.status === 'completed' || order.status === 'delivered') {
-            // Find matching ledger transaction
-            const ledgerTxn = Object.values(ledgerData).find(
-              (txn: any) => txn.orderId === key || txn.orderNumber === order.orderNumber
-            ) as any;
+        // Use ledger transactions (which have PAID/SETTLED status)
+        Object.entries(ledgerData).forEach(([txnId, txn]: [string, any]) => {
+          // Only include PAID or SETTLED transactions (same as Wallet)
+          if (txn.status === 'PAID' || txn.status === 'SETTLED') {
+            const totalAmount = txn.amount || 0;
+            const commission = txn.commission || 0;
+            const storeAmount = txn.storeAmount || (totalAmount - commission);
             
             appOrders.push({
-              id: key,
+              id: txnId,
               type: 'app-order',
-              totalAmount: order.totalAmount || 0,
-              itemsCount: order.items?.length || 0,
-              createdAt: order.createdAt,
-              customerName: order.customerName || 'Customer',
-              status: order.status,
-              commission: ledgerTxn?.commission || 0,
-              storeAmount: ledgerTxn?.storeAmount || order.totalAmount || 0,
-              paymentMethod: order.paymentMethod || 'COD',
+              totalAmount: totalAmount,
+              itemsCount: 1, // Ledger doesn't store item count
+              createdAt: txn.paidAt || txn.createdAt,
+              customerName: txn.customerName || 'Customer',
+              status: txn.status,
+              commission: commission,
+              storeAmount: storeAmount,
+              paymentMethod: txn.paymentMethod || txn.method || 'cash',
             });
           }
         });

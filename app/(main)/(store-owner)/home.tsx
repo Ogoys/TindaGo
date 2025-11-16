@@ -31,6 +31,18 @@ export default function StoreHomeScreen() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
+  // Sales metrics
+  const [salesToday, setSalesToday] = useState(0);
+  const [salesWeek, setSalesWeek] = useState(0);
+  const [salesMonth, setSalesMonth] = useState(0);
+  const [salesYear, setSalesYear] = useState(0);
+
+  // Order status counts
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [pendingOrders, setPendingOrders] = useState(0);
+  const [activeOrders, setActiveOrders] = useState(0);
+  const [completedOrders, setCompletedOrders] = useState(0);
+
   // Store data from Firebase
   const [storeData, setStoreData] = useState({
     storeName: 'Store Owner',
@@ -119,7 +131,7 @@ export default function StoreHomeScreen() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch all store orders
+  // Fetch all store orders and calculate metrics
   useEffect(() => {
     const fetchAllOrders = async () => {
       try {
@@ -148,12 +160,15 @@ export default function StoreHomeScreen() {
             );
 
           setAllOrders(orders as Order[]);
+          calculateMetrics(orders as Order[]);
         } else {
           setAllOrders([]);
+          calculateMetrics([]);
         }
       } catch (error) {
         console.error('Error fetching orders:', error);
         setAllOrders([]);
+        calculateMetrics([]);
       } finally {
         setLoadingOrders(false);
       }
@@ -161,6 +176,83 @@ export default function StoreHomeScreen() {
 
     fetchAllOrders();
   }, []);
+
+  // Calculate sales from ledger and order counts from orders
+  const calculateMetrics = async (orders: Order[]) => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+
+    let today = 0;
+    let week = 0;
+    let month = 0;
+    let year = 0;
+
+    // Fetch sales from ledger (SAME AS WALLET/EARNINGS)
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const ledgerRef = ref(database, `ledgers/stores/${user.uid}/transactions`);
+        const ledgerSnapshot = await get(ledgerRef);
+        
+        if (ledgerSnapshot.exists()) {
+          const ledgerData = ledgerSnapshot.val();
+          Object.values(ledgerData).forEach((txn: any) => {
+            // Only count PAID or SETTLED transactions (same as Wallet)
+            if (txn.status === 'PAID' || txn.status === 'SETTLED') {
+              const txnDate = new Date(txn.paidAt || txn.createdAt);
+              const amount = txn.amount || 0;
+              
+              if (txnDate >= todayStart) {
+                today += amount;
+              }
+              if (txnDate >= weekStart) {
+                week += amount;
+              }
+              if (txnDate >= monthStart) {
+                month += amount;
+              }
+              if (txnDate >= yearStart) {
+                year += amount;
+              }
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching ledger for sales metrics:', error);
+    }
+
+    // Count orders by status (from orders)
+    let total = 0;
+    let pending = 0;
+    let active = 0;
+    let completed = 0;
+
+    orders.forEach(order => {
+      const status = order.status;
+      total++;
+      if (status === 'pending') {
+        pending++;
+      } else if (status === 'preparing' || status === 'ready') {
+        active++;
+      } else if (status === 'picked_up' || status === 'completed') {
+        completed++;
+      }
+    });
+
+    setSalesToday(today);
+    setSalesWeek(week);
+    setSalesMonth(month);
+    setSalesYear(year);
+
+    setTotalOrders(total);
+    setPendingOrders(pending);
+    setActiveOrders(active);
+    setCompletedOrders(completed);
+  };
 
   // Auto-disable expired products on mount
   useEffect(() => {
@@ -285,28 +377,28 @@ export default function StoreHomeScreen() {
     {
       id: 1,
       title: 'Order',
-      count: '15',
+      count: totalOrders.toString(),
       icon: require('../../../src/assets/images/store-owner-dashboard/purchase-order-icon.png'),
       color: '#02545F'
     },
     {
       id: 2,
       title: 'Pending',
-      count: '15',
+      count: pendingOrders.toString(),
       icon: require('../../../src/assets/images/store-owner-dashboard/data-pending-icon.png'),
       color: '#02545F'
     },
     {
       id: 3,
       title: 'Active',
-      count: '15',
+      count: activeOrders.toString(),
       icon: require('../../../src/assets/images/store-owner-dashboard/check-mark-icon.png'),
       color: '#02545F'
     },
     {
       id: 4,
       title: 'Completed',
-      count: '15',
+      count: completedOrders.toString(),
       icon: require('../../../src/assets/images/store-owner-dashboard/approval-icon.png'),
       color: '#02545F'
     },
@@ -420,7 +512,7 @@ export default function StoreHomeScreen() {
           {/* Total Sales Header - Figma: 90,375 164x20 and 323,375 77x20 */}
           <View style={styles.salesHeader}>
             <Typography style={styles.salesTitle}>Total Sales For The Day</Typography>
-            <Typography style={styles.salesAmount}>₱4,324.00</Typography>
+            <Typography style={styles.salesAmount}>₱{salesToday.toFixed(2)}</Typography>
           </View>
 
           {/* Separator Line - Figma: Vector 43 at 30,415 380x0 */}
@@ -431,19 +523,19 @@ export default function StoreHomeScreen() {
             {/* This Week - Figma: 50,437 77x37 */}
             <View style={styles.salesPeriod}>
               <Typography style={styles.periodLabel}>This Week</Typography>
-              <Typography style={styles.periodAmount}>₱4,324.00</Typography>
+              <Typography style={styles.periodAmount}>₱{salesWeek.toFixed(2)}</Typography>
             </View>
 
             {/* This Month - Figma: 176,437 83x37 */}
             <View style={styles.salesPeriod}>
               <Typography style={styles.periodLabel}>This Month</Typography>
-              <Typography style={styles.periodAmount}>₱14,324.00</Typography>
+              <Typography style={styles.periodAmount}>₱{salesMonth.toFixed(2)}</Typography>
             </View>
 
             {/* This Year - Figma: 302,437 87x37 */}
             <View style={styles.salesPeriod}>
               <Typography style={styles.periodLabel}>This Year</Typography>
-              <Typography style={styles.periodAmount}>₱43,324.00</Typography>
+              <Typography style={styles.periodAmount}>₱{salesYear.toFixed(2)}</Typography>
             </View>
           </View>
         </View>
