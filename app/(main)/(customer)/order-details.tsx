@@ -99,7 +99,13 @@ export default function OrderDetailsScreen() {
         setOrder(orderData);
         
         // Show modal when order is completed (picked_up or completed status)
-        if ((orderData.status === 'picked_up' || orderData.status === 'completed') && !hasShownModal) {
+        // AND user hasn't given feedback yet (feedbackGiven is not true)
+        const shouldShowModal = 
+          (orderData.status === 'picked_up' || orderData.status === 'completed') && 
+          !orderData.feedbackGiven && 
+          !hasShownModal;
+        
+        if (shouldShowModal) {
           setTimeout(() => {
             setShowCompleteModal(true);
             setHasShownModal(true);

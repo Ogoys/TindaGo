@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ref, get, onValue } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
 import { useUser } from '../../../../src/contexts/UserContext';
 import { Typography } from '../../../../src/components/ui/Typography';
@@ -62,43 +62,41 @@ export default function PayoutHistory() {
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('all');
 
   useEffect(() => {
-    const sid = user?.storeId || user?.id;
-    if (!sid) {
-      setPayouts([]);
-      setLoading(false);
-      return;
-    }
-
-    const payoutsRef = ref(database, 'payouts');
-    const unsub = onValue(payoutsRef, (payoutsSnap) => {
-      if (payoutsSnap.exists()) {
-        const data = payoutsSnap.val();
-        const userPayouts: Payout[] = Object.entries(data)
-          .filter(([_, p]: [string, any]) => p.storeId === sid)
-          .map(([id, p]: [string, any]) => ({
-            id,
-            amount: p.amount || 0,
-            method: p.method || 'bank',
-            accountName: p.accountName || '',
-            status: p.status || 'pending',
-            createdAt: p.createdAt || new Date().toISOString(),
-          }))
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setPayouts(userPayouts);
-      } else {
+    const load = async () => {
+      const sid = user?.storeId || user?.id;
+      if (!sid) {
         setPayouts([]);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-    }, (err) => {
-      console.error('Error loading payouts:', err);
-      setPayouts([]);
-      setLoading(false);
-    });
-
-    return () => {
-      // detach listener
-      try { (unsub as any)?.(); } catch {}
+      try {
+        const payoutsRef = ref(database, 'payouts');
+        const payoutsSnap = await get(payoutsRef);
+        if (payoutsSnap.exists()) {
+          const data = payoutsSnap.val();
+          const userPayouts: Payout[] = Object.entries(data)
+            .filter(([_, p]: [string, any]) => p.storeId === sid)
+            .map(([id, p]: [string, any]) => ({
+              id,
+              amount: p.amount || 0,
+              method: p.method || 'bank',
+              accountName: p.accountName || '',
+              status: p.status || 'pending',
+              createdAt: p.createdAt || new Date().toISOString(),
+            }))
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setPayouts(userPayouts);
+        } else {
+          setPayouts([]);
+        }
+      } catch (err) {
+        console.error('Error loading payouts:', err);
+        setPayouts([]);
+      } finally {
+        setLoading(false);
+      }
     };
+    load();
   }, [user?.storeId, user?.id]);
 
   // Handle back navigation

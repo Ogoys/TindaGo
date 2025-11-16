@@ -24,7 +24,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
@@ -74,13 +74,14 @@ const SalesDashboardScreen = () => {
       const currentUser = auth.currentUser;
       if (!currentUser) {
         setLoading(false);
+        setRefreshing(false);
         return;
       }
 
       // Fetch walk-in sales
       const walkInSales = await getWalkInSales(currentUser.uid);
 
-      // Fetch app orders and their ledger transactions
+      // Fetch app orders and their ledger transactions (OPTIMIZED: single get() call)
       const ordersRef = ref(database, 'orders');
       const ordersQuery = query(
         ordersRef,
@@ -88,68 +89,70 @@ const SalesDashboardScreen = () => {
         equalTo(currentUser.uid)
       );
 
-      onValue(ordersQuery, async (snapshot) => {
-        const appOrders: Transaction[] = [];
+      const snapshot = await get(ordersQuery);
+      const appOrders: Transaction[] = [];
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
         
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          
-          // Fetch ledger transactions for commission data
-          const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
-          const ledgerSnapshot = await new Promise<any>((resolve) => {
-            onValue(ledgerRef, (snap) => resolve(snap), { onlyOnce: true });
-          });
-          
-          const ledgerData = ledgerSnapshot.exists() ? ledgerSnapshot.val() : {};
-          
-          Object.keys(data).forEach(key => {
-            const order = data[key];
-            // Only include completed orders
-            if (order.status === 'completed' || order.status === 'delivered') {
-              // Find matching ledger transaction
-              const ledgerTxn = Object.values(ledgerData).find(
-                (txn: any) => txn.orderId === key || txn.orderNumber === order.orderNumber
-              ) as any;
-              
-              appOrders.push({
-                id: key,
-                type: 'app-order',
-                totalAmount: order.totalAmount || 0,
-                itemsCount: order.items?.length || 0,
-                createdAt: order.createdAt,
-                customerName: order.customerName || 'Customer',
-                status: order.status,
-                commission: ledgerTxn?.commission || 0,
-                storeAmount: ledgerTxn?.storeAmount || order.totalAmount || 0,
-                paymentMethod: order.paymentMethod || 'COD',
-              });
-            }
-          });
-        }
+        // Fetch ledger transactions for commission data
+        const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
+        const ledgerSnapshot = await get(ledgerRef);
+        
+        const ledgerData = ledgerSnapshot.exists() ? ledgerSnapshot.val() : {};
+        
+        Object.keys(data).forEach(key => {
+          const order = data[key];
+          // Only include completed orders
+          if (order.status === 'completed' || order.status === 'delivered') {
+            // Find matching ledger transaction
+            const ledgerTxn = Object.values(ledgerData).find(
+              (txn: any) => txn.orderId === key || txn.orderNumber === order.orderNumber
+            ) as any;
+            
+            appOrders.push({
+              id: key,
+              type: 'app-order',
+              totalAmount: order.totalAmount || 0,
+              itemsCount: order.items?.length || 0,
+              createdAt: order.createdAt,
+              customerName: order.customerName || 'Customer',
+              status: order.status,
+              commission: ledgerTxn?.commission || 0,
+              storeAmount: ledgerTxn?.storeAmount || order.totalAmount || 0,
+              paymentMethod: order.paymentMethod || 'COD',
+            });
+          }
+        });
+      }
 
-        // Combine walk-in and app orders
-        const walkInTransactions: Transaction[] = walkInSales.map(sale => ({
-          id: sale.id,
-          type: 'walk-in' as const,
-          totalAmount: sale.totalAmount,
-          itemsCount: sale.items.length,
-          createdAt: sale.createdAt,
-          customerName: sale.customerName || 'Walk-in Customer',
-        }));
+      // Combine walk-in and app orders
+      const walkInTransactions: Transaction[] = walkInSales.map(sale => ({
+        id: sale.id,
+        type: 'walk-in' as const,
+        totalAmount: sale.totalAmount,
+        itemsCount: sale.items.length,
+        createdAt: sale.createdAt,
+        customerName: sale.customerName || 'Walk-in Customer',
+      }));
 
-        const allTransactions = [...walkInTransactions, ...appOrders]
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const allTransactions = [...walkInTransactions, ...appOrders]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-        setTransactions(allTransactions);
-        calculateTotals(allTransactions);
-        setLoading(false);
-        setRefreshing(false);
-      });
+      setTransactions(allTransactions);
+      calculateTotals(allTransactions);
     } catch (error) {
       console.error('Error fetching sales data:', error);
+    } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  // Pull-to-refresh handler
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchAllSalesData();
   };
 
   const calculateTotals = (allTransactions: Transaction[]) => {
@@ -230,11 +233,6 @@ const SalesDashboardScreen = () => {
     router.back();
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchAllSalesData();
-  };
-
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
     const today = new Date();
@@ -267,7 +265,7 @@ const SalesDashboardScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[Colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
         }
       >
         {loading ? (

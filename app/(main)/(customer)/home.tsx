@@ -77,6 +77,8 @@ interface Store {
   description?: string;
   status: 'pending' | 'approved' | 'active' | 'rejected' | 'suspended';
   isOpen?: boolean; // Store open/close status
+  rating?: number; // Average rating from reviews
+  totalReviews?: number; // Total number of reviews
 }
 
 export default function HomeScreen() {
@@ -276,6 +278,8 @@ export default function HomeScreen() {
               description,
               status: storeData.status || 'active',
               isOpen: storeData.isOpen ?? true,
+              rating: storeData.rating || 0,
+              totalReviews: storeData.totalReviews || 0,
             };
           })
           .filter(store => {
@@ -664,7 +668,13 @@ export default function HomeScreen() {
             style={styles.storeStarIcon}
           />
           {/* Rating - Figma: 759:493 */}
-          <Text style={styles.storeRating}>0.0</Text>
+          <Text style={styles.storeRating}>
+            {store.rating ? store.rating.toFixed(1) : '0.0'}
+          </Text>
+          {/* Review Count */}
+          <Text style={styles.storeDistance}>
+            ({store.totalReviews || 0} {store.totalReviews === 1 ? 'review' : 'reviews'})
+          </Text>
           {/* Product Count */}
           <Text style={styles.storeDistance}>• {productCount} products</Text>
         </View>

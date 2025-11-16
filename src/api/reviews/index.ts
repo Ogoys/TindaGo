@@ -5,8 +5,40 @@
  */
 
 import { ref, get, query, orderByChild, equalTo, push, set, update } from 'firebase/database';
-import { database } from '@/lib/firebase';
-import type { Review, ProductRating, StoreRating } from '@/models';
+import { database } from '../../../FirebaseConfig';
+
+// Type definitions (inline since @/models may not be accessible)
+interface Review {
+  id?: string;
+  userId?: string;
+  userName?: string;
+  customerId?: string;
+  customerName?: string;
+  productId?: string;
+  storeId?: string;
+  orderId?: string;
+  rating: number;
+  comment: string;
+  images: string[];
+  createdAt: string;
+  updatedAt?: string;
+  helpful?: number;
+  reported?: boolean;
+}
+
+interface ProductRating {
+  productId: string;
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: { [key: number]: number };
+}
+
+interface StoreRating {
+  storeId: string;
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: { [key: number]: number };
+}
 
 /**
  * Add a review for a product
@@ -230,7 +262,7 @@ async function updateProductRating(productId: string): Promise<void> {
 /**
  * Update store rating in stores collection
  */
-async function updateStoreRating(storeId: string): Promise<void> {
+export async function updateStoreRating(storeId: string): Promise<void> {
   try {
     const rating = await getStoreRating(storeId);
 

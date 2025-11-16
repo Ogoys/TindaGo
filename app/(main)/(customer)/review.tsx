@@ -30,13 +30,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { ref, get, push, set } from 'firebase/database';
+import { ref, get, push, set, update } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { s, vs, ms } from '../../../src/constants/responsive';
 import { Colors } from '../../../src/constants/Colors';
 import { useUser } from '../../../src/contexts/UserContext';
 import type { Order } from '../../../src/models/Order';
 import { ReviewSuccessModal } from '../../../src/components/ui';
+import { uploadImageToCloudinary } from '../../../src/lib/upload/cloudinary';
+import { updateStoreRating } from '../../../src/api/reviews';
 
 export default function ReviewScreen() {
   const params = useLocalSearchParams();
@@ -93,7 +95,7 @@ export default function ReviewScreen() {
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -127,7 +129,37 @@ export default function ReviewScreen() {
     setSubmitting(true);
 
     try {
-      // Create review data
+      console.log('📤 Submitting review...');
+      console.log('  - Rating:', rating);
+      console.log('  - Comment length:', comment.trim().length);
+      console.log('  - Images to upload:', images.length);
+
+      // Step 1: Upload images to Cloudinary (if any)
+      const imageUrls: string[] = [];
+      if (images.length > 0) {
+        console.log('🖼️ Uploading images to Cloudinary...');
+        
+        for (let i = 0; i < images.length; i++) {
+          const imageUri = images[i];
+          console.log(`  - Uploading image ${i + 1}/${images.length}...`);
+          
+          try {
+            const cloudinaryUrl = await uploadImageToCloudinary(
+              imageUri,
+              `reviews/${user?.id || 'anonymous'}`
+            );
+            imageUrls.push(cloudinaryUrl);
+            console.log(`  ✅ Image ${i + 1} uploaded: ${cloudinaryUrl.substring(0, 60)}...`);
+          } catch (uploadError) {
+            console.error(`  ❌ Failed to upload image ${i + 1}:`, uploadError);
+            // Continue with other images even if one fails
+          }
+        }
+        
+        console.log(`✅ Uploaded ${imageUrls.length}/${images.length} images successfully`);
+      }
+
+      // Step 2: Create review data with Cloudinary URLs
       const reviewData = {
         orderId,
         customerId: user?.id || 'anonymous',
@@ -136,30 +168,57 @@ export default function ReviewScreen() {
         storeName: order?.storeName || '',
         rating,
         comment: comment.trim(),
-        images, // In production, upload to Cloudinary first
+        images: imageUrls, // Cloudinary URLs instead of local URIs
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      // Save to Firebase
+      // Step 3: Save review to Firebase
+      console.log('💾 Saving review to Firebase...');
       const reviewsRef = ref(database, 'reviews');
       const newReviewRef = push(reviewsRef);
       await set(newReviewRef, reviewData);
+      console.log(`✅ Review saved with ID: ${newReviewRef.key}`);
 
-      // Update order status to completed
+      // Step 4: Update order with review reference (safe update, not full overwrite)
+      console.log('📝 Updating order with review reference...');
       const orderRef = ref(database, `orders/${orderId}`);
-      await set(orderRef, {
-        ...order,
-        status: 'completed',
+      await update(orderRef, {
+        hasReview: true,
+        feedbackGiven: true, // Flag to prevent OrderProcessCompleteModal from showing again
         reviewId: newReviewRef.key,
+        reviewedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+      console.log('✅ Order updated successfully');
 
-      // Show success modal instead of alert
+      // Step 5: Update store rating with new review
+      if (order?.storeId) {
+        console.log('⭐ Updating store rating...');
+        await updateStoreRating(order.storeId);
+        console.log('✅ Store rating updated');
+      }
+
+      // Step 6: Show success modal
+      console.log('🎉 Review submission complete!');
       setShowSuccessModal(true);
     } catch (error) {
-      console.error('Error submitting review:', error);
-      Alert.alert('Error', 'Failed to submit review. Please try again.');
+      console.error('❌ Error submitting review:', error);
+      
+      // Provide user-friendly error message
+      let errorMessage = 'Failed to submit review. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message.includes('permission')) {
+          errorMessage = 'Permission denied. Please try again.';
+        } else if (error.message.includes('Cloudinary')) {
+          errorMessage = 'Failed to upload images. Please check your connection and try again.';
+        }
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -222,6 +281,39 @@ export default function ReviewScreen() {
           <View style={styles.storeInfo}>
             <Text style={styles.storeName}>{order?.storeName || 'Store Name'}</Text>
             <Text style={styles.orderNumber}>Order #{order?.orderNumber || 'N/A'}</Text>
+          </View>
+        </View>
+
+        {/* Order Details Card */}
+        <View style={styles.orderDetailsCard}>
+          <View style={styles.orderDetailRow}>
+            <Ionicons name="person-outline" size={s(18)} color="#666666" />
+            <Text style={styles.orderDetailLabel}>Customer:</Text>
+            <Text style={styles.orderDetailValue}>{order?.customerName || user?.name || 'N/A'}</Text>
+          </View>
+          <View style={styles.orderDetailRow}>
+            <Ionicons name="calendar-outline" size={s(18)} color="#666666" />
+            <Text style={styles.orderDetailLabel}>Order Date:</Text>
+            <Text style={styles.orderDetailValue}>
+              {order?.createdAt 
+                ? new Date(order.createdAt).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: '2-digit', 
+                    year: 'numeric' 
+                  })
+                : 'N/A'
+              }
+            </Text>
+          </View>
+          <View style={styles.orderDetailRow}>
+            <Ionicons name="cart-outline" size={s(18)} color="#666666" />
+            <Text style={styles.orderDetailLabel}>Items:</Text>
+            <Text style={styles.orderDetailValue}>{order?.items?.length || 0} item(s)</Text>
+          </View>
+          <View style={styles.orderDetailRow}>
+            <Ionicons name="cash-outline" size={s(18)} color="#666666" />
+            <Text style={styles.orderDetailLabel}>Total:</Text>
+            <Text style={styles.orderDetailValue}>₱{order?.total?.toFixed(2) || '0.00'}</Text>
           </View>
         </View>
 
@@ -437,6 +529,35 @@ const styles = StyleSheet.create({
     fontSize: ms(13),
     fontWeight: '400',
     color: 'rgba(30, 30, 30, 0.5)',
+  },
+  // Order Details Card
+  orderDetailsCard: {
+    backgroundColor: '#F9F9F9',
+    marginHorizontal: s(20),
+    marginBottom: vs(20),
+    padding: s(16),
+    borderRadius: s(15),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  orderDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: vs(10),
+  },
+  orderDetailLabel: {
+    fontSize: ms(13),
+    fontWeight: '500',
+    color: '#666666',
+    marginLeft: s(8),
+    marginRight: s(8),
+    minWidth: s(90),
+  },
+  orderDetailValue: {
+    fontSize: ms(13),
+    fontWeight: '600',
+    color: '#1E1E1E',
+    flex: 1,
   },
   // Rating Section - Figma: x:20, y:250, width:400, height:180
   ratingSection: {

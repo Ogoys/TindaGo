@@ -31,10 +31,12 @@ import {
   Platform,
   UIManager,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
+import { Ionicons } from '@expo/vector-icons';
+import { ref, onValue, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from "../../../src/constants/Colors";
@@ -83,31 +85,75 @@ export default function OrdersScreen() {
   const { user } = useUser();
   const [realOrders, setRealOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   // Get cart count for badge
   const cartCount = useCartCount(user?.id);
 
-  // Fetch user orders from Firebase with REAL-TIME updates
-  // OPTIMIZED: Query only user's orders instead of fetching all orders
+  // Fetch user orders from Firebase (ONE-TIME FETCH - prevents spam reads)
+  // OPTIMIZED: Query only user's orders + use get() instead of onValue()
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
 
-    // Query Firebase for orders WHERE customerId = user.id
-    const ordersRef = ref(database, 'orders');
-    const userOrdersQuery = query(
-      ordersRef,
-      orderByChild('customerId'),
-      equalTo(user.id)
-    );
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const ordersRef = ref(database, 'orders');
+        const userOrdersQuery = query(
+          ordersRef,
+          orderByChild('customerId'),
+          equalTo(user.id)
+        );
 
-    const unsubscribe = onValue(userOrdersQuery, (snapshot) => {
+        const snapshot = await get(userOrdersQuery);
+
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const userOrders = Object.keys(data)
+            .map(orderId => ({
+              ...data[orderId],
+              id: orderId,
+            }))
+            .sort((a: Order, b: Order) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+
+          setRealOrders(userOrders as Order[]);
+        } else {
+          setRealOrders([]);
+        }
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        setRealOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [user]);
+
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    if (!user) return;
+
+    setRefreshing(true);
+    try {
+      const ordersRef = ref(database, 'orders');
+      const userOrdersQuery = query(
+        ordersRef,
+        orderByChild('customerId'),
+        equalTo(user.id)
+      );
+
+      const snapshot = await get(userOrdersQuery);
+
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Map to array and sort by date (newest first)
         const userOrders = Object.keys(data)
           .map(orderId => ({
             ...data[orderId],
@@ -121,11 +167,12 @@ export default function OrdersScreen() {
       } else {
         setRealOrders([]);
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
+    } catch (error) {
+      console.error('Error refreshing orders:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Merge mock orders with real orders
   const orders = [...(MOCK_ORDERS as Order[]), ...realOrders];
@@ -176,6 +223,9 @@ export default function OrdersScreen() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -374,6 +424,16 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isExpanded, onToggle, inde
           <View style={styles.progressContainer}>
             {renderProgressTimeline(order)}
           </View>
+          
+          {/* Track Store Button */}
+          <TouchableOpacity
+            style={styles.trackStoreButton}
+            onPress={() => router.push(`/(main)/(customer)/track-store?orderId=${order.id}`)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="location" size={20} color="#FFFFFF" style={styles.trackStoreIcon} />
+            <Text style={styles.trackStoreText}>Track Store</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -800,6 +860,32 @@ const styles = StyleSheet.create({
   },
   shopButtonText: {
     fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  // Track Store Button
+  trackStoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: s(12),
+    paddingVertical: vs(12),
+    paddingHorizontal: s(20),
+    marginTop: vs(15),
+    marginBottom: vs(10),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  trackStoreIcon: {
+    marginRight: s(8),
+  },
+  trackStoreText: {
+    fontSize: ms(15),
     fontFamily: Fonts.primary,
     fontWeight: '600',
     color: Colors.white,

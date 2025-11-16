@@ -25,9 +25,11 @@ import {
   Modal,
   Switch,
   Alert,
+  TextInput,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ref, onValue, query, orderByChild, equalTo, update } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo, update } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
@@ -56,16 +58,21 @@ interface Product {
   storeOwnerId: string;
   createdAt: string;
   status: 'available' | 'out_of_stock';
+  expiryDate?: string;          // Expiry date field
 }
 
 const StoreProductScreen = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductDetails, setShowProductDetails] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
+  const [selectedStockFilter, setSelectedStockFilter] = useState<'all' | 'in-stock' | 'low-stock' | 'out-of-stock'>('all');
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [stockAdjustmentValue, setStockAdjustmentValue] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Categories - Figma: x: 0, y: 281, horizontal scroll
   const categories: CategoryItem[] = [
@@ -185,58 +192,128 @@ const StoreProductScreen = () => {
     }
   };
 
-  // Fetch products from Firebase
-  const fetchProducts = () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      setLoading(false);
+  // Adjust stock quantity
+  const handleStockAdjustment = async (adjustment: number) => {
+    if (!selectedProduct) return;
+
+    const newQuantity = Math.max(0, selectedProduct.quantity + adjustment);
+
+    try {
+      const productRef = ref(database, `products/${selectedProduct.id}`);
+      await update(productRef, { quantity: newQuantity });
+      console.log(`Product ${selectedProduct.id} stock updated to ${newQuantity}`);
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      Alert.alert('Error', 'Failed to update stock. Please try again.');
+    }
+  };
+
+  // Set stock quantity directly
+  const handleSetStock = async () => {
+    if (!selectedProduct || !stockAdjustmentValue) return;
+
+    const newQuantity = parseInt(stockAdjustmentValue, 10);
+    if (isNaN(newQuantity) || newQuantity < 0) {
+      Alert.alert('Invalid Input', 'Please enter a valid number.');
       return;
     }
 
-    const productsRef = ref(database, 'products');
-    const userProductsQuery = query(
-      productsRef,
-      orderByChild('storeOwnerId'),
-      equalTo(currentUser.uid)
-    );
+    try {
+      const productRef = ref(database, `products/${selectedProduct.id}`);
+      await update(productRef, { quantity: newQuantity });
+      setStockAdjustmentValue('');
+      console.log(`Product ${selectedProduct.id} stock set to ${newQuantity}`);
+    } catch (error) {
+      console.error('Error setting stock:', error);
+      Alert.alert('Error', 'Failed to set stock. Please try again.');
+    }
+  };
 
-    const unsubscribe = onValue(userProductsQuery, (snapshot) => {
+  // Fetch products from Firebase (optimized - no real-time listener)
+  const fetchProducts = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    try {
+      const productsRef = ref(database, 'products');
+      const userProductsQuery = query(
+        productsRef,
+        orderByChild('storeOwnerId'),
+        equalTo(currentUser.uid)
+      );
+
+      const snapshot = await get(userProductsQuery);
       const data = snapshot.val();
+      
       if (data) {
         const productsList: Product[] = Object.keys(data).map(key => ({
           id: key,
           ...data[key],
-          status: data[key].status || 'available', // Default to available if not set
+          status: data[key].status || 'available',
         }));
         setProducts(productsList);
-        // Filtering is now handled by the useEffect that watches products and selectedCategoryFilter
       } else {
         setProducts([]);
         setFilteredProducts([]);
       }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      Alert.alert('Error', 'Failed to load products. Pull down to retry.');
+    } finally {
       setLoading(false);
-    });
+      setRefreshing(false);
+    }
+  };
 
-    return unsubscribe;
+  // Handle pull-to-refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProducts();
   };
 
   useEffect(() => {
-    const unsubscribe = fetchProducts();
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    fetchProducts();
   }, []);
 
   useEffect(() => {
-    if (selectedCategoryFilter) {
-      // Re-apply the filter when products update
-      const filtered = products.filter(product => product.category === selectedCategoryFilter);
-      setFilteredProducts(filtered);
-    } else {
-      // Show all products when no filter selected
-      setFilteredProducts(products);
+    let filtered = products;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(product => 
+        product.productName.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query)
+      );
     }
-  }, [products, selectedCategoryFilter]);
+
+    // Apply category filter
+    if (selectedCategoryFilter) {
+      filtered = filtered.filter(product => product.category === selectedCategoryFilter);
+    }
+
+    // Apply stock filter
+    if (selectedStockFilter !== 'all') {
+      filtered = filtered.filter(product => {
+        switch (selectedStockFilter) {
+          case 'in-stock':
+            return product.quantity >= 10;
+          case 'low-stock':
+            return product.quantity > 0 && product.quantity < 10;
+          case 'out-of-stock':
+            return product.quantity === 0;
+          default:
+            return true;
+        }
+      });
+    }
+
+    setFilteredProducts(filtered);
+  }, [products, selectedCategoryFilter, selectedStockFilter, searchQuery]);
 
   return (
     <View style={styles.container}>
@@ -245,7 +322,18 @@ const StoreProductScreen = () => {
       {/* Header */}
       <ProfileScreenHeader title="Store Product" />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
+      >
         {/* Add Product Card - Figma: x: 20, y: 149, width: 400, height: 80 */}
         <TouchableOpacity style={styles.addProductCard} onPress={handleAddProduct} activeOpacity={0.7}>
           <View style={styles.addProductLeft}>
@@ -265,6 +353,27 @@ const StoreProductScreen = () => {
             style={styles.forwardArrow}
           />
         </TouchableOpacity>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Text style={styles.searchIconText}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by product name or category..."
+            placeholderTextColor="rgba(30, 30, 30, 0.5)"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              onPress={() => setSearchQuery('')}
+              style={styles.clearButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearButtonText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Categories Label - Figma: x: 23, y: 249, font: Clash Grotesk 600, size: 20 */}
         <Text style={styles.categoriesLabel}>Product Categories</Text>
@@ -298,6 +407,65 @@ const StoreProductScreen = () => {
             </View>
           ))}
         </ScrollView>
+
+        {/* Stock Filter Tabs */}
+        <View style={styles.stockFilterContainer}>
+          <TouchableOpacity
+            style={[
+              styles.stockFilterTab,
+              selectedStockFilter === 'all' && styles.stockFilterTabActive
+            ]}
+            onPress={() => setSelectedStockFilter('all')}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.stockFilterText,
+              selectedStockFilter === 'all' && styles.stockFilterTextActive
+            ]}>All</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.stockFilterTab,
+              selectedStockFilter === 'in-stock' && styles.stockFilterTabActive
+            ]}
+            onPress={() => setSelectedStockFilter('in-stock')}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.stockFilterText,
+              selectedStockFilter === 'in-stock' && styles.stockFilterTextActive
+            ]}>In Stock</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.stockFilterTab,
+              selectedStockFilter === 'low-stock' && styles.stockFilterTabActive
+            ]}
+            onPress={() => setSelectedStockFilter('low-stock')}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.stockFilterText,
+              selectedStockFilter === 'low-stock' && styles.stockFilterTextActive
+            ]}>Low Stock</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.stockFilterTab,
+              selectedStockFilter === 'out-of-stock' && styles.stockFilterTabActive
+            ]}
+            onPress={() => setSelectedStockFilter('out-of-stock')}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.stockFilterText,
+              selectedStockFilter === 'out-of-stock' && styles.stockFilterTextActive
+            ]}>Out of Stock</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Products Section - Figma: x: 20, y: 440, width: 400 */}
         <View style={styles.productsSection}>
@@ -349,6 +517,27 @@ const StoreProductScreen = () => {
                       <Text style={styles.productDescription} numberOfLines={2}>
                         {product.description || `${product.productSize} ${product.unit}`}
                       </Text>
+
+                      {/* Stock Info with Visual Indicators */}
+                      <View style={styles.stockInfoContainer}>
+                        <Text style={styles.stockLabel}>Stock: </Text>
+                        <Text style={[
+                          styles.stockValue,
+                          product.quantity === 0 ? styles.outOfStockValue :
+                          product.quantity < 10 ? styles.lowStockValue : styles.inStockValue
+                        ]}>
+                          {product.quantity === 0 ? '❌ Out of Stock' :
+                           product.quantity < 10 ? `⚠️ ${product.quantity} left` :
+                           `✓ ${product.quantity} available`}
+                        </Text>
+                      </View>
+
+                      {/* Expired Badge - Only for Store Owners */}
+                      {product.expiryDate && new Date(product.expiryDate) < new Date() && (
+                        <View style={styles.expiredBadge}>
+                          <Text style={styles.expiredBadgeText}>⚠️ EXPIRED</Text>
+                        </View>
+                      )}
                     </View>
                   </TouchableOpacity>
 
@@ -455,10 +644,91 @@ const StoreProductScreen = () => {
 
                     <View style={styles.detailsRow}>
                       <Text style={styles.detailsLabel}>Quantity:</Text>
-                      <Text style={styles.detailsValue}>
-                        {selectedProduct.quantity} pieces
+                      <Text style={[
+                        styles.detailsValue,
+                        selectedProduct.quantity === 0 ? { color: '#E92B45', fontWeight: '700' } :
+                        selectedProduct.quantity < 10 ? { color: '#FF9800', fontWeight: '600' } :
+                        { color: Colors.primary }
+                      ]}>
+                        {selectedProduct.quantity} {selectedProduct.unit || 'pieces'}
+                        {selectedProduct.quantity === 0 && ' - OUT OF STOCK'}
+                        {selectedProduct.quantity > 0 && selectedProduct.quantity < 10 && ' - LOW STOCK!'}
                       </Text>
                     </View>
+
+                    {/* Stock Adjustment Controls */}
+                    <View style={styles.stockAdjustmentSection}>
+                      <Text style={styles.stockAdjustmentTitle}>Adjust Stock:</Text>
+                      
+                      {/* Quick adjustment buttons */}
+                      <View style={styles.stockButtonRow}>
+                        <TouchableOpacity 
+                          style={styles.stockButton}
+                          onPress={() => handleStockAdjustment(-10)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stockButtonText}>-10</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.stockButton}
+                          onPress={() => handleStockAdjustment(-1)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stockButtonText}>-1</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.stockButton}
+                          onPress={() => handleStockAdjustment(1)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stockButtonText}>+1</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.stockButton}
+                          onPress={() => handleStockAdjustment(10)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stockButtonText}>+10</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Set exact quantity */}
+                      <View style={styles.setStockRow}>
+                        <TextInput
+                          style={styles.stockInput}
+                          placeholder="Set exact quantity"
+                          keyboardType="numeric"
+                          value={stockAdjustmentValue}
+                          onChangeText={setStockAdjustmentValue}
+                        />
+                        <TouchableOpacity 
+                          style={styles.setStockButton}
+                          onPress={handleSetStock}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.setStockButtonText}>Set</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Expiry Date Display */}
+                    {selectedProduct.expiryDate && (
+                      <View style={styles.detailsRow}>
+                        <Text style={styles.detailsLabel}>Expiry Date:</Text>
+                        <Text style={[
+                          styles.detailsValue,
+                          new Date(selectedProduct.expiryDate) < new Date() ? { color: '#E92B45', fontWeight: '700' } :
+                          new Date(selectedProduct.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) ? { color: '#FF9800', fontWeight: '600' } :
+                          { color: Colors.darkGray }
+                        ]}>
+                          {new Date(selectedProduct.expiryDate).toLocaleDateString()}
+                          {new Date(selectedProduct.expiryDate) < new Date() && ' - EXPIRED!'}
+                          {new Date(selectedProduct.expiryDate) >= new Date() && 
+                           new Date(selectedProduct.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && 
+                           ' - Expiring Soon'}
+                        </Text>
+                      </View>
+                    )}
 
                     <View style={styles.descriptionSection}>
                       <Text style={styles.detailsLabel}>Description:</Text>
@@ -548,6 +818,52 @@ const styles = StyleSheet.create({
   forwardArrow: {
     width: s(30),
     height: vs(30),
+  },
+
+  // Search Bar
+  searchContainer: {
+    width: '100%',
+    height: vs(55),
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s(15),
+    marginTop: vs(15),
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  searchIconText: {
+    fontSize: ms(18),
+    marginRight: s(10),
+  },
+
+  searchInput: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    padding: 0,
+  },
+
+  clearButton: {
+    width: s(24),
+    height: vs(24),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: s(12),
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+
+  clearButtonText: {
+    fontSize: ms(14),
+    color: 'rgba(30, 30, 30, 0.6)',
+    fontWeight: '700',
   },
 
   // Categories Label - Figma: x: 23, y: 249, font: Clash Grotesk 600, size: 20
@@ -913,6 +1229,190 @@ const styles = StyleSheet.create({
     color: Colors.darkGray,
     marginTop: vs(8),
     textAlign: 'justify',
+  },
+
+  // Stock Info Styles
+  stockInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: vs(8),
+  },
+
+  stockLabel: {
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(13),
+    color: Colors.darkGray,
+  },
+
+  stockValue: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(13),
+    lineHeight: vs(16),
+  },
+
+  inStockValue: {
+    color: '#2E7D32',
+  },
+
+  lowStockValue: {
+    color: '#FF9800',
+  },
+
+  outOfStockValue: {
+    color: '#E92B45',
+  },
+
+  detailsImagePlaceholder: {
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Stock Adjustment Styles
+  stockAdjustmentSection: {
+    marginTop: vs(16),
+    marginBottom: vs(16),
+    paddingTop: vs(16),
+    borderTopWidth: 2,
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+  },
+
+  stockAdjustmentTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: Colors.darkGray,
+    marginBottom: vs(12),
+  },
+
+  stockButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: vs(12),
+  },
+
+  stockButton: {
+    flex: 1,
+    marginHorizontal: s(4),
+    paddingVertical: vs(12),
+    backgroundColor: Colors.primary,
+    borderRadius: s(8),
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  stockButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: Colors.white,
+  },
+
+  setStockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  stockInput: {
+    flex: 1,
+    height: vs(45),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: s(8),
+    paddingHorizontal: s(12),
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    marginRight: s(8),
+  },
+
+  setStockButton: {
+    paddingVertical: vs(12),
+    paddingHorizontal: s(20),
+    backgroundColor: Colors.primary,
+    borderRadius: s(8),
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  setStockButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: Colors.white,
+  },
+
+  // Stock Filter Tabs Styles
+  stockFilterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: vs(16),
+    marginBottom: vs(16),
+    paddingHorizontal: s(10),
+  },
+
+  stockFilterTab: {
+    flex: 1,
+    paddingVertical: vs(10),
+    paddingHorizontal: s(8),
+    marginHorizontal: s(4),
+    backgroundColor: Colors.white,
+    borderRadius: s(10),
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+
+  stockFilterTabActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+
+  stockFilterText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(12),
+    color: Colors.darkGray,
+    textAlign: 'center',
+  },
+
+  stockFilterTextActive: {
+    color: Colors.white,
+    fontWeight: '700',
+  },
+
+  // Expired Badge Styles
+  expiredBadge: {
+    marginTop: vs(6),
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    backgroundColor: '#E92B45',
+    borderRadius: s(6),
+    alignSelf: 'flex-start',
+  },
+
+  expiredBadgeText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(11),
+    color: Colors.white,
   },
 });
 

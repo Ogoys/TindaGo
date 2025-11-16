@@ -26,10 +26,12 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
+import { router, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
+import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
 import { database } from "../../../../FirebaseConfig";
 import { useUser } from "../../../../src/contexts/UserContext";
 import { updateOrderStatus, cancelOrder } from "../../../../src/api/orders";
@@ -122,31 +124,115 @@ export default function StoreOrdersScreen() {
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('pending');
   const [realOrders, setRealOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch store orders from Firebase in real-time
-  // OPTIMIZED: Query only this store's orders instead of fetching all orders
+  // Fetch store orders from Firebase (ONE-TIME FETCH - prevents spam reads)
+  // OPTIMIZED: Query only this store's orders + use get() instead of onValue()
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
 
-    // TODO: Replace 'user.id' with actual storeId from user profile
-    // For now, using user.id as storeId (assumes store owner's user.id = their storeId)
-    const storeId = user.id;
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const storeId = user.id;
 
-    // Query Firebase for orders WHERE storeId = storeId
-    const ordersRef = ref(database, 'orders');
-    const storeOrdersQuery = query(
-      ordersRef,
-      orderByChild('storeId'),
-      equalTo(storeId)
-    );
+        const ordersRef = ref(database, 'orders');
+        const storeOrdersQuery = query(
+          ordersRef,
+          orderByChild('storeId'),
+          equalTo(storeId)
+        );
 
-    const unsubscribe = onValue(storeOrdersQuery, (snapshot) => {
+        const snapshot = await get(storeOrdersQuery);
+
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const storeOrders = Object.keys(data)
+            .map(orderId => ({
+              ...data[orderId],
+              id: orderId,
+            }))
+            .sort((a: Order, b: Order) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+
+          setRealOrders(storeOrders as Order[]);
+        } else {
+          setRealOrders([]);
+        }
+      } catch (error) {
+        console.error('Error fetching store orders:', error);
+        setRealOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [user]);
+
+  // Refresh orders when screen gains focus (e.g., after accepting/rejecting order in details)
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+
+      const refreshOnFocus = async () => {
+        try {
+          const storeId = user.id;
+          const ordersRef = ref(database, 'orders');
+          const storeOrdersQuery = query(
+            ordersRef,
+            orderByChild('storeId'),
+            equalTo(storeId)
+          );
+
+          const snapshot = await get(storeOrdersQuery);
+
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            const storeOrders = Object.keys(data)
+              .map(orderId => ({
+                ...data[orderId],
+                id: orderId,
+              }))
+              .sort((a: Order, b: Order) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+
+            setRealOrders(storeOrders as Order[]);
+          } else {
+            setRealOrders([]);
+          }
+        } catch (error) {
+          console.error('Error refreshing orders on focus:', error);
+        }
+      };
+
+      refreshOnFocus();
+    }, [user])
+  );
+
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    if (!user) return;
+
+    setRefreshing(true);
+    try {
+      const storeId = user.id;
+      const ordersRef = ref(database, 'orders');
+      const storeOrdersQuery = query(
+        ordersRef,
+        orderByChild('storeId'),
+        equalTo(storeId)
+      );
+
+      const snapshot = await get(storeOrdersQuery);
+
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Map to array and sort by date (newest first)
         const storeOrders = Object.keys(data)
           .map(orderId => ({
             ...data[orderId],
@@ -160,11 +246,12 @@ export default function StoreOrdersScreen() {
       } else {
         setRealOrders([]);
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
+    } catch (error) {
+      console.error('Error refreshing orders:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Merge mock data with real orders for visualization
   const allOrders = [...(MOCK_ORDERS as Order[]), ...realOrders];
@@ -202,6 +289,8 @@ export default function StoreOrdersScreen() {
           onPress: async () => {
             const success = await updateOrderStatus(orderId, 'ready');
             if (success) {
+              // Refresh orders list to show updated status
+              await onRefresh();
               Alert.alert(
                 "Success",
                 "Order is now ready for pickup. Customer has been notified."
@@ -236,6 +325,8 @@ export default function StoreOrdersScreen() {
           onPress: async () => {
             const success = await updateOrderStatus(orderId, 'picked_up');
             if (success) {
+              // Refresh orders list to show updated status
+              await onRefresh();
               Alert.alert(
                 "Order Completed",
                 "The order has been marked as completed."
@@ -336,6 +427,9 @@ export default function StoreOrdersScreen() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -436,7 +530,12 @@ export default function StoreOrdersScreen() {
                       resizeMode="contain"
                     />
                     <View style={styles.orderDetailText}>
-                      <Typography style={styles.paymentMethod}>{order.paymentMethod.toUpperCase()}</Typography>
+                      <Typography style={styles.paymentMethod}>
+                        {order.paymentMethod === 'gcash' ? 'GCash' :
+                         order.paymentMethod === 'paymaya' ? 'PayMaya' :
+                         order.paymentMethod === 'cash' ? 'Cash' :
+                         order.paymentMethod.toUpperCase()}
+                      </Typography>
                     </View>
                   </View>
                 </View>

@@ -274,13 +274,21 @@ const CartScreen = () => {
                       <Text style={styles.productPriceLabel}>₱{item.price.toFixed(2)} each</Text>
                       <Text style={styles.productSubtotal}>₱{item.subtotal.toFixed(2)} total</Text>
                     </View>
-                    {/* Low Stock Warning */}
-                    {item.stock > 0 && item.stock < 10 && (
-                      <Text style={styles.lowStockWarning}>Only {item.stock} left!</Text>
-                    )}
-                    {/* Max Stock Indicator */}
+                    {/* Stock Availability Display */}
+                    <View style={styles.stockInfoRow}>
+                      <Text style={[
+                        styles.stockInfoText,
+                        item.stock === 0 ? styles.outOfStockText :
+                        item.stock < 10 ? styles.lowStockText : styles.inStockText
+                      ]}>
+                        {item.stock === 0 ? '❌ Out of Stock' :
+                         item.stock < 10 ? `⚠️ ${item.stock} left in stock` :
+                         `✓ ${item.stock} available`}
+                      </Text>
+                    </View>
+                    {/* Max Stock Reached */}
                     {item.quantity >= item.stock && (
-                      <Text style={styles.maxStockIndicator}>Max quantity</Text>
+                      <Text style={styles.maxStockIndicator}>Max quantity reached</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -625,6 +633,38 @@ const styles = StyleSheet.create({
     fontWeight: Fonts.weights.medium,
     color: '#E92B45', // Red color
     marginTop: vs(2),
+  },
+  // Stock Info Row
+  stockInfoRow: {
+    marginTop: vs(4),
+  },
+  // Stock Info Text
+  stockInfoText: {
+    fontFamily: Fonts.primary,
+    fontSize: s(11),
+    fontWeight: Fonts.weights.semiBold,
+    lineHeight: s(16),
+  },
+  // Out of Stock Text (Red)
+  outOfStockText: {
+    color: '#E92B45',
+  },
+  // Low Stock Text (Orange)
+  lowStockText: {
+    color: '#FF9800',
+  },
+  // In Stock Text (Green)
+  inStockText: {
+    color: '#2E7D32',
+  },
+  // Max Order Limit Text
+  maxOrderLimitText: {
+    fontFamily: Fonts.primary,
+    fontSize: s(10),
+    fontWeight: Fonts.weights.medium,
+    color: '#FF9800', // Orange warning
+    marginTop: vs(2),
+    fontStyle: 'italic',
   },
   // Delete button - Figma: x: 373, y: 191, width: 30, height: 30
   deleteButton: {

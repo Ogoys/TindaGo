@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ref, onValue } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
 import { useUser } from '../../../../src/contexts/UserContext';
 import { Colors } from '../../../../src/constants/Colors';
@@ -26,23 +26,27 @@ export default function TransactionsScreen() {
   const [filter, setFilter] = useState('all'); // all, paid, pending
 
   useEffect(() => {
-    const sid = user?.storeId || user?.id;
-    if (!sid) {
-      setLoading(false);
-      return;
-    }
-
-    const ledgerRef = ref(database, `ledgers/stores/${sid}/transactions`);
-    const unsubscribe = onValue(ledgerRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const txns = Object.values(data) as any[];
-        setTransactions(txns.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    const load = async () => {
+      const sid = user?.storeId || user?.id;
+      if (!sid) {
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+      try {
+        const ledgerRef = ref(database, `ledgers/stores/${sid}/transactions`);
+        const snapshot = await get(ledgerRef);
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const txns = Object.values(data) as any[];
+          setTransactions(txns.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        } else {
+          setTransactions([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, [user?.storeId, user?.id]);
 
   const filteredTransactions = transactions.filter(txn => {

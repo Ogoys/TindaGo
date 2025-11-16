@@ -20,6 +20,7 @@ import { database } from '../../../FirebaseConfig';
 import { s, vs, ms } from '../../../src/constants/responsive';
 import { Colors } from '../../../src/constants/Colors';
 import type { Order } from '../../../src/models/Order';
+import { OrderProcessCompleteModal } from '../../../src/components/ui';
 
 /**
  * TRACK STORE SCREEN
@@ -50,6 +51,8 @@ export default function TrackStoreScreen() {
   const [showRoute, setShowRoute] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [loadingRoute, setLoadingRoute] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [hasShownModal, setHasShownModal] = useState(false);
 
   // Get customer location (or use mock data in test mode)
   useEffect(() => {
@@ -124,6 +127,20 @@ export default function TrackStoreScreen() {
         const orderData = snapshot.val();
         setOrder({ ...orderData, id: orderId } as Order);
 
+        // Show modal when order is completed (picked_up or completed status)
+        // AND user hasn't given feedback yet (feedbackGiven is not true)
+        const shouldShowModal = 
+          (orderData.status === 'picked_up' || orderData.status === 'completed') && 
+          !orderData.feedbackGiven && 
+          !hasShownModal;
+        
+        if (shouldShowModal) {
+          setTimeout(() => {
+            setShowCompleteModal(true);
+            setHasShownModal(true);
+          }, 500); // Small delay for smooth transition
+        }
+
         // Get store location
         if (orderData.storeId) {
           try {
@@ -148,7 +165,7 @@ export default function TrackStoreScreen() {
     });
 
     return () => unsubscribe();
-  }, [orderId, testMode]);
+  }, [orderId, testMode, hasShownModal]);
 
   // Fit map to show both locations
   useEffect(() => {
@@ -464,13 +481,19 @@ export default function TrackStoreScreen() {
               <Text style={styles.orderDetailLabel}>Payment:</Text>
               <View style={[
                 styles.paymentBadge,
-                order?.paymentStatus === 'paid' ? styles.paymentBadgePaid : styles.paymentBadgePending
+                (order?.paymentStatus === 'PAID' || order?.paymentStatus === 'paid' || order?.paymentStatus === 'SETTLED') 
+                  ? styles.paymentBadgePaid 
+                  : styles.paymentBadgePending
               ]}>
                 <Text style={[
                   styles.paymentBadgeText,
-                  order?.paymentStatus === 'paid' ? styles.paymentBadgeTextPaid : styles.paymentBadgeTextPending
+                  (order?.paymentStatus === 'PAID' || order?.paymentStatus === 'paid' || order?.paymentStatus === 'SETTLED')
+                    ? styles.paymentBadgeTextPaid 
+                    : styles.paymentBadgeTextPending
                 ]}>
-                  {order?.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
+                  {(order?.paymentStatus === 'PAID' || order?.paymentStatus === 'paid' || order?.paymentStatus === 'SETTLED') 
+                    ? 'Paid' 
+                    : 'Pending'}
                 </Text>
               </View>
             </View>
@@ -541,6 +564,13 @@ export default function TrackStoreScreen() {
           <Text style={styles.bottomButtonText}>Order View Details</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Order Complete Modal */}
+      <OrderProcessCompleteModal
+        visible={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        orderId={order?.id || orderId}
+      />
     </SafeAreaView>
   );
 }

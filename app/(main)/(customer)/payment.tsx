@@ -29,7 +29,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ref, get, onValue, query, orderByChild, equalTo, update } from 'firebase/database';
+import { ref, get, onValue, query, orderByChild, equalTo, update, runTransaction } from 'firebase/database';
 import { database } from '../../../FirebaseConfig';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from '../../../src/constants/Colors';
@@ -213,8 +213,8 @@ const PaymentScreen = () => {
         items: cartItems.map(item => ({
           productId: item.productId,
           productName: item.productName,
-          productImage: item.productImage,
-          productImageUrl: item.productImageUrl,
+          productImage: item.productImage || '',
+          productImageUrl: item.productImageUrl || item.productImage || '',
           quantity: item.quantity,
           price: item.price,
           weight: item.weight || '',
@@ -233,6 +233,27 @@ const PaymentScreen = () => {
       // Check if online payment (GCash/PayMaya)
       if (selectedPayment === 'gcash' || selectedPayment === 'paymaya') {
         console.log('Processing online payment with Xendit...');
+
+        // Validate stock availability before payment
+        for (const item of cartItems) {
+          const productRef = ref(database, `products/${item.productId}`);
+          const productSnap = await get(productRef);
+          
+          if (productSnap.exists()) {
+            const currentStock = productSnap.val().quantity || 0;
+            if (item.quantity > currentStock) {
+              setProcessing(false);
+              setErrorMessage(`Sorry, "${item.productName}" only has ${currentStock} left in stock.\nPlease update your cart.`);
+              setShowErrorModal(true);
+              return;
+            }
+          } else {
+            setProcessing(false);
+            setErrorMessage(`Product "${item.productName}" is no longer available.\nPlease update your cart.`);
+            setShowErrorModal(true);
+            return;
+          }
+        }
 
         // Create order in Firebase FIRST to get orderId
         const orderId = await createOrder({
@@ -306,8 +327,38 @@ const PaymentScreen = () => {
               console.log('[Payment] Order paymentStatus:', orderData?.paymentStatus);
               // Check if payment was marked PAID/SETTLED by webhook
               if (orderData?.paymentStatus === 'PAID' || orderData?.paymentStatus === 'SETTLED') {
-                console.log('[Payment] Payment confirmed! Showing modal...');
+                console.log('[Payment] Payment confirmed! Deducting stock...');
                 unsubscribe(); // Stop listening
+                
+                // ✅ Deduct stock for each item using Firebase transactions
+                if (orderData.items && Array.isArray(orderData.items)) {
+                  for (const item of orderData.items) {
+                    const productId = item.productId;
+                    const orderedQty = item.quantity || 0;
+                    
+                    if (!productId || orderedQty <= 0) continue;
+                    
+                    try {
+                      const productRef = ref(database, `products/${productId}`);
+                      await runTransaction(productRef, (currentProduct) => {
+                        if (!currentProduct) return currentProduct;
+                        
+                        const currentStock = currentProduct.quantity || 0;
+                        const newStock = Math.max(0, currentStock - orderedQty);
+                        
+                        currentProduct.quantity = newStock;
+                        currentProduct.status = newStock === 0 ? 'out_of_stock' : 'available';
+                        currentProduct.updatedAt = new Date().toISOString();
+                        
+                        console.log(`[📦 Stock] Product ${productId}: ${currentStock} → ${newStock}`);
+                        return currentProduct;
+                      });
+                    } catch (err) {
+                      console.error(`[📦 Stock] Error deducting stock for ${productId}:`, err);
+                    }
+                  }
+                }
+                
                 // Clear cart
                 await clearCart(user.id);
                 // Show success modal with real orderId (Firebase key)
@@ -327,12 +378,37 @@ const PaymentScreen = () => {
 
           // Fallback: Auto-close after 5 minutes or user manually taps button
           setTimeout(() => unsubscribe(), 300000);
+
+          // Keep processing state TRUE - don't set to false here!
+          // It will be set to false when modal shows (line 318)
         } else {
+          setProcessing(false);
           setErrorMessage('Cannot open payment page.\nPlease check your internet connection.');
           setShowErrorModal(true);
         }
 
       } else {
+        // Cash on Pickup - validate stock before creating order
+        for (const item of cartItems) {
+          const productRef = ref(database, `products/${item.productId}`);
+          const productSnap = await get(productRef);
+          
+          if (productSnap.exists()) {
+            const currentStock = productSnap.val().quantity || 0;
+            if (item.quantity > currentStock) {
+              setProcessing(false);
+              setErrorMessage(`Sorry, "${item.productName}" only has ${currentStock} left in stock.\nPlease update your cart.`);
+              setShowErrorModal(true);
+              return;
+            }
+          } else {
+            setProcessing(false);
+            setErrorMessage(`Product "${item.productName}" is no longer available.\nPlease update your cart.`);
+            setShowErrorModal(true);
+            return;
+          }
+        }
+
         // Cash on Pickup - calculate commission and create order
         const { platformCommission, storeAmount } = await CommissionService.calculateCommission(orderSummary.grandTotal);
 
@@ -343,6 +419,33 @@ const PaymentScreen = () => {
         });
 
         if (orderId) {
+          // ✅ Deduct stock for Cash on Pickup orders
+          for (const item of cartItems) {
+            const productId = item.productId;
+            const orderedQty = item.quantity || 0;
+            
+            if (!productId || orderedQty <= 0) continue;
+            
+            try {
+              const productRef = ref(database, `products/${productId}`);
+              await runTransaction(productRef, (currentProduct) => {
+                if (!currentProduct) return currentProduct;
+                
+                const currentStock = currentProduct.quantity || 0;
+                const newStock = Math.max(0, currentStock - orderedQty);
+                
+                currentProduct.quantity = newStock;
+                currentProduct.status = newStock === 0 ? 'out_of_stock' : 'available';
+                currentProduct.updatedAt = new Date().toISOString();
+                
+                console.log(`[📦 Stock] Product ${productId}: ${currentStock} → ${newStock}`);
+                return currentProduct;
+              });
+            } catch (err) {
+              console.error(`[📦 Stock] Error deducting stock for ${productId}:`, err);
+            }
+          }
+          
           // Clear cart after successful order
           await clearCart(user.id);
 
@@ -358,11 +461,12 @@ const PaymentScreen = () => {
       }
     } catch (error) {
       console.error('Error processing payment:', error);
+      setProcessing(false);
       setErrorMessage('An unexpected error occurred.\nPlease try again.');
       setShowErrorModal(true);
-    } finally {
-      setProcessing(false);
     }
+    // NOTE: Don't set processing=false in finally block for online payments!
+    // It stays true until payment confirmation (line 318)
   };
 
   const handleRetryPayment = () => {
@@ -380,8 +484,9 @@ const PaymentScreen = () => {
         {/* Header - Figma: y: 74-114 */}
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
+            style={[styles.backButton, processing && styles.backButtonDisabled]}
+            onPress={() => !processing && router.back()}
+            disabled={processing}
           >
             <Image
               source={require('../../../src/assets/images/payment/chevron-left.png')}
@@ -403,6 +508,15 @@ const PaymentScreen = () => {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.loadingText}>Loading order summary...</Text>
+          </View>
+        ) : processing && pendingOrderNumber ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.processingText}>Waiting for payment confirmation...</Text>
+            <Text style={styles.processingSubtext}>
+              Please complete your payment in the browser.{"\n"}
+              This screen will update automatically.
+            </Text>
           </View>
         ) : (
           <>
@@ -536,6 +650,9 @@ const styles = StyleSheet.create({
     width: s(15),
     height: vs(15),
   },
+  backButtonDisabled: {
+    opacity: 0.5,
+  },
 
   // Header title - Figma: x: 179, y: 83, width: 83, height: 22
   headerTitle: {
@@ -576,6 +693,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.textSecondary,
     fontFamily: Fonts.primary,
+  },
+  processingText: {
+    marginTop: vs(20),
+    fontSize: s(18),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: Colors.primary,
+    textAlign: 'center',
+  },
+  processingSubtext: {
+    marginTop: vs(10),
+    marginHorizontal: s(40),
+    fontSize: s(14),
+    fontFamily: Fonts.primary,
+    fontWeight: '400',
+    color: 'rgba(30, 30, 30, 0.6)',
+    textAlign: 'center',
+    lineHeight: s(20),
   },
 
   // Bill Card - Figma: x: 20, y: 166, width: 400, height: 300

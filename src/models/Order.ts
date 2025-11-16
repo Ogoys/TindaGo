@@ -30,6 +30,10 @@ export interface Order {
   cancelledAt?: string;       // ISO string
   cancellationReason?: string;
   cancelledBy?: 'customer' | 'store'; // Who cancelled the order
+  hasReview?: boolean;        // Whether customer has submitted a review
+  feedbackGiven?: boolean;    // Flag to prevent OrderProcessCompleteModal from showing again
+  reviewId?: string;          // Firebase review document ID
+  reviewedAt?: string;        // ISO string - when review was submitted
 }
 
 export interface OrderItem {

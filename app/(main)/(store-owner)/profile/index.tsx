@@ -149,6 +149,10 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/store-product');
   };
 
+  const handleInventoryDashboard = () => {
+    router.push('/(main)/(store-owner)/profile/inventory-dashboard');
+  };
+
   const handleRecordWalkInSale = () => {
     router.push('/(main)/(store-owner)/profile/record-walk-in-sale');
   };
@@ -157,12 +161,20 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/record-damage');
   };
 
+  const handleExpiredProducts = () => {
+    router.push('/(main)/(store-owner)/profile/expired-products');
+  };
+
   const handleSalesDashboard = () => {
     router.push('/(main)/(store-owner)/profile/sales-dashboard');
   };
 
   const handleSalesHistory = () => {
     router.push('/(main)/(store-owner)/profile/sales-history');
+  };
+
+  const handleReviews = () => {
+    router.push('/(main)/(store-owner)/profile/reviews');
   };
 
   const handleRecordPurchaseOrder = () => {
@@ -313,6 +325,11 @@ export default function ProfileScreen() {
             onPress={handleStoreProduct}
           />
           <SettingItem
+            title="Inventory Dashboard"
+            iconName="pie-chart"
+            onPress={handleInventoryDashboard}
+          />
+          <SettingItem
             title="Sales Dashboard"
             iconName="stats-chart"
             onPress={handleSalesDashboard}
@@ -323,6 +340,11 @@ export default function ProfileScreen() {
             onPress={handleSalesHistory}
           />
           <SettingItem
+            title="Reviews & Ratings"
+            iconName="star"
+            onPress={handleReviews}
+          />
+          <SettingItem
             title="Record Walk-in Sale"
             iconName="cash"
             onPress={handleRecordWalkInSale}
@@ -331,6 +353,12 @@ export default function ProfileScreen() {
             title="Record Damages & Spoilages"
             iconName="alert-circle"
             onPress={handleRecordDamage}
+          />
+          <SettingItem
+            title="Expired Products"
+            iconName="warning"
+            onPress={handleExpiredProducts}
+            iconColor="#E92B45"
           />
           <SettingItem
             title="Record Purchase Order"

@@ -25,8 +25,7 @@ import { database } from '../../../FirebaseConfig';
 import { s, vs, ms } from '../../../src/constants/responsive';
 import { Colors } from '../../../src/constants/Colors';
 import type { Order } from '../../../src/models/Order';
-// import * as MediaLibrary from 'expo-media-library';
-// import { captureRef } from 'react-native-view-shot';
+import { Share, Linking } from 'react-native';
 
 export default function InvoiceScreen() {
   const params = useLocalSearchParams();
@@ -87,57 +86,150 @@ export default function InvoiceScreen() {
     }
   };
 
-  const handleDownload = async () => {
-    // TEMPORARY: Show preview until you rebuild with native modules
-    Alert.alert(
-      'Download Invoice',
-      `Invoice will be saved as image to your gallery.\n\nOrder: ${order?.orderNumber || order?.id}\n\nTo enable download:\n1. Stop dev server\n2. Run: npx expo run:android (or ios)\n3. App will rebuild with native libraries`,
-      [{ text: 'OK' }]
-    );
-    
-    /* UNCOMMENT AFTER REBUILDING:
+  const handleShareText = async () => {
     try {
       setDownloading(true);
 
-      // Request media library permissions
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Storage permission is required to save the invoice.');
-        setDownloading(false);
-        return;
-      }
+      // Generate shareable invoice text (no native modules needed)
+      const invoiceText = `
+🧾 INVOICE - ${order?.storeName || 'Store'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      // Capture the invoice view as image
-      if (invoiceRef.current) {
-        const uri = await captureRef(invoiceRef, {
-          format: 'png',
-          quality: 1,
-        });
+Order #: ${order?.orderNumber || order?.id}
+Date: ${formatDate(order?.createdAt || new Date().toISOString())}
 
-        // Save to device gallery
-        const asset = await MediaLibrary.createAssetAsync(uri);
-        
-        // Create album if it doesn't exist
-        const album = await MediaLibrary.getAlbumAsync('TindaGo Invoices');
-        if (album === null) {
-          await MediaLibrary.createAlbumAsync('TindaGo Invoices', asset, false);
-        } else {
-          await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+📦 ITEMS:
+${order?.items.map((item, i) => 
+  `${i + 1}. ${item.productName}\n   Qty: ${item.quantity} × ₱${item.price.toFixed(2)} = ₱${item.subtotal.toFixed(2)}`
+).join('\n\n')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Subtotal: ₱${order?.subtotal.toFixed(2)}
+TOTAL: ₱${order?.total.toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Payment: ${order?.paymentMethod?.toUpperCase()}
+Status: ${order?.paymentStatus?.toUpperCase()}
+
+Thank you for your order! 🙏
+      `.trim();
+
+      // Use React Native's built-in Share API (works without rebuild)
+      await Share.share(
+        {
+          message: invoiceText,
+          title: `Invoice ${order?.orderNumber || order?.id}`,
+        },
+        {
+          dialogTitle: 'Share Invoice',
         }
+      );
 
-        Alert.alert(
-          'Invoice Downloaded',
-          `Invoice saved to gallery in "TindaGo Invoices" folder.\n\nOrder: ${order?.orderNumber || order?.id}`,
-          [{ text: 'OK' }]
-        );
-      }
+      console.log('✅ Invoice shared successfully');
     } catch (error) {
-      console.error('Error downloading invoice:', error);
-      Alert.alert('Download Failed', 'Could not save invoice. Please try again.');
+      console.error('❌ Error sharing invoice:', error);
+      Alert.alert('Share Failed', 'Could not share invoice. Please try again.');
     } finally {
       setDownloading(false);
     }
-    */
+  };
+
+  const generateInvoiceImageUrl = () => {
+    if (!order) return null;
+
+    // Create simple text invoice for URL
+    const invoiceText = [
+      `🧾 INVOICE`,
+      `━━━━━━━━━━━━━━━━━━`,
+      `Order: ${order.orderNumber}`,
+      `Date: ${formatDate(order.createdAt)}`,
+      `Store: ${order.storeName}`,
+      ``,
+      `📦 ITEMS:`,
+      ...order.items.map(item => `${item.productName} x${item.quantity} - ₱${item.subtotal.toFixed(2)}`),
+      ``,
+      `━━━━━━━━━━━━━━━━━━`,
+      `Subtotal: ₱${order.subtotal.toFixed(2)}`,
+      `TOTAL: ₱${order.total.toFixed(2)}`,
+      `━━━━━━━━━━━━━━━━━━`,
+      `Payment: ${order.paymentMethod?.toUpperCase()}`,
+      `Status: ${order.paymentStatus?.toUpperCase()}`,
+      ``,
+      `Thank you! 🙏`,
+    ].join('%0A');
+
+    // Use Cloudinary's dynamic blank canvas with text overlay
+    // This generates an image without uploading anything!
+    const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    
+    // Generate invoice using Cloudinary's blank canvas feature
+    const imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/` +
+      `w_800,h_1400,` + // Canvas size
+      `c_fill,` + // Fill canvas
+      `b_rgb:ffffff,` + // White background
+      `co_rgb:1e1e1e,` + // Dark text color
+      `l_text:Arial_20_left:${encodeURIComponent(invoiceText)},` + // Text overlay
+      `g_north_west,x_30,y_30/` + // Position text
+      `v1/invoices/blank.png`; // Blank canvas (Cloudinary creates this automatically)
+
+    return imageUrl;
+  };
+
+  const handleShareImage = async () => {
+    try {
+      setDownloading(true);
+      
+      const imageUrl = generateInvoiceImageUrl();
+      if (!imageUrl) {
+        Alert.alert('Error', 'Could not generate invoice image');
+        return;
+      }
+
+      // Open Cloudinary image URL in browser - user can easily download from there
+      const canOpen = await Linking.canOpenURL(imageUrl);
+      if (canOpen) {
+        await Linking.openURL(imageUrl);
+        
+        // Show helpful tip
+        setTimeout(() => {
+          Alert.alert(
+            '📸 Save Invoice',
+            'Long-press the image to save it to your Photos/Gallery',
+            [{ text: 'Got it!' }]
+          );
+        }, 1000);
+      } else {
+        Alert.alert('Error', 'Could not open invoice image');
+      }
+
+      console.log('✅ Invoice image opened in browser');
+    } catch (error) {
+      console.error('❌ Error opening invoice:', error);
+      Alert.alert('Error', 'Could not open invoice. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownload = () => {
+    Alert.alert(
+      'Share Invoice',
+      'Choose how to share your invoice:',
+      [
+        {
+          text: 'Share as Text',
+          onPress: handleShareText,
+        },
+        {
+          text: 'View as Image',
+          onPress: handleShareImage,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -267,8 +359,8 @@ export default function InvoiceScreen() {
             <ActivityIndicator color="#FFF" />
           ) : (
             <>
-              <Ionicons name="download-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-              <Text style={styles.downloadText}>Download Invoice</Text>
+              <Ionicons name="share-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.downloadText}>Share / Save Invoice</Text>
             </>
           )}
         </TouchableOpacity>

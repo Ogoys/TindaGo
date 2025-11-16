@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   // Give Feedback Button
   feedbackButton: {
     position: "absolute",
-    bottom: vs(90),
+    bottom: vs(120),
     width: s(320),
     height: vs(50),
     backgroundColor: Colors.primary,
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   // Back to Home Button
   homeButton: {
     position: "absolute",
-    bottom: vs(30),
+    bottom: vs(50),
     width: s(320),
     height: vs(50),
     backgroundColor: "rgba(217, 217, 217, 0.5)",

@@ -35,11 +35,12 @@ export default function EarningsScreen() {
       return;
     }
 
-    // Subscribe to ledger transactions
-    const ledgerRef = ref(database, `ledgers/stores/${sid}/transactions`);
-    const unsubscribeLedger = onValue(ledgerRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
+    // OPTIMIZED: One-time fetch for ledger transactions
+    const fetchLedger = async () => {
+      const ledgerRef = ref(database, `ledgers/stores/${sid}/transactions`);
+      const ledgerSnap = await get(ledgerRef);
+      if (ledgerSnap.exists()) {
+        const data = ledgerSnap.val();
         const txns = Object.values(data) as any[];
 
         // Calculate totals
@@ -66,7 +67,9 @@ export default function EarningsScreen() {
         setTransactions(txns.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       }
       setLoading(false);
-    });
+    };
+    
+    fetchLedger();
 
     // Subscribe to wallet (if exists)
     const walletRef = ref(database, `wallets/${sid}`);
@@ -121,7 +124,6 @@ export default function EarningsScreen() {
     }
 
     return () => {
-      unsubscribeLedger();
       unsubscribeWallet();
     };
   }, [user?.storeId, user?.id]);

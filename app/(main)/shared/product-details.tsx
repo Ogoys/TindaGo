@@ -604,13 +604,22 @@ export default function ProductDetailsScreen() {
             {product.productSize && (
               <Text style={styles.productWeight}>{product.productSize} {product.unit}</Text>
             )}
-            {/* Stock indicator */}
-            {isOutOfStock && (
-              <Text style={styles.outOfStockText}>Out of Stock</Text>
-            )}
-            {isLowStock && (
-              <Text style={styles.lowStockText}>Only {product.quantity} left!</Text>
-            )}
+            {/* Stock availability badge - Enhanced */}
+            <View style={styles.stockBadgeContainer}>
+              {isOutOfStock ? (
+                <View style={styles.outOfStockBadge}>
+                  <Text style={styles.outOfStockBadgeText}>⚠️ Out of Stock</Text>
+                </View>
+              ) : isLowStock ? (
+                <View style={styles.lowStockBadge}>
+                  <Text style={styles.lowStockBadgeText}>🔥 Only {product.quantity} left in stock!</Text>
+                </View>
+              ) : (
+                <View style={styles.inStockBadge}>
+                  <Text style={styles.inStockBadgeText}>✓ {product.quantity} available</Text>
+                </View>
+              )}
+            </View>
           </View>
 
           {/* Price - Right side */}
@@ -1120,6 +1129,59 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FF9800',
     marginTop: vs(4),
+  },
+
+  // Stock Badge Container - Enhanced visual indicators
+  stockBadgeContainer: {
+    marginTop: vs(8),
+  },
+
+  inStockBadge: {
+    paddingHorizontal: s(12),
+    paddingVertical: vs(6),
+    backgroundColor: '#E8F5E9',
+    borderRadius: s(8),
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    alignSelf: 'flex-start',
+  },
+
+  inStockBadgeText: {
+    fontSize: ms(12),
+    fontWeight: '600',
+    color: '#2E7D32',
+  },
+
+  lowStockBadge: {
+    paddingHorizontal: s(12),
+    paddingVertical: vs(6),
+    backgroundColor: '#FFF3E0',
+    borderRadius: s(8),
+    borderWidth: 1,
+    borderColor: '#FF9800',
+    alignSelf: 'flex-start',
+  },
+
+  lowStockBadgeText: {
+    fontSize: ms(12),
+    fontWeight: '700',
+    color: '#E65100',
+  },
+
+  outOfStockBadge: {
+    paddingHorizontal: s(12),
+    paddingVertical: vs(6),
+    backgroundColor: '#FFEBEE',
+    borderRadius: s(8),
+    borderWidth: 1,
+    borderColor: '#E92B45',
+    alignSelf: 'flex-start',
+  },
+
+  outOfStockBadgeText: {
+    fontSize: ms(12),
+    fontWeight: '700',
+    color: '#C62828',
   },
 
   // Price Container - Right side

@@ -10,7 +10,7 @@
  */
 
 import { router } from 'expo-router';
-import { equalTo, onValue, orderByChild, query, ref } from 'firebase/database';
+import { equalTo, get, orderByChild, query, ref } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -92,64 +92,62 @@ const SalesHistoryScreen = () => {
         equalTo(currentUser.uid)
       );
 
-      onValue(ordersQuery, async (snapshot) => {
-        const appOrders: SaleTransaction[] = [];
+      // OPTIMIZED: Replace onValue with get() to prevent spam reads
+      const snapshot = await get(ordersQuery);
+      const appOrders: SaleTransaction[] = [];
 
-        if (snapshot.exists()) {
-          const data = snapshot.val();
+      if (snapshot.exists()) {
+        const data = snapshot.val();
 
-          // Fetch ledger transactions for commission data
-          const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
-          const ledgerSnapshot = await new Promise<any>((resolve) => {
-            onValue(ledgerRef, (snap) => resolve(snap), { onlyOnce: true });
-          });
+        // Fetch ledger transactions for commission data
+        const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
+        const ledgerSnapshot = await get(ledgerRef);
 
-          const ledgerData = ledgerSnapshot.exists() ? ledgerSnapshot.val() : {};
+        const ledgerData = ledgerSnapshot.exists() ? ledgerSnapshot.val() : {};
 
-          Object.keys(data).forEach(key => {
-            const order = data[key];
-            // Only include completed/delivered orders
-            if (order.status === 'completed' || order.status === 'delivered') {
-              const ledgerTxn = Object.values(ledgerData).find(
-                (txn: any) => txn.orderId === key || txn.orderNumber === order.orderNumber
-              ) as any;
+        Object.keys(data).forEach(key => {
+          const order = data[key];
+          // Only include completed/delivered orders
+          if (order.status === 'completed' || order.status === 'delivered') {
+            const ledgerTxn = Object.values(ledgerData).find(
+              (txn: any) => txn.orderId === key || txn.orderNumber === order.orderNumber
+            ) as any;
 
-              appOrders.push({
-                id: key,
-                type: 'app-order',
-                totalAmount: order.totalAmount || 0,
-                itemsCount: order.items?.length || 0,
-                createdAt: order.createdAt,
-                customerName: order.customerName || 'Customer',
-                status: order.status,
-                commission: ledgerTxn?.commission || 0,
-                storeAmount: ledgerTxn?.storeAmount || order.totalAmount || 0,
-                paymentMethod: order.paymentMethod || 'COD',
-                items: order.items || [],
-              });
-            }
-          });
-        }
+            appOrders.push({
+              id: key,
+              type: 'app-order',
+              totalAmount: order.totalAmount || 0,
+              itemsCount: order.items?.length || 0,
+              createdAt: order.createdAt,
+              customerName: order.customerName || 'Customer',
+              status: order.status,
+              commission: ledgerTxn?.commission || 0,
+              storeAmount: ledgerTxn?.storeAmount || order.totalAmount || 0,
+              paymentMethod: order.paymentMethod || 'COD',
+              items: order.items || [],
+            });
+          }
+        });
+      }
 
-        // Combine walk-in and app orders
-        const walkInTransactions: SaleTransaction[] = walkInSales.map(sale => ({
-          id: sale.id,
-          type: 'walk-in' as const,
-          totalAmount: sale.totalAmount,
-          itemsCount: sale.items.length,
-          createdAt: sale.createdAt,
-          customerName: sale.customerName || 'Walk-in Customer',
-          paymentMethod: 'Cash',
-          items: sale.items,
-        }));
+      // Combine walk-in and app orders
+      const walkInTransactions: SaleTransaction[] = walkInSales.map(sale => ({
+        id: sale.id,
+        type: 'walk-in' as const,
+        totalAmount: sale.totalAmount,
+        itemsCount: sale.items.length,
+        createdAt: sale.createdAt,
+        customerName: sale.customerName || 'Walk-in Customer',
+        paymentMethod: 'Cash',
+        items: sale.items,
+      }));
 
-        const allTransactions = [...walkInTransactions, ...appOrders]
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const allTransactions = [...walkInTransactions, ...appOrders]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-        setTransactions(allTransactions);
-        setLoading(false);
-        setRefreshing(false);
-      });
+      setTransactions(allTransactions);
+      setLoading(false);
+      setRefreshing(false);
     } catch (error) {
       console.error('Error fetching sales history:', error);
       setLoading(false);
@@ -174,7 +172,11 @@ const SalesHistoryScreen = () => {
 
     // Payment filter
     if (paymentFilter !== 'all') {
-      filtered = filtered.filter(t => t.paymentMethod === paymentFilter);
+      // Normalize comparison - database has lowercase 'gcash'/'paymaya'
+      const normalizedFilter = paymentFilter.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.paymentMethod?.toLowerCase() === normalizedFilter
+      );
     }
 
     setFilteredTransactions(filtered);
@@ -347,7 +349,11 @@ const SalesHistoryScreen = () => {
                         {transaction.itemsCount} item{transaction.itemsCount > 1 ? 's' : ''}
                       </Text>
                       {transaction.paymentMethod && (
-                        <Text style={styles.paymentMethod}>{transaction.paymentMethod}</Text>
+                        <Text style={styles.paymentMethod}>
+                          {transaction.paymentMethod === 'gcash' ? 'GCash' :
+                           transaction.paymentMethod === 'paymaya' ? 'PayMaya' :
+                           transaction.paymentMethod}
+                        </Text>
                       )}
                     </View>
                     <View style={styles.transactionAmountContainer}>

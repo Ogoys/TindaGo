@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View, Switch, Alert } from "react-native";
+import { router } from 'expo-router';
 import { auth, database } from "@/lib/firebase";
 import { ref, get, update, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { Typography } from "../../../src/components/ui/Typography";
@@ -98,6 +99,58 @@ export default function StoreHomeScreen() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Auto-disable expired products on mount
+  useEffect(() => {
+    const checkExpiredProducts = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const productsRef = ref(database, 'products');
+        const userProductsQuery = query(
+          productsRef,
+          orderByChild('storeOwnerId'),
+          equalTo(user.uid)
+        );
+
+        const snapshot = await get(userProductsQuery);
+        if (!snapshot.exists()) return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const updates: Record<string, any> = {};
+        const products = snapshot.val();
+        let expiredCount = 0;
+
+        Object.keys(products).forEach(productId => {
+          const product = products[productId];
+          if (product.expiryDate && product.status === 'available') {
+            const expiryDate = new Date(product.expiryDate);
+            if (expiryDate < today) {
+              updates[`products/${productId}/status`] = 'out_of_stock';
+              console.log(`Auto-disabled expired product: ${product.productName}`);
+              expiredCount++;
+            }
+          }
+        });
+
+        if (Object.keys(updates).length > 0) {
+          await update(ref(database), updates);
+          Alert.alert(
+            'Expired Products Disabled',
+            `${expiredCount} expired product(s) have been automatically marked as out of stock.`,
+            [{ text: 'OK' }]
+          );
+        }
+      } catch (error) {
+        console.error('Error checking expired products:', error);
+      }
+    };
+
+    checkExpiredProducts();
   }, []);
 
   // Handle store open/close toggle with Firebase sync

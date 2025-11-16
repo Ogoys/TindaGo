@@ -40,6 +40,8 @@ interface Store {
   description?: string;
   status: 'pending' | 'approved' | 'active' | 'rejected' | 'suspended';
   isOpen?: boolean;
+  rating?: number;
+  totalReviews?: number;
   location?: {
     address?: string;
     coordinates?: {
@@ -83,6 +85,8 @@ export default function StoresListScreen() {
               description: storeData.description || storeData.businessInfo?.description || '',
               status: storeData.status || 'active',
               isOpen: storeData.isOpen ?? true,
+              rating: storeData.rating || 0,
+              totalReviews: storeData.totalReviews || 0,
               location: storeData.location || null,
             };
           })
@@ -243,8 +247,12 @@ export default function StoresListScreen() {
                         {/* Rating */}
                         <View style={styles.ratingRow}>
                           <Ionicons name="star" size={14} color="#FFB800" />
-                          <Text style={styles.ratingText}>0.0</Text>
-                          <Text style={styles.reviewCount}>(No reviews)</Text>
+                          <Text style={styles.ratingText}>
+                            {store.rating && store.rating > 0 ? store.rating.toFixed(1) : '0.0'}
+                          </Text>
+                          <Text style={styles.reviewCount}>
+                            ({store.totalReviews || 0} {store.totalReviews === 1 ? 'review' : 'reviews'})
+                          </Text>
                         </View>
                       </View>
                     </View>

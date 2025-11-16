@@ -34,6 +34,7 @@ import { ProductCard } from '../../../src/components/ui';
 import { useUser } from '../../../src/contexts/UserContext';
 import { addToCartWithValidation } from '../../../src/api/cart';
 import { getProductImageSource, getStoreLogoSource, getStoreCoverSource } from '../../../src/lib/helpers/imageHelper';
+import { getStoreRating, fetchStoreReviews } from '../../../src/api/reviews';
 
 // Firebase Store interface matching actual database structure
 interface Store {
@@ -91,6 +92,8 @@ export default function StoreDetailsScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
+  const [storeRating, setStoreRating] = useState<{ averageRating: number; totalReviews: number } | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
 
   // Use either id or storeId parameter
   const actualStoreId = id || storeId;
@@ -120,8 +123,27 @@ export default function StoreDetailsScreen() {
         const availableProducts = storeProducts.filter(p => p.status === 'available');
         setProducts(availableProducts as Product[]);
 
+        // Fetch store rating
+        const rating = await getStoreRating(actualStoreId);
+        if (rating) {
+          setStoreRating({
+            averageRating: rating.averageRating,
+            totalReviews: rating.totalReviews,
+          });
+        }
+
+        // Fetch store reviews
+        const storeReviews = await fetchStoreReviews(actualStoreId);
+        // Sort reviews by date, newest first
+        const sortedReviews = storeReviews.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setReviews(sortedReviews);
+
         console.log('🏪 Store loaded:', storeData.storeName);
         console.log('📦 Products loaded:', availableProducts.length);
+        console.log('⭐ Store rating:', rating?.averageRating.toFixed(1), `(${rating?.totalReviews || 0} reviews)`);
+        console.log('💬 Reviews loaded:', sortedReviews.length);
         console.log('📍 Store location:', storeData.location?.coordinates);
       } catch (error) {
         console.error('Error loading store:', error);
@@ -337,8 +359,12 @@ export default function StoreDetailsScreen() {
               source={require('../../../src/assets/images/product-details/star-icon.png')}
               style={styles.starIcon}
             />
-            <Text style={styles.ratingText}>0.0 / 5.0</Text>
-            <Text style={styles.reviewCount}>(No reviews yet)</Text>
+            <Text style={styles.ratingText}>
+              {storeRating ? `${storeRating.averageRating.toFixed(1)} / 5.0` : '0.0 / 5.0'}
+            </Text>
+            <Text style={styles.reviewCount}>
+              ({storeRating ? `${storeRating.totalReviews} review${storeRating.totalReviews !== 1 ? 's' : ''}` : 'No reviews yet'})
+            </Text>
           </View>
         </View>
 
@@ -380,6 +406,53 @@ export default function StoreDetailsScreen() {
                 <Text style={styles.openMapButtonText}>Get Directions</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        )}
+
+        {/* Reviews Section */}
+        {reviews.length > 0 && (
+          <View style={styles.reviewsSection}>
+            <Text style={styles.sectionTitle}>Customer Reviews ({reviews.length})</Text>
+            
+            {reviews.slice(0, 5).map((review) => (
+              <View key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <Text style={styles.reviewerName}>{review.customerName || 'Anonymous'}</Text>
+                  <View style={styles.reviewRating}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Text key={star} style={styles.reviewStar}>
+                        {star <= review.rating ? '⭐' : '☆'}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+                
+                {review.comment && (
+                  <Text style={styles.reviewComment}>{review.comment}</Text>
+                )}
+                
+                {review.images && review.images.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reviewImagesContainer}>
+                    {review.images.map((imageUrl: string, index: number) => (
+                      <Image
+                        key={index}
+                        source={{ uri: imageUrl }}
+                        style={styles.reviewImage}
+                        resizeMode="cover"
+                      />
+                    ))}
+                  </ScrollView>
+                )}
+                
+                <Text style={styles.reviewDate}>
+                  {new Date(review.createdAt).toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  })}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
 
@@ -631,6 +704,71 @@ const styles = StyleSheet.create({
   reviewCount: {
     fontSize: ms(14),
     color: 'rgba(0, 0, 0, 0.5)',
+  },
+
+  // Reviews Section
+  reviewsSection: {
+    paddingHorizontal: s(20),
+    paddingTop: vs(20),
+    paddingBottom: vs(10),
+  },
+
+  reviewCard: {
+    backgroundColor: Colors.white,
+    borderRadius: s(12),
+    padding: s(15),
+    marginBottom: vs(15),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: vs(2) },
+    shadowOpacity: 0.1,
+    shadowRadius: s(4),
+    elevation: 2,
+  },
+
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vs(8),
+  },
+
+  reviewerName: {
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: Colors.darkGray,
+    flex: 1,
+  },
+
+  reviewRating: {
+    flexDirection: 'row',
+    gap: s(2),
+  },
+
+  reviewStar: {
+    fontSize: ms(14),
+  },
+
+  reviewComment: {
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    lineHeight: vs(20),
+    marginBottom: vs(10),
+  },
+
+  reviewImagesContainer: {
+    marginBottom: vs(10),
+  },
+
+  reviewImage: {
+    width: s(80),
+    height: s(80),
+    borderRadius: s(8),
+    marginRight: s(8),
+  },
+
+  reviewDate: {
+    fontSize: ms(12),
+    color: 'rgba(0, 0, 0, 0.4)',
   },
 
   // Products Section

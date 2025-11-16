@@ -14,6 +14,7 @@ export interface ProductCardProps {
   onPress?: () => void;
   variant?: "grid" | "horizontal";
   isAdding?: boolean;
+  quantity?: number;  // Add quantity prop for stock badge
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -26,16 +27,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onPress,
   variant = "grid",
   isAdding = false,
+  quantity,
 }) => {
   const cardStyles = variant === "grid" ? styles.gridCard : styles.horizontalCard;
   const imageStyles = variant === "grid" ? styles.gridImageContainer : styles.horizontalImageContainer;
   const labelStyles = variant === "grid" ? styles.gridLabels : styles.horizontalLabels;
+
+  // Get stock badge info
+  const getStockBadge = () => {
+    if (quantity === undefined) return null;
+    
+    if (quantity === 0) {
+      return { text: 'Out of Stock', color: '#E92B45' };
+    } else if (quantity < 10) {
+      return { text: `${quantity} left`, color: '#FF9800' };
+    } else {
+      return { text: 'In Stock', color: '#2E7D32' };
+    }
+  };
+
+  const stockBadge = getStockBadge();
 
   return (
     <TouchableOpacity style={cardStyles} onPress={onPress} activeOpacity={0.8}>
       {/* Product Image Container */}
       <View style={imageStyles}>
         {image && <Image source={image} style={styles.productImage} resizeMode="contain" />}
+        {/* Stock Badge */}
+        {stockBadge && (
+          <View style={[styles.stockBadge, { backgroundColor: stockBadge.color }]}>
+            <Text style={styles.stockBadgeText}>{stockBadge.text}</Text>
+          </View>
+        )}
       </View>
 
       {/* Product Labels */}
@@ -268,5 +291,28 @@ const styles = StyleSheet.create({
     height: s(14),
     backgroundColor: Colors.primary,
     borderRadius: s(1.5),
+  },
+
+  // Stock Badge - Overlay on top-right of image
+  stockBadge: {
+    position: "absolute",
+    top: s(4),
+    right: s(4),
+    paddingHorizontal: s(6),
+    paddingVertical: vs(2),
+    borderRadius: s(6),
+    shadowColor: "rgba(0, 0, 0, 0.3)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+
+  stockBadgeText: {
+    fontSize: 8,
+    fontFamily: Fonts.primary,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "center",
   },
 });
