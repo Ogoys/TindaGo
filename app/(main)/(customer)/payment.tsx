@@ -517,6 +517,20 @@ const PaymentScreen = () => {
               Please complete your payment in the browser.{"\n"}
               This screen will update automatically.
             </Text>
+            <TouchableOpacity
+              style={styles.returnHomeButton}
+              onPress={() => {
+                setProcessing(false);
+                setPendingOrderNumber('');
+                if (unsubscribeRef.current) {
+                  unsubscribeRef.current();
+                  unsubscribeRef.current = null;
+                }
+                router.replace('/(main)/(customer)/home');
+              }}
+            >
+              <Text style={styles.returnHomeText}>Return to Home</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <>
@@ -840,6 +854,27 @@ const styles = StyleSheet.create({
   proceedButtonDisabled: {
     backgroundColor: 'rgba(59, 183, 126, 0.5)',
     opacity: 0.6,
+  },
+  returnHomeButton: {
+    marginTop: vs(30),
+    paddingHorizontal: s(30),
+    paddingVertical: vs(12),
+    backgroundColor: Colors.white,
+    borderRadius: s(10),
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  returnHomeText: {
+    fontFamily: Fonts.primary,
+    fontSize: s(16),
+    fontWeight: '600',
+    color: Colors.primary,
+    textAlign: 'center',
   },
 });
 

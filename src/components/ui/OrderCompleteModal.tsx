@@ -84,8 +84,8 @@ export function OrderCompleteModal({
 
   const handleBackToHome = () => {
     onClose();
-    // Navigate to customer home
-    router.push("/(main)/(customer)/home");
+    // Navigate to customer home (use replace to prevent going back to payment)
+    router.replace("/(main)/(customer)/home");
   };
 
   const handleBackdropPress = () => {

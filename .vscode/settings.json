@@ -3,5 +3,19 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  "java.import.gradle.java.home": null,
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.expo/**",
+    "**/android/build/**"
+  ],
+  "files.exclude": {
+    "**/node_modules/**/android": true
+  },
+  "search.exclude": {
+    "**/node_modules/**/android": true
+  },
+  "java.compile.nullAnalysis.mode": "automatic"
 }
