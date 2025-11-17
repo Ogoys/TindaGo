@@ -708,13 +708,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: vs(83),
+    top: vs(80),
     fontFamily: 'Clash Grotesk Variable',
     fontWeight: '700',
-    fontSize: ms(20),
-    lineHeight: vs(22),
+    fontSize: ms(18),
+    lineHeight: ms(24),
     color: Colors.darkGray,
     textAlign: 'center',
+    includeFontPadding: false,
   },
 
   uploadSection: {

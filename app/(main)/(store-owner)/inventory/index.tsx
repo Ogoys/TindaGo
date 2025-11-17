@@ -171,14 +171,21 @@ export default function InventoryDashboardScreen() {
       });
 
       // Convert category data to sorted array
-      const categoryArray: CategoryStat[] = Object.keys(categoryValues).map(name => ({
-        name,
-        count: categoryValues[name].count,
-        value: categoryValues[name].value,
-        percentage: (categoryValues[name].count / inventoryStats.totalProducts) * 100,
-      }));
+      const categoryArray: CategoryStat[] = Object.keys(categoryValues).map(name => {
+        const countPercentage = inventoryStats.totalProducts > 0 
+          ? (categoryValues[name].count / inventoryStats.totalProducts) * 100 
+          : 0;
+        
+        return {
+          name,
+          count: categoryValues[name].count,
+          value: categoryValues[name].value,
+          percentage: Math.round(countPercentage * 10) / 10, // Round to 1 decimal
+        };
+      });
 
-      categoryArray.sort((a, b) => b.count - a.count);
+      // Sort by value (more meaningful than count)
+      categoryArray.sort((a, b) => b.value - a.value);
 
       setStats(inventoryStats);
       setCategoryStats(categoryArray.slice(0, 5)); // Top 5 categories
@@ -376,21 +383,42 @@ export default function InventoryDashboardScreen() {
           <View style={styles.categorySection}>
             <Text style={styles.sectionTitle}>📂 Top Categories</Text>
             
-            {categoryStats.map((cat, index) => (
-              <View key={index} style={styles.categoryCard}>
-                <View style={styles.categoryHeader}>
-                  <Text style={styles.categoryName}>{cat.name}</Text>
-                  <Text style={styles.categoryCount}>{cat.count} items</Text>
+            {categoryStats.map((cat, index) => {
+              // Calculate color based on percentage (green for high, yellow for medium, red for low)
+              const getBarColor = (percentage: number) => {
+                if (percentage >= 30) return '#3BB77E'; // High percentage - green
+                if (percentage >= 15) return '#FF9800'; // Medium percentage - orange
+                return '#E92B45'; // Low percentage - red
+              };
+
+              const barColor = getBarColor(cat.percentage);
+              
+              return (
+                <View key={index} style={styles.categoryCard}>
+                  <View style={styles.categoryHeader}>
+                    <Text style={styles.categoryName}>{cat.name}</Text>
+                    <Text style={styles.categoryCount}>{cat.count} item{cat.count !== 1 ? 's' : ''}</Text>
+                  </View>
+                  <View style={styles.categoryBar}>
+                    <View 
+                      style={[
+                        styles.categoryBarFill, 
+                        { 
+                          width: `${Math.max(cat.percentage, 2)}%`, // Minimum 2% for visibility
+                          backgroundColor: barColor 
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <View style={styles.categoryFooter}>
+                    <Text style={[styles.categoryPercentage, { color: barColor }]}>
+                      {cat.percentage.toFixed(1)}%
+                    </Text>
+                    <Text style={styles.categoryValue}>₱{cat.value.toFixed(2)}</Text>
+                  </View>
                 </View>
-                <View style={styles.categoryBar}>
-                  <View style={[styles.categoryBarFill, { width: `${cat.percentage}%` }]} />
-                </View>
-                <View style={styles.categoryFooter}>
-                  <Text style={styles.categoryPercentage}>{cat.percentage.toFixed(1)}%</Text>
-                  <Text style={styles.categoryValue}>₱{cat.value.toFixed(2)}</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -486,8 +514,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(20),
+    fontSize: ms(18),
+    lineHeight: ms(24),
     color: Colors.darkGray,
+    includeFontPadding: false,
   },
   refreshButton: {
     width: s(30),
@@ -653,15 +683,16 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   categoryBar: {
-    height: vs(8),
-    backgroundColor: '#F0F0F0',
-    borderRadius: s(4),
+    height: vs(10),
+    backgroundColor: '#E8E8E8',
+    borderRadius: s(5),
     overflow: 'hidden',
     marginBottom: vs(8),
   },
   categoryBarFill: {
     height: '100%',
     backgroundColor: Colors.primary,
+    borderRadius: s(5),
   },
   categoryFooter: {
     flexDirection: 'row',
@@ -669,8 +700,8 @@ const styles = StyleSheet.create({
   },
   categoryPercentage: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(12),
+    fontWeight: '700',
+    fontSize: ms(13),
     color: Colors.primary,
   },
   categoryValue: {

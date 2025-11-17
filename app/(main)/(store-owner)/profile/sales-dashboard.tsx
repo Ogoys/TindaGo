@@ -22,6 +22,7 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
@@ -43,6 +44,17 @@ interface Transaction {
   commission?: number;
   storeAmount?: number;
   paymentMethod?: string;
+  orderId?: string;
+  orderNumber?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  storeName?: string;
+  invoiceId?: string;
+  items?: Array<{
+    productName: string;
+    quantity: number;
+    price: number;
+  }>;
 }
 
 type TimeFilter = 'today' | 'week' | 'month' | 'all';
@@ -51,7 +63,7 @@ const SalesDashboardScreen = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<TimeFilter>('today');
+  const [selectedFilter, setSelectedFilter] = useState<TimeFilter>('all');
 
   // Sales totals
   const [todaySales, setTodaySales] = useState(0);
@@ -64,6 +76,10 @@ const SalesDashboardScreen = () => {
   const [weekCommission, setWeekCommission] = useState(0);
   const [monthCommission, setMonthCommission] = useState(0);
   const [totalCommission, setTotalCommission] = useState(0);
+  
+  // Modal state
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
     fetchAllSalesData();
@@ -90,28 +106,77 @@ const SalesDashboardScreen = () => {
       if (ledgerSnapshot.exists()) {
         const ledgerData = ledgerSnapshot.val();
         
+        // Fetch all orders first for efficient lookup
+        const ordersRef = ref(database, 'orders');
+        const ordersSnapshot = await get(ordersRef);
+        const allOrders = ordersSnapshot.exists() ? ordersSnapshot.val() : {};
+        
         // Use ledger transactions (which have PAID/SETTLED status)
-        Object.entries(ledgerData).forEach(([txnId, txn]: [string, any]) => {
+        for (const [txnId, txn] of Object.entries(ledgerData)) {
+          const txnData: any = txn;
           // Only include PAID or SETTLED transactions (same as Wallet)
-          if (txn.status === 'PAID' || txn.status === 'SETTLED') {
-            const totalAmount = txn.amount || 0;
-            const commission = txn.commission || 0;
-            const storeAmount = txn.storeAmount || (totalAmount - commission);
+          if (txnData.status === 'PAID' || txnData.status === 'SETTLED') {
+            const totalAmount = txnData.amount || 0;
+            const commission = txnData.commission || 0;
+            const storeAmount = txnData.storeAmount || (totalAmount - commission);
+            const orderNumber = txnData.orderNumber;
+            
+            // Fetch order items right away
+            let orderItems: any[] = [];
+            let itemCount = 1;
+            
+            // Get real customer name from users table
+            let realCustomerName = txnData.customerName || 'Customer';
+            if (txnData.customerId) {
+              try {
+                const userRef = ref(database, `users/${txnData.customerId}`);
+                const userSnapshot = await get(userRef);
+                if (userSnapshot.exists()) {
+                  const userData = userSnapshot.val();
+                  realCustomerName = userData.name || userData.firstName || txnData.customerName || 'Customer';
+                }
+              } catch (err) {
+                console.error('Error fetching customer name:', err);
+              }
+            }
+            
+            if (orderNumber) {
+              // Find order by orderNumber
+              const orderEntry = Object.entries(allOrders).find(
+                ([_, order]: [string, any]) => order.orderNumber === orderNumber
+              );
+              
+              if (orderEntry) {
+                const [orderId, orderData]: [string, any] = orderEntry;
+                orderItems = orderData.items || [];
+                itemCount = orderItems.length || 1;
+              }
+            }
             
             appOrders.push({
               id: txnId,
               type: 'app-order',
               totalAmount: totalAmount,
-              itemsCount: 1, // Ledger doesn't store item count
-              createdAt: txn.paidAt || txn.createdAt,
-              customerName: txn.customerName || 'Customer',
-              status: txn.status,
+              itemsCount: itemCount,
+              createdAt: txnData.paidAt || txnData.createdAt,
+              customerName: realCustomerName,
+              customerEmail: txnData.customerEmail,
+              customerPhone: txnData.customerPhone,
+              storeName: txnData.storeName,
+              status: txnData.status,
               commission: commission,
               storeAmount: storeAmount,
-              paymentMethod: txn.paymentMethod || txn.method || 'cash',
+              paymentMethod: txnData.paymentMethod || txnData.method || 'cash',
+              orderNumber: orderNumber,
+              invoiceId: txnData.invoiceId,
+              items: orderItems.map((item: any) => ({
+                productName: item.productName || 'Product',
+                quantity: item.quantity || 0,
+                price: item.price || 0,
+              })),
             });
           }
-        });
+        }
       }
 
       // Combine walk-in and app orders
@@ -219,6 +284,11 @@ const SalesDashboardScreen = () => {
 
   const handleBack = () => {
     router.back();
+  };
+
+  const handleTransactionClick = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setShowDetailsModal(true);
   };
 
   const formatDate = (isoString: string) => {
@@ -340,6 +410,16 @@ const SalesDashboardScreen = () => {
             
             <View style={styles.filterContainer}>
               <TouchableOpacity
+                style={[styles.filterButton, selectedFilter === 'all' && styles.filterButtonActive]}
+                onPress={() => setSelectedFilter('all')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filterText, selectedFilter === 'all' && styles.filterTextActive]}>
+                  All
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[styles.filterButton, selectedFilter === 'today' && styles.filterButtonActive]}
                 onPress={() => setSelectedFilter('today')}
                 activeOpacity={0.7}
@@ -368,25 +448,15 @@ const SalesDashboardScreen = () => {
                   This Month
                 </Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.filterButton, selectedFilter === 'all' && styles.filterButtonActive]}
-                onPress={() => setSelectedFilter('all')}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.filterText, selectedFilter === 'all' && styles.filterTextActive]}>
-                  All
-                </Text>
-              </TouchableOpacity>
             </View>
 
             {/* Filtered Total */}
             <View style={styles.filteredTotalCard}>
               <Text style={styles.filteredTotalLabel}>
-                {selectedFilter === 'today' ? "Today's Total" :
+                {selectedFilter === 'all' ? 'Total Sales' :
+                 selectedFilter === 'today' ? "Today's Total" :
                  selectedFilter === 'week' ? 'This Week Total' :
-                 selectedFilter === 'month' ? 'This Month Total' :
-                 'Total Sales'}
+                 'This Month Total'}
               </Text>
               <Text style={styles.filteredTotalAmount}>₱{filteredTotal.toFixed(2)}</Text>
             </View>
@@ -403,7 +473,12 @@ const SalesDashboardScreen = () => {
               </View>
             ) : (
               filteredTransactions.map((transaction) => (
-                <View key={transaction.id} style={styles.transactionCard}>
+                <TouchableOpacity 
+                  key={transaction.id} 
+                  style={styles.transactionCard}
+                  onPress={() => handleTransactionClick(transaction)}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.transactionHeader}>
                     <View style={[
                       styles.transactionTypeBadge,
@@ -421,9 +496,12 @@ const SalesDashboardScreen = () => {
                       <Text style={styles.transactionCustomer}>
                         {transaction.customerName || 'Customer'}
                       </Text>
+                      
+                      {/* Always show only item count on card */}
                       <Text style={styles.transactionItems}>
                         {transaction.itemsCount} item{transaction.itemsCount > 1 ? 's' : ''}
                       </Text>
+                      
                       {transaction.paymentMethod && (
                         <Text style={styles.paymentMethod}>{transaction.paymentMethod}</Text>
                       )}
@@ -438,12 +516,155 @@ const SalesDashboardScreen = () => {
                       )}
                     </View>
                   </View>
-                </View>
+                  
+                  {/* Tap indicator */}
+                  <View style={styles.tapIndicator}>
+                    <Text style={styles.tapIndicatorText}>Tap for details ›</Text>
+                  </View>
+                </TouchableOpacity>
               ))
             )}
           </>
         )}
       </ScrollView>
+      
+      {/* Transaction Details Modal */}
+      <Modal
+        visible={showDetailsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDetailsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Transaction Details</Text>
+              <TouchableOpacity 
+                onPress={() => setShowDetailsModal(false)}
+                style={styles.closeButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {selectedTransaction && (
+                <>
+                  {/* Order Info */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailSectionTitle}>Order Information</Text>
+                    {selectedTransaction.orderNumber && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Order Number:</Text>
+                        <Text style={styles.detailValue}>{selectedTransaction.orderNumber}</Text>
+                      </View>
+                    )}
+                    {selectedTransaction.invoiceId && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Invoice ID:</Text>
+                        <Text style={styles.detailValue}>{selectedTransaction.invoiceId.slice(0, 12)}...</Text>
+                      </View>
+                    )}
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Type:</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedTransaction.type === 'walk-in' ? 'Walk-in Sale' : 'App Order'}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Date & Time:</Text>
+                      <Text style={styles.detailValue}>{formatDate(selectedTransaction.createdAt)}</Text>
+                    </View>
+                  </View>
+                  
+                  {/* Customer Info */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailSectionTitle}>Customer Information</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Name:</Text>
+                      <Text style={styles.detailValue}>{selectedTransaction.customerName}</Text>
+                    </View>
+                    {selectedTransaction.customerEmail && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Email:</Text>
+                        <Text style={styles.detailValue}>{selectedTransaction.customerEmail}</Text>
+                      </View>
+                    )}
+                    {selectedTransaction.customerPhone && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Phone:</Text>
+                        <Text style={styles.detailValue}>{selectedTransaction.customerPhone}</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  {/* Store Info */}
+                  {selectedTransaction.storeName && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailSectionTitle}>Store</Text>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Store Name:</Text>
+                        <Text style={styles.detailValue}>{selectedTransaction.storeName}</Text>
+                      </View>
+                    </View>
+                  )}
+                  
+                  {/* Items */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailSectionTitle}>Items ({selectedTransaction.itemsCount})</Text>
+                    {selectedTransaction.items && selectedTransaction.items.length > 0 ? (
+                      selectedTransaction.items.map((item, idx) => (
+                        <View key={idx} style={styles.itemRow}>
+                          <View style={styles.itemInfo}>
+                            <Text style={styles.itemName}>{item.productName}</Text>
+                            <Text style={styles.itemQuantity}>{item.quantity}x</Text>
+                          </View>
+                          <Text style={styles.itemPrice}>₱{(item.price * item.quantity).toFixed(2)}</Text>
+                        </View>
+                      ))
+                    ) : (
+                      <Text style={styles.noItemsText}>
+                        {selectedTransaction.itemsCount} item{selectedTransaction.itemsCount > 1 ? 's' : ''} (Item details not available)
+                      </Text>
+                    )}
+                  </View>
+                  
+                  {/* Payment Details */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailSectionTitle}>Payment Details</Text>
+                    {selectedTransaction.paymentMethod && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Method:</Text>
+                        <Text style={[styles.detailValue, styles.paymentMethodBadge]}>
+                          {selectedTransaction.paymentMethod.toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Total Amount:</Text>
+                      <Text style={[styles.detailValue, styles.amountText]}>₱{selectedTransaction.totalAmount.toFixed(2)}</Text>
+                    </View>
+                    {selectedTransaction.commission && selectedTransaction.commission > 0 && (
+                      <>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Commission (1%):</Text>
+                          <Text style={[styles.detailValue, styles.commissionAmount]}>-₱{selectedTransaction.commission.toFixed(2)}</Text>
+                        </View>
+                        <View style={styles.divider} />
+                        <View style={styles.detailRow}>
+                          <Text style={[styles.detailLabel, styles.netLabel]}>Net Earnings:</Text>
+                          <Text style={[styles.detailValue, styles.netAmount]}>₱{(selectedTransaction.storeAmount || 0).toFixed(2)}</Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -637,13 +858,13 @@ const styles = StyleSheet.create({
   transactionCard: {
     backgroundColor: Colors.white,
     borderRadius: s(16),
-    padding: s(15),
-    marginBottom: vs(12),
+    padding: s(16),
+    marginBottom: vs(15),
     shadowColor: 'rgba(0, 0, 0, 0.25)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
   },
 
   transactionHeader: {
@@ -683,11 +904,12 @@ const styles = StyleSheet.create({
   transactionBody: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
 
   transactionInfo: {
     flex: 1,
+    marginRight: s(10),
   },
 
   transactionCustomer: {
@@ -702,6 +924,27 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: ms(13),
     color: Colors.textSecondary,
+  },
+  
+  transactionOrderId: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(11),
+    color: '#9E9E9E',
+    marginTop: vs(2),
+    marginBottom: vs(4),
+  },
+  
+  itemsList: {
+    marginTop: vs(6),
+    marginBottom: vs(4),
+  },
+  
+  itemDetail: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: Colors.darkGray,
+    lineHeight: vs(18),
+    marginBottom: vs(2),
   },
   
   paymentMethod: {
@@ -736,6 +979,200 @@ const styles = StyleSheet.create({
     fontSize: ms(13),
     color: '#4CAF50',
     marginTop: vs(2),
+  },
+  
+  tapIndicator: {
+    marginTop: vs(8),
+    paddingTop: vs(8),
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    alignItems: 'center',
+  },
+  
+  tapIndicatorText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(11),
+    color: Colors.primary,
+    fontWeight: '500',
+  },
+  
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: s(24),
+    borderTopRightRadius: s(24),
+    maxHeight: '90%',
+    paddingBottom: vs(30),
+  },
+  
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: s(20),
+    paddingTop: vs(20),
+    paddingBottom: vs(15),
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  
+  modalTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(20),
+    color: Colors.darkGray,
+  },
+  
+  closeButton: {
+    width: s(32),
+    height: s(32),
+    borderRadius: s(16),
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  closeButtonText: {
+    fontSize: ms(18),
+    color: Colors.darkGray,
+  },
+  
+  detailSection: {
+    paddingHorizontal: s(20),
+    paddingVertical: vs(15),
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  
+  detailSectionTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: Colors.darkGray,
+    marginBottom: vs(12),
+  },
+  
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: vs(8),
+  },
+  
+  detailLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  
+  detailValue: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    flex: 1,
+    textAlign: 'right',
+  },
+  
+  paymentMethodBadge: {
+    backgroundColor: Colors.primary,
+    color: Colors.white,
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    borderRadius: s(6),
+    overflow: 'hidden',
+  },
+  
+  amountText: {
+    fontSize: ms(16),
+    color: Colors.primary,
+  },
+  
+  commissionAmount: {
+    color: '#EF5350',
+  },
+  
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    marginVertical: vs(10),
+  },
+  
+  netLabel: {
+    fontWeight: '700',
+    fontSize: ms(15),
+  },
+  
+  netAmount: {
+    fontSize: ms(16),
+    fontWeight: '700',
+    color: '#4CAF50',
+  },
+  
+  loadingItems: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: vs(10),
+  },
+  
+  loadingItemsText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: Colors.textSecondary,
+    marginLeft: s(10),
+  },
+  
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: vs(8),
+    paddingHorizontal: s(12),
+    backgroundColor: 'rgba(59, 183, 126, 0.05)',
+    borderRadius: s(8),
+    marginBottom: vs(6),
+  },
+  
+  itemInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
+  itemName: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    flex: 1,
+  },
+  
+  itemQuantity: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    fontWeight: '600',
+    color: Colors.primary,
+    marginLeft: s(8),
+  },
+  
+  itemPrice: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    marginLeft: s(12),
+  },
+  
+  noItemsText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
   },
 });
 

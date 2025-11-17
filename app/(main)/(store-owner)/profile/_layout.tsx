@@ -6,8 +6,7 @@ import { Stack } from "expo-router";
  * Nested Stack navigation for Store Owner profile section
  * Routes:
  * - index: Main profile screen with settings menu
- * - store-product: Product listing and management
- * - add-product: Add new product form
+ * - store-product: Product listing and management (legacy - moved to inventory)
  */
 
 export default function ProfileLayout() {
@@ -19,7 +18,6 @@ export default function ProfileLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="store-product" />
-      <Stack.Screen name="add-product" />
     </Stack>
   );
 }

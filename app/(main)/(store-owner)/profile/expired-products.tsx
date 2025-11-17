@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(20),
+    fontSize: ms(18),
     color: Colors.darkGray,
   },
   placeholder: {

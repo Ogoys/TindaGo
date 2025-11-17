@@ -244,10 +244,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: s(20),
+    fontSize: s(18),
+    lineHeight: s(24),
     fontWeight: '600',
     color: '#1E1E1E',
     fontFamily: 'Clash Grotesk Variable',
+    includeFontPadding: false,
   },
   infoBanner: {
     flexDirection: 'row',

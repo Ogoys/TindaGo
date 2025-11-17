@@ -628,9 +628,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: ms(20),
+    fontSize: ms(18),
+    lineHeight: ms(24),
     fontWeight: '700',
     color: '#1E1E1E',
+    includeFontPadding: false,
   },
   scrollView: {
     flex: 1,

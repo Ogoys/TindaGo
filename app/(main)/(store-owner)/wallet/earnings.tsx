@@ -89,6 +89,7 @@ export default function EarningsScreen() {
 
     async function computeFallback() {
       try {
+        const ledgerRef = ref(database, `ledgers/stores/${sid}/transactions`);
         const payoutsRef = ref(database, 'payouts');
         const [ledgerSnap, payoutsSnap] = await Promise.all([
           get(ledgerRef),
