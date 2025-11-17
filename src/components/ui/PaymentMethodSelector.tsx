@@ -2,7 +2,7 @@
  * PaymentMethodSelector Component
  *
  * Reusable payment method selection component
- * Shows three payment options: PayMaya, GCash, Cash on Pickup
+ * Shows two payment options: PayMaya, GCash
  * Can be used across multiple screens (Payment, Checkout, etc.)
  */
 
@@ -76,31 +76,6 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           selectedPayment === 'gcash' && styles.radioCircleSelected
         ]}>
           {selectedPayment === 'gcash' && <View style={styles.radioCircleInner} />}
-        </View>
-      </TouchableOpacity>
-
-      {/* Cash on Pickup - Third option */}
-      <TouchableOpacity
-        style={[
-          styles.paymentOption,
-          selectedPayment === 'cash' && styles.paymentOptionSelected
-        ]}
-        onPress={() => onPaymentSelect('cash')}
-        disabled={disabled}
-        activeOpacity={0.7}
-      >
-        <View style={styles.paymentOptionContent}>
-          {/* Green peso circle icon */}
-          <View style={styles.cashIconCircle}>
-            <Text style={styles.cashIconText}>₱</Text>
-          </View>
-          <Text style={styles.paymentMethodText}>Cash on Pickup</Text>
-        </View>
-        <View style={[
-          styles.radioCircle,
-          selectedPayment === 'cash' && styles.radioCircleSelected
-        ]}>
-          {selectedPayment === 'cash' && <View style={styles.radioCircleInner} />}
         </View>
       </TouchableOpacity>
     </View>
