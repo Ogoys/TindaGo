@@ -126,7 +126,8 @@ const EditProductScreen = () => {
           setQuantity(data.quantity?.toString() || '');
           setProductSize(data.productSize || '');
           setSelectedUnit(data.unit || '');
-          setSelectedImage(data.productImage || null);
+          // Load image from Cloudinary URL first, fallback to legacy base64
+          setSelectedImage(data.productImageUrl || data.productImage || null);
         } else {
           Alert.alert('Error', 'Product not found');
           router.back();

@@ -45,6 +45,35 @@ interface ExpiredProduct {
   totalValue: number;
 }
 
+// Helper function to parse expiry date (supports both MM/DD/YYYY and ISO formats)
+const parseExpiryDate = (expiryDate: string | undefined): Date | null => {
+  if (!expiryDate) return null;
+
+  try {
+    // Try parsing as ISO string first (new format)
+    const isoDate = new Date(expiryDate);
+    if (!isNaN(isoDate.getTime())) {
+      return isoDate;
+    }
+
+    // Try parsing MM/DD/YYYY format (old format)
+    const parts = expiryDate.split('/');
+    if (parts.length === 3) {
+      const month = parseInt(parts[0], 10) - 1; // Month is 0-indexed
+      const day = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      const dateObj = new Date(year, month, day);
+      if (!isNaN(dateObj.getTime())) {
+        return dateObj;
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing expiry date:', expiryDate, error);
+  }
+
+  return null;
+};
+
 export default function ExpiredProductsScreen() {
   const [expiredProducts, setExpiredProducts] = useState<ExpiredProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +88,30 @@ export default function ExpiredProductsScreen() {
     try {
       const user = auth.currentUser;
       if (!user) return;
+
+      // Fetch all damage records to get product IDs that have been recorded
+      const damagesRef = ref(database, 'damages');
+      const damagesQuery = query(
+        damagesRef,
+        orderByChild('storeOwnerId'),
+        equalTo(user.uid)
+      );
+      
+      const damagesSnapshot = await get(damagesQuery);
+      const damagedProductIds = new Set<string>();
+      
+      if (damagesSnapshot.exists()) {
+        const damages = damagesSnapshot.val();
+        Object.values(damages).forEach((damage: any) => {
+          if (damage.items && Array.isArray(damage.items)) {
+            damage.items.forEach((item: any) => {
+              if (item.productId && item.reason === 'expired') {
+                damagedProductIds.add(item.productId);
+              }
+            });
+          }
+        });
+      }
 
       const productsRef = ref(database, 'products');
       const userProductsQuery = query(
@@ -81,16 +134,27 @@ export default function ExpiredProductsScreen() {
 
       Object.keys(products).forEach(productId => {
         const product = products[productId];
+        
+        // Skip products that have already been recorded as damaged
+        if (damagedProductIds.has(productId)) {
+          return;
+        }
+        
         if (product.expiryDate) {
-          const expiryDate = new Date(product.expiryDate);
-          if (expiryDate < today) {
-            const daysExpired = Math.floor((today.getTime() - expiryDate.getTime()) / (1000 * 60 * 60 * 24));
-            expired.push({
-              id: productId,
-              ...product,
-              daysExpired,
-              totalValue: product.price * product.quantity,
-            });
+          const expiryDate = parseExpiryDate(product.expiryDate);
+          
+          if (expiryDate) {
+            expiryDate.setHours(0, 0, 0, 0); // Normalize to start of day
+            
+            if (expiryDate <= today) {
+              const daysExpired = Math.floor((today.getTime() - expiryDate.getTime()) / (1000 * 60 * 60 * 24));
+              expired.push({
+                id: productId,
+                ...product,
+                daysExpired,
+                totalValue: product.price * product.quantity,
+              });
+            }
           }
         }
       });
@@ -154,7 +218,7 @@ export default function ExpiredProductsScreen() {
           onPress: () => {
             // Navigate to record damage screen with pre-filled data
             router.push({
-              pathname: '/(main)/(store-owner)/profile/record-damage',
+              pathname: '/(main)/(store-owner)/inventory/record-damage',
               params: {
                 productId: product.id,
                 productName: product.productName,
@@ -236,7 +300,7 @@ export default function ExpiredProductsScreen() {
           <View style={styles.actionButtonsRow}>
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => router.push('/(main)/(store-owner)/profile/record-damage')}
+              onPress={() => router.push('/(main)/(store-owner)/inventory/record-damage')}
             >
               <Text style={styles.actionButtonText}>Record Damages</Text>
             </TouchableOpacity>

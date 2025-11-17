@@ -44,6 +44,24 @@ export const recordDamage = async (
     // Calculate total loss
     const totalLoss = damageData.items.reduce((sum, item) => sum + item.totalLoss, 0);
 
+    // Clean items: remove undefined fields (Firebase doesn't allow undefined)
+    const cleanedItems = damageData.items.map(item => {
+      const cleaned: any = {
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        reason: item.reason,
+        totalLoss: item.totalLoss,
+      };
+      
+      // Only add optional fields if they have values
+      if (item.productImage) cleaned.productImage = item.productImage;
+      if (item.productImageUrl) cleaned.productImageUrl = item.productImageUrl;
+      if (item.notes) cleaned.notes = item.notes;
+      
+      return cleaned;
+    });
+
     // Create damage record
     const damagesRef = ref(database, 'damages');
     const newDamageRef = push(damagesRef);
@@ -53,7 +71,7 @@ export const recordDamage = async (
       storeId: storeOwnerId,
       storeOwnerId: storeOwnerId,
       storeName: storeName,
-      items: damageData.items,
+      items: cleanedItems,
       totalLoss: totalLoss,
       createdAt: new Date().toISOString(),
       recordedBy: storeOwnerId,

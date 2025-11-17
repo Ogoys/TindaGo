@@ -27,7 +27,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ref, onValue, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
@@ -60,6 +60,7 @@ interface SelectedProduct extends Product {
 }
 
 const RecordDamageScreen = () => {
+  const params = useLocalSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -69,6 +70,7 @@ const RecordDamageScreen = () => {
   const [saving, setSaving] = useState(false);
   const [storeName, setStoreName] = useState('My Store');
   const [searchQuery, setSearchQuery] = useState('');
+  const [hasAddedFromParams, setHasAddedFromParams] = useState(false);
 
   const filteredProducts = products.filter(p => 
     p.productName.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -81,6 +83,48 @@ const RecordDamageScreen = () => {
     fetchProducts();
     fetchStoreInfo();
   }, []);
+
+  // Auto-add product from route params (e.g., from expired products screen)
+  useEffect(() => {
+    console.log('=== RECORD DAMAGE PARAMS DEBUG ===');
+    console.log('Params:', params);
+    console.log('Products loaded:', products.length);
+    console.log('Has added from params:', hasAddedFromParams);
+    console.log('productId in params:', params.productId);
+    
+    if (!hasAddedFromParams && products.length > 0 && params.productId) {
+      const productId = Array.isArray(params.productId) ? params.productId[0] : params.productId;
+      const productName = Array.isArray(params.productName) ? params.productName[0] : params.productName;
+      const quantity = Array.isArray(params.quantity) ? params.quantity[0] : params.quantity;
+      const reason = Array.isArray(params.reason) ? params.reason[0] : params.reason;
+
+      console.log('Extracted params:', { productId, productName, quantity, reason });
+
+      const product = products.find(p => p.id === productId);
+      console.log('Found product:', product ? product.productName : 'NOT FOUND');
+      
+      if (product) {
+        const damageQuantity = parseInt(quantity as string) || product.quantity;
+        const newProduct: SelectedProduct = {
+          ...product,
+          damageQuantity: Math.min(damageQuantity, product.quantity),
+          reason: (reason as DamageReason) || 'expired',
+          notes: '',
+          totalLoss: Math.min(damageQuantity, product.quantity) * product.price,
+        };
+        
+        console.log('✅ Adding product to damaged items:', newProduct.productName);
+        setSelectedProducts([newProduct]);
+        setHasAddedFromParams(true);
+      } else {
+        console.log('❌ Product not found in products list');
+      }
+    } else {
+      if (hasAddedFromParams) console.log('⚠️ Already added from params');
+      if (products.length === 0) console.log('⚠️ Products not loaded yet');
+      if (!params.productId) console.log('⚠️ No productId in params');
+    }
+  }, [products, params, hasAddedFromParams]);
 
   const fetchStoreInfo = async () => {
     try {

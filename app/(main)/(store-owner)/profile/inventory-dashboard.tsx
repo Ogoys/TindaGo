@@ -40,13 +40,15 @@ interface InventoryStats {
   expiringSoon: number;
   categories: Record<string, number>;
   recentlyUpdated: number;
+  expiredInDamageHistory: number; // Expired products recorded in damage history
+  expiredNotRecorded: number; // Expired products not yet recorded in damage history
 }
 
-interface CategoryStat {
+interface ProductStat {
+  productId: string;
   name: string;
-  count: number;
-  value: number;
-  percentage: number;
+  orderCount: number;
+  imageUrl?: string;
 }
 
 export default function InventoryDashboardScreen() {
@@ -60,8 +62,10 @@ export default function InventoryDashboardScreen() {
     expiringSoon: 0,
     categories: {},
     recentlyUpdated: 0,
+    expiredInDamageHistory: 0,
+    expiredNotRecorded: 0,
   });
-  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
+  const [topProducts, setTopProducts] = useState<ProductStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -74,6 +78,36 @@ export default function InventoryDashboardScreen() {
     try {
       const user = auth.currentUser;
       if (!user) return;
+
+      // Fetch all damage records to exclude expired products that have been recorded
+      const damagesRef = ref(database, 'damages');
+      const damagesQuery = query(
+        damagesRef,
+        orderByChild('storeOwnerId'),
+        equalTo(user.uid)
+      );
+      
+      const damagesSnapshot = await get(damagesQuery);
+      const damagedProductIds = new Set<string>();
+      
+      let expiredDamageCount = 0;
+      
+      if (damagesSnapshot.exists()) {
+        const damages = damagesSnapshot.val();
+        Object.values(damages).forEach((damage: any) => {
+          if (damage.items && Array.isArray(damage.items)) {
+            damage.items.forEach((item: any) => {
+              if (item.productId) {
+                damagedProductIds.add(item.productId);
+                // Count expired items separately for the "Expired" card
+                if (item.reason === 'expired') {
+                  expiredDamageCount++;
+                }
+              }
+            });
+          }
+        });
+      }
 
       const productsRef = ref(database, 'products');
       const userProductsQuery = query(
@@ -94,6 +128,8 @@ export default function InventoryDashboardScreen() {
           expiringSoon: 0,
           categories: {},
           recentlyUpdated: 0,
+          expiredInDamageHistory: 0,
+          expiredNotRecorded: 0,
         });
         setLoading(false);
         setRefreshing(false);
@@ -118,12 +154,22 @@ export default function InventoryDashboardScreen() {
         expiringSoon: 0,
         categories: {},
         recentlyUpdated: 0,
+        expiredInDamageHistory: 0,
+        expiredNotRecorded: 0,
       };
 
       const categoryValues: Record<string, { count: number; value: number }> = {};
+      const productOrderCounts: Record<string, { name: string; count: number; imageUrl?: string }> = {};
+      let unrecordedExpiredCount = 0; // Count of expired products not yet in damage history
 
       Object.keys(products).forEach(productId => {
         const product: any = products[productId];
+        
+        // Skip products that have been recorded as damaged
+        if (damagedProductIds.has(productId)) {
+          return;
+        }
+        
         inventoryStats.totalProducts++;
 
         // Calculate stock levels
@@ -131,11 +177,15 @@ export default function InventoryDashboardScreen() {
         const price = product.price || 0;
         const category = product.category || 'Uncategorized';
 
+        // Check if product is expired
+        const isExpired = product.expiryDate && new Date(product.expiryDate) < today;
+
         if (quantity >= 10) {
           inventoryStats.inStock++;
         } else if (quantity > 0) {
           inventoryStats.lowStock++;
-        } else {
+        } else if (!isExpired) {
+          // Only count as out of stock if not expired
           inventoryStats.outOfStock++;
         }
 
@@ -151,11 +201,20 @@ export default function InventoryDashboardScreen() {
         categoryValues[category].count++;
         categoryValues[category].value += quantity * price;
 
-        // Check expiry
-        if (product.expiryDate) {
+        // Initialize product order count tracking
+        if (!productOrderCounts[productId]) {
+          productOrderCounts[productId] = {
+            name: product.productName || 'Unknown Product',
+            count: 0,
+            imageUrl: product.productImageUrl || product.productImage
+          };
+        }
+
+        // Check expiry (exclude products already recorded as damaged)
+        if (product.expiryDate && !damagedProductIds.has(productId)) {
           const expiryDate = new Date(product.expiryDate);
           if (expiryDate < today) {
-            inventoryStats.expired++;
+            unrecordedExpiredCount++;
           } else if (expiryDate <= thirtyDaysFromNow) {
             inventoryStats.expiringSoon++;
           }
@@ -170,18 +229,58 @@ export default function InventoryDashboardScreen() {
         }
       });
 
-      // Convert category data to sorted array
-      const categoryArray: CategoryStat[] = Object.keys(categoryValues).map(name => ({
-        name,
-        count: categoryValues[name].count,
-        value: categoryValues[name].value,
-        percentage: (categoryValues[name].count / inventoryStats.totalProducts) * 100,
-      }));
+      // Fetch orders to count product order frequencies
+      const ordersRef = ref(database, 'orders');
+      const storeOrdersQuery = query(
+        ordersRef,
+        orderByChild('storeId'),
+        equalTo(user.uid)
+      );
+      
+      const ordersSnapshot = await get(storeOrdersQuery);
+      if (ordersSnapshot.exists()) {
+        const orders = ordersSnapshot.val();
+        Object.values(orders).forEach((order: any) => {
+          // Only count completed or picked_up orders
+          if (order.status === 'completed' || order.status === 'picked_up') {
+            if (order.items && Array.isArray(order.items)) {
+              order.items.forEach((item: any) => {
+                if (item.productId && productOrderCounts[item.productId]) {
+                  productOrderCounts[item.productId].count += item.quantity || 1;
+                }
+              });
+            }
+          }
+        });
+      }
 
-      categoryArray.sort((a, b) => b.count - a.count);
+      // Convert to array and sort by order count
+      const topProductsArray: ProductStat[] = Object.keys(productOrderCounts)
+        .map(productId => ({
+          productId,
+          name: productOrderCounts[productId].name,
+          orderCount: productOrderCounts[productId].count,
+          imageUrl: productOrderCounts[productId].imageUrl
+        }))
+        .sort((a, b) => b.orderCount - a.orderCount)
+        .slice(0, 5); // Top 5 products
 
+      // Set expired counts
+      inventoryStats.expiredInDamageHistory = expiredDamageCount;
+      inventoryStats.expiredNotRecorded = unrecordedExpiredCount;
+      inventoryStats.expired = expiredDamageCount; // For display in overview card
+      
+      console.log('=== FINAL STATS ===');
+      console.log('Total Products:', inventoryStats.totalProducts);
+      console.log('In Stock:', inventoryStats.inStock);
+      console.log('Low Stock:', inventoryStats.lowStock);
+      console.log('Out of Stock:', inventoryStats.outOfStock);
+      console.log('Expired (in damage history):', inventoryStats.expired);
+      console.log('Expired (not recorded):', inventoryStats.expiredNotRecorded);
+      console.log('Damaged Products Excluded:', damagedProductIds.size);
+      
       setStats(inventoryStats);
-      setCategoryStats(categoryArray.slice(0, 5)); // Top 5 categories
+      setTopProducts(topProductsArray);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching inventory data:', error);
@@ -203,7 +302,7 @@ export default function InventoryDashboardScreen() {
         router.push('/(main)/(store-owner)/profile/store-product');
         break;
       case 'expired':
-        router.push('/(main)/(store-owner)/profile/expired-products');
+        router.push('/(main)/(store-owner)/inventory/damage-history');
         break;
       case 'low-stock':
         router.push({
@@ -316,14 +415,14 @@ export default function InventoryDashboardScreen() {
         </View>
 
         {/* Alerts Section */}
-        {(stats.lowStock > 0 || stats.expired > 0 || stats.expiringSoon > 0) && (
+        {(stats.lowStock > 0 || stats.expiredNotRecorded > 0 || stats.expiringSoon > 0) && (
           <View style={styles.alertsSection}>
             <Text style={styles.sectionTitle}>🔔 Alerts</Text>
             
-            {stats.expired > 0 && (
+            {stats.expiredNotRecorded > 0 && (
               <TouchableOpacity 
                 style={styles.alertCard}
-                onPress={() => handleNavigate('expired')}
+                onPress={() => router.push('/(main)/(store-owner)/profile/expired-products')}
               >
                 <View style={styles.alertIconContainer}>
                   <Text style={styles.alertIconText}>🚫</Text>
@@ -331,7 +430,7 @@ export default function InventoryDashboardScreen() {
                 <View style={styles.alertContent}>
                   <Text style={styles.alertTitle}>Expired Products</Text>
                   <Text style={styles.alertMessage}>
-                    {stats.expired} product{stats.expired > 1 ? 's have' : ' has'} expired
+                    {stats.expiredNotRecorded} product{stats.expiredNotRecorded > 1 ? 's have' : ' has'} expired and need attention
                   </Text>
                 </View>
                 <Text style={styles.alertArrow}>›</Text>
@@ -376,23 +475,28 @@ export default function InventoryDashboardScreen() {
           </View>
         )}
 
-        {/* Category Breakdown */}
-        {categoryStats.length > 0 && (
+        {/* Top Products */}
+        {topProducts.length > 0 && (
           <View style={styles.categorySection}>
-            <Text style={styles.sectionTitle}>📂 Top Categories</Text>
+            <Text style={styles.sectionTitle}>🏆 Top Products</Text>
             
-            {categoryStats.map((cat, index) => (
-              <View key={index} style={styles.categoryCard}>
-                <View style={styles.categoryHeader}>
-                  <Text style={styles.categoryName}>{cat.name}</Text>
-                  <Text style={styles.categoryCount}>{cat.count} items</Text>
+            {topProducts.map((product, index) => (
+              <View key={product.productId} style={styles.productCard}>
+                <View style={styles.productRank}>
+                  <Text style={styles.productRankText}>#{index + 1}</Text>
                 </View>
-                <View style={styles.categoryBar}>
-                  <View style={[styles.categoryBarFill, { width: `${cat.percentage}%` }]} />
-                </View>
-                <View style={styles.categoryFooter}>
-                  <Text style={styles.categoryPercentage}>{cat.percentage.toFixed(1)}%</Text>
-                  <Text style={styles.categoryValue}>₱{cat.value.toFixed(2)}</Text>
+                {product.imageUrl && (
+                  <Image 
+                    source={{ uri: product.imageUrl }} 
+                    style={styles.productImage}
+                  />
+                )}
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+                  <View style={styles.productOrderBadge}>
+                    <Text style={styles.productOrderCount}>🛒 {product.orderCount}</Text>
+                    <Text style={styles.productOrderLabel}> order{product.orderCount !== 1 ? 's' : ''}</Text>
+                  </View>
                 </View>
               </View>
             ))}
@@ -646,7 +750,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(20),
     marginBottom: vs(24),
   },
-  categoryCard: {
+  productCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.white,
     borderRadius: s(12),
     padding: s(16),
@@ -657,47 +763,52 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: vs(8),
+  productRank: {
+    width: s(32),
+    height: s(32),
+    borderRadius: s(16),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(12),
   },
-  categoryName: {
+  productRankText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(14),
+    color: Colors.white,
+  },
+  productImage: {
+    width: s(50),
+    height: s(50),
+    borderRadius: s(8),
+    marginRight: s(12),
+    backgroundColor: '#F0F0F0',
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(14),
     color: Colors.darkGray,
+    marginBottom: vs(4),
   },
-  categoryCount: {
+  productOrderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  productOrderCount: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(13),
+    color: Colors.primary,
+  },
+  productOrderLabel: {
     fontFamily: Fonts.primary,
     fontSize: ms(12),
     color: Colors.textSecondary,
-  },
-  categoryBar: {
-    height: vs(8),
-    backgroundColor: '#F0F0F0',
-    borderRadius: s(4),
-    overflow: 'hidden',
-    marginBottom: vs(8),
-  },
-  categoryBarFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-  },
-  categoryFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  categoryPercentage: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(12),
-    color: Colors.primary,
-  },
-  categoryValue: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: Colors.darkGray,
   },
   actionsSection: {
     paddingHorizontal: s(20),

@@ -34,7 +34,6 @@ import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
-import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
 import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 interface CategoryItem {
@@ -208,10 +207,23 @@ const StoreProductScreen = () => {
 
   // Toggle product availability status
   const handleToggleStatus = async (productId: string, currentStatus: string) => {
+    // Prevent multiple rapid calls
+    if (updatingStatus === productId) {
+      return;
+    }
+
     try {
       setUpdatingStatus(productId);
       const newStatus = currentStatus === 'available' ? 'out_of_stock' : 'available';
 
+      // Optimistically update local state immediately
+      setProducts(prevProducts => 
+        prevProducts.map(p => 
+          p.id === productId ? { ...p, status: newStatus } : p
+        )
+      );
+
+      // Update in database
       const productRef = ref(database, `products/${productId}`);
       await update(productRef, { status: newStatus });
 
@@ -219,6 +231,9 @@ const StoreProductScreen = () => {
     } catch (error) {
       console.error('Error updating product status:', error);
       Alert.alert('Error', 'Failed to update product status. Please try again.');
+      
+      // Revert optimistic update on error
+      await fetchProducts();
     } finally {
       setUpdatingStatus(null);
     }
@@ -271,6 +286,30 @@ const StoreProductScreen = () => {
     }
 
     try {
+      // Fetch damage records to exclude products that have been recorded as damaged
+      const damagesRef = ref(database, 'damages');
+      const damagesQuery = query(
+        damagesRef,
+        orderByChild('storeOwnerId'),
+        equalTo(currentUser.uid)
+      );
+      
+      const damagesSnapshot = await get(damagesQuery);
+      const damagedProductIds = new Set<string>();
+      
+      if (damagesSnapshot.exists()) {
+        const damages = damagesSnapshot.val();
+        Object.values(damages).forEach((damage: any) => {
+          if (damage.items && Array.isArray(damage.items)) {
+            damage.items.forEach((item: any) => {
+              if (item.productId) {
+                damagedProductIds.add(item.productId);
+              }
+            });
+          }
+        });
+      }
+
       const productsRef = ref(database, 'products');
       const userProductsQuery = query(
         productsRef,
@@ -282,11 +321,13 @@ const StoreProductScreen = () => {
       const data = snapshot.val();
       
       if (data) {
-        const productsList: Product[] = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key],
-          status: data[key].status || 'available',
-        }));
+        const productsList: Product[] = Object.keys(data)
+          .filter(key => !damagedProductIds.has(key)) // Exclude damaged products
+          .map(key => ({
+            id: key,
+            ...data[key],
+            status: data[key].status || 'available',
+          }));
         
         // Debug logging for products with expiry dates
         const productsWithExpiry = productsList.filter(p => p.expiryDate);
@@ -363,7 +404,17 @@ const StoreProductScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
       {/* Header */}
-      <ProfileScreenHeader title="Store Product" />
+      <View style={styles.header}>
+        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Store Product</Text>
+        <TouchableOpacity 
+          style={styles.refreshButton} 
+          onPress={onRefresh}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.refreshIcon}>🔄</Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView 
         showsVerticalScrollIndicator={false} 
@@ -578,11 +629,17 @@ const StoreProductScreen = () => {
                       {/* Expired Badge - Only for Store Owners */}
                       {(() => {
                         const expDate = parseExpiryDate(product.expiryDate);
-                        return expDate && expDate < new Date() ? (
-                          <View style={styles.expiredBadge}>
-                            <Text style={styles.expiredBadgeText}>⚠️ EXPIRED</Text>
-                          </View>
-                        ) : null;
+                        if (expDate) {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          expDate.setHours(0, 0, 0, 0);
+                          return expDate <= today ? (
+                            <View style={styles.expiredBadge}>
+                              <Text style={styles.expiredBadgeText}>⚠️ EXPIRED</Text>
+                            </View>
+                          ) : null;
+                        }
+                        return null;
                       })()}
                     </View>
                   </TouchableOpacity>
@@ -611,6 +668,7 @@ const StoreProductScreen = () => {
 
                     {/* Toggle Switch */}
                     <Switch
+                      key={`${product.id}-${product.status}`}
                       value={product.status === 'available'}
                       onValueChange={() => handleToggleStatus(product.id, product.status)}
                       trackColor={{ false: 'rgba(59, 183, 126, 0.3)', true: Colors.primary }}
@@ -826,6 +884,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.backgroundGray,
+  },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: s(20),
+    paddingTop: vs(60),
+    paddingBottom: vs(20),
+    backgroundColor: Colors.backgroundGray,
+  },
+
+  headerSpacer: {
+    width: s(30),
+  },
+
+  headerTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(18),
+    lineHeight: ms(24),
+    color: Colors.darkGray,
+    includeFontPadding: false,
+  },
+
+  refreshButton: {
+    width: s(30),
+    height: s(30),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  refreshIcon: {
+    fontSize: ms(20),
   },
 
   scrollContent: {

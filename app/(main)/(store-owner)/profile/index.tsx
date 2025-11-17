@@ -159,7 +159,7 @@ export default function ProfileScreen() {
   };
 
   const handleRecordDamage = () => {
-    router.push('/(main)/(store-owner)/profile/record-damage');
+    router.push('/(main)/(store-owner)/inventory/record-damage');
   };
 
   const handleExpiredProducts = () => {

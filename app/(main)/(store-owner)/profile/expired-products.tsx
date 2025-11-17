@@ -60,6 +60,30 @@ export default function ExpiredProductsScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
+      // Fetch all damage records to get product IDs that have been recorded
+      const damagesRef = ref(database, 'damages');
+      const damagesQuery = query(
+        damagesRef,
+        orderByChild('storeOwnerId'),
+        equalTo(user.uid)
+      );
+      
+      const damagesSnapshot = await get(damagesQuery);
+      const damagedProductIds = new Set<string>();
+      
+      if (damagesSnapshot.exists()) {
+        const damages = damagesSnapshot.val();
+        Object.values(damages).forEach((damage: any) => {
+          if (damage.items && Array.isArray(damage.items)) {
+            damage.items.forEach((item: any) => {
+              if (item.productId && item.reason === 'expired') {
+                damagedProductIds.add(item.productId);
+              }
+            });
+          }
+        });
+      }
+
       const productsRef = ref(database, 'products');
       const userProductsQuery = query(
         productsRef,
@@ -81,6 +105,12 @@ export default function ExpiredProductsScreen() {
 
       Object.keys(products).forEach(productId => {
         const product = products[productId];
+        
+        // Skip products that have already been recorded as damaged
+        if (damagedProductIds.has(productId)) {
+          return;
+        }
+        
         if (product.expiryDate) {
           const expiryDate = new Date(product.expiryDate);
           if (expiryDate < today) {
