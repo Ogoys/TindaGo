@@ -55,6 +55,7 @@ const SalesHistoryScreen = () => {
   const [filteredTransactions, setFilteredTransactions] = useState<SaleTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [headerRefreshing, setHeaderRefreshing] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<SaleTransaction | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
@@ -228,6 +229,12 @@ const SalesHistoryScreen = () => {
     setRefreshing(true);
     fetchAllSales();
   };
+  
+  // Header refresh button handler
+  const handleHeaderRefresh = () => {
+    setHeaderRefreshing(true);
+    fetchAllSales().finally(() => setHeaderRefreshing(false));
+  };
 
   const handleTransactionPress = (transaction: SaleTransaction) => {
     setSelectedTransaction(transaction);
@@ -276,7 +283,17 @@ const SalesHistoryScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
       {/* Header */}
-      <ProfileScreenHeader title="Sales History" />
+      <View>
+        <ProfileScreenHeader title="Sales History" />
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={handleHeaderRefresh}
+          disabled={headerRefreshing}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.refreshIcon}>{headerRefreshing ? '⏳' : '🔄'}</Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -601,6 +618,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.backgroundGray,
+  },
+  
+  refreshButton: {
+    position: 'absolute',
+    right: s(20),
+    top: vs(79),
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  
+  refreshIcon: {
+    fontSize: ms(20),
   },
 
   searchFilterRow: {

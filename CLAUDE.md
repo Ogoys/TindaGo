@@ -4,7 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TindaGo is a React Native mobile application built with Expo, designed as a sari-sari store marketplace for ordering and inventory management. The app uses Firebase for backend services and is optimized for Philippine mobile commerce.
+TindaGo is a React Native mobile application built with Expo that digitizes and modernizes the operations of Philippine sari-sari stores (neighborhood micro-retail shops). The platform bridges traditional community commerce with modern digital tools, focusing on inventory management, sales monitoring, order processing, and comprehensive transaction tracking.
+
+### Core Mission
+- **Digitize Sari-Sari Operations**: Transform manual processes into efficient digital workflows
+- **Empower Store Owners**: Provide real-time visibility into inventory, sales, and financial performance
+- **Simplify Customer Ordering**: Enable convenient, organized ordering from local neighborhood stores
+- **Community-First Approach**: Designed for walkable neighborhoods with pickup-only fulfillment (no delivery logistics)
+
+### Business Model
+- **Revenue**: Transaction-based percentage fee on each product sold through the platform
+- **Sustainability**: Fair, affordable fee structure that ensures long-term viability
+- **Value Exchange**: Store owners gain digital tools and customer reach; platform earns small per-transaction fees
+
+### Key Differentiators
+- **Pickup-Only Model**: Optimized for sari-sari stores within walking distance of customers
+- **Comprehensive Operations Management**: Beyond inventory - includes sales reporting, spoilage tracking, return management
+- **Built for Philippine Market**: Supports GCash, PayMaya, cash payments; Philippine addressing and phone formats
+- **Real-Time Insights**: Dynamic product listings, live inventory updates, trend analysis for purchasing decisions
 
 ## Getting Started
 
@@ -108,7 +125,7 @@ Components use exact Figma positioning with responsive scaling:
 
 ### Configuration
 - Firebase config in `FirebaseConfig.ts` with v12+ SDK
-- Services initialized: Authentication (`getAuth`), Realtime Database (`getDatabase`), Firestore (`getFirestore`), Storage (`getStorage`)
+- Services initialized: Authentication (`getAuth`), Realtime Database (`getDatabase`), Firestore (`getFirestore`), Storage (`getStorage`), Functions (`getFunctions`)
 - Database region: Asia Southeast (Singapore)
 - **Environment Variables**: Required EXPO_PUBLIC_ prefixed variables in `.env` file:
   - `EXPO_PUBLIC_FIREBASE_API_KEY`
@@ -118,7 +135,20 @@ Components use exact Figma positioning with responsive scaling:
   - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
   - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
   - `EXPO_PUBLIC_FIREBASE_APP_ID`
+  - `EXPO_PUBLIC_USE_FIREBASE_EMULATORS` (optional, set to 'true' for local emulator testing)
 - **Note**: Use `.env.example` as template for local setup
+
+### Firebase Emulators (Optional Development Setup)
+For local development and testing without affecting production data:
+
+1. Set `EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true` in `.env`
+2. Configure emulator connections in `FirebaseConfig.ts`:
+   - Database Emulator: `localhost:9000`
+   - Functions Emulator: `localhost:5001`
+3. Start Firebase emulators (requires Firebase CLI)
+4. App automatically connects to emulators when environment variable is set
+
+**Note**: AsyncStorage warnings are intentionally suppressed in `FirebaseConfig.ts` - the app uses AsyncStorage correctly for auth persistence
 
 ### Authentication Flow
 1. Email/password registration with Firebase Auth
@@ -131,22 +161,63 @@ Components use exact Figma positioning with responsive scaling:
 Firebase Realtime Database (JSON tree structure) with these main collections:
 
 **Primary Collections:**
+
+**User & Store Management:**
 - **users/{uid}**: Customer and store owner profiles with role-based access
   - Fields: `uid, name, email, userType, emailVerified, profile{avatar, phone, address}, preferences`
-- **store_registrations/{uid}**: Store owner registration data (separate from users)
+- **store_registrations/{uid}**: Store owner registration data during approval process
   - `personalInfo, businessInfo{storeName, description, address, logo, coverImage}, documents{barangayBusinessClearance, businessPermit, dtiRegistration, validId}, bankDetails`
-- **stores/{storeId}**: Active store information after approval
-- **products/{productId}**: Product catalog with inventory levels, pricing, descriptions
+  - Status: `'pending' | 'approved' | 'rejected'`
+- **stores/{storeId}**: Active store information after admin approval
+  - Store profile, operating hours, location, contact details
+  - `isOpen` boolean for real-time open/close toggle
+
+**Product & Inventory:**
+- **products/{productId}**: Product catalog with real-time inventory tracking
+  - Fields: `productName, description, price, quantity, category, imageUrl, storeId`
+  - Status: `'available' | 'out_of_stock'` (auto-updated based on quantity)
+  - Inventory alerts when stock is low
+- **inventory_logs/{logId}**: Purchase order and stock change history
+  - Tracks: restocks, sales deductions, returns, spoilage adjustments
+  - Used for trend analysis and reorder decisions
+
+**Order & Sales Management:**
 - **orders/{orderId}**: Customer orders with pickup-only fulfillment
-- **sales/{saleId}**: Transaction tracking and revenue monitoring
-- **inventory_logs/{logId}**: Stock changes and purchase order history
-- **return_goods/{returnId}**: Customer return tracking and stock adjustments
-- **damages_spoilage/{damageId}**: Loss tracking for damaged/expired items
+  - Order items, totals, payment method, status tracking
+  - Pickup time, customer notes, store information
+- **sales/{saleId}**: Completed transaction records for financial reporting
+  - Transaction amount, platform fee, store earnings
+  - Links to order ID, customer ID, store ID
+  - Timestamp for sales analytics and trend analysis
+
+**Loss & Returns Tracking:**
+- **return_goods/{returnId}**: Customer return requests and processing
+  - Return reason, item details, approval status
+  - Stock adjustment on accepted returns
+  - Refund amount and processing status
+- **damages_spoilage/{damageId}**: Damaged and spoiled inventory tracking
+  - Loss type: `'damaged' | 'spoiled' | 'expired' | 'contaminated'`
+  - Quantity lost, reason, financial impact
+  - Used for loss analysis and prevention strategies
+
+**Financial & Reviews:**
+- **wallets/{storeId}**: Store owner earnings and withdrawal tracking
+  - `available, pendingWithdrawal, totalWithdrawn, updatedAt`
+- **payouts/{payoutId}**: Withdrawal requests and processing
+  - Status: `'pending' | 'approved' | 'completed' | 'rejected'`
+- **ledgers/stores/{storeId}/transactions**: Revenue split tracking
+  - `amount` (total order), `storeAmount` (after platform fee)
+  - Status: `'PAID' | 'SETTLED' | 'PENDING'`
 - **reviews/{reviewId}**: Customer feedback and store ratings
+  - Product and store quality ratings
+  - Customer comments and timestamp
 
 **Important Notes:**
-- Store registration data is in `store_registrations/{uid}` during approval process
-- Documents stored as base64 strings in Realtime Database (not Storage)
+- Store registration data remains in `store_registrations/{uid}` during approval process
+- After approval, active store data moves to `stores/{storeId}` collection
+- Documents stored as base64 strings in Realtime Database (not Firebase Storage)
+- Product status automatically updates based on quantity (0 = out_of_stock)
+- Platform revenue model: percentage fee deducted from each sale, tracked in ledgers
 - See `firebase-database-structure.md` and `firebase-actual-database-structure.md` for complete schemas
 
 ## Component Architecture
@@ -238,24 +309,62 @@ Firebase operations centralized by resource type for maintainability:
 ```
 
 ### Business Requirements Implementation
-Based on capstone project documentation, prioritize features in this order:
+Based on capstone project documentation, TindaGo is designed as a comprehensive sales and reporting system for sari-sari stores. Feature priorities:
 
 **Phase 1: Foundation**
 - Store registration with document verification (Barangay Business Clearance, Business Permit, DTI Registration, Valid ID)
 - Admin approval system for store verification
 - Customer registration and authentication
+- Role-based access control (customer vs store owner)
 
-**Phase 2: Core Operations**
-- Inventory management with real-time stock monitoring
-- Low stock alerts and inventory logging
-- Product listing and customer ordering (pickup-only)
-- Sales tracking and transaction recording
-- **Customer Order Flow** (Implemented):
-  - Cart management with real-time Firebase sync
-  - Order creation and tracking (`src/api/orders/`)
+**Phase 2: Core Operations & Sales System**
+- **Inventory Management**: Real-time stock monitoring with automatic status updates
+  - Product CRUD operations with quantity tracking
+  - Low stock alerts and reorder suggestions
+  - Inventory logging for purchase orders
+  - Automatic out-of-stock status when quantity reaches zero
+- **Customer Ordering** (Pickup-Only Model):
+  - Dynamic product listings with real-time availability
+  - Cart management with Firebase real-time sync
+  - Order creation and status tracking (`src/api/orders/`)
   - Payment method selection (GCash, PayMaya, Cash on Pickup)
-  - Order details view with status timeline and itemized breakdown
-  - Payment processing integration with modals for success/error states
+  - Itemized order details with status timeline
+  - Payment processing with success/error handling
+- **Sales Tracking & Revenue Management**:
+  - Detailed transaction recording in `sales/` collection
+  - Revenue monitoring with percentage-based platform fees
+  - Store earnings calculation (order total minus platform fees)
+  - Ledger system tracking payment splits (`ledgers/stores/{storeId}/transactions`)
+  - Real-time sales analytics and reporting
+
+**Phase 3: Advanced Operations & Loss Management**
+- **Return Goods Tracking** (`return_goods/` collection):
+  - Customer return requests and approvals
+  - Stock adjustment on accepted returns
+  - Return reason categorization
+  - Refund processing integration
+- **Damages & Spoilage Module** (`damages_spoilage/` collection):
+  - Track damaged inventory (breakage, expiration, contamination)
+  - Spoilage logging with reason codes
+  - Loss impact on inventory and financial reporting
+  - Trend analysis to minimize future losses
+- **Trend Analysis & Insights**:
+  - Sales patterns by product and time period
+  - Inventory turnover rates
+  - Customer ordering behavior
+  - Purchase decision support (what to restock, what to discontinue)
+  - Profit margin analysis per product
+
+**Phase 4: Financial & Wallet Features**
+- **Wallet Management** (Implemented):
+  - Store owner earnings dashboard
+  - Available balance tracking
+  - Payout request system (pending, approved, completed)
+  - Transaction history and withdrawal logs
+- **Customer Reviews & Ratings**:
+  - Post-purchase feedback system
+  - Store and product ratings
+  - Quality monitoring for store owners
 
 ## Order Management System
 
@@ -500,6 +609,251 @@ notifyStoreNewOrder(storeId: string, orderId: string): Promise<void>
 - **User acceptance testing** with actual sari-sari store owners
 - **Cross-platform compatibility** testing (Android/iOS)
 
+## Wallet & Payout Management
+
+The project includes a store owner wallet system for managing earnings and payouts.
+
+### Wallet Structure
+Firebase Realtime Database path: `wallets/{storeId}`
+```typescript
+{
+  available: number;           // Available balance for withdrawal
+  pendingWithdrawal: number;   // Amount in pending/approved payouts
+  totalWithdrawn: number;      // Lifetime withdrawn amount
+  updatedAt: number;           // Timestamp
+}
+```
+
+### Payout Structure
+Firebase Realtime Database path: `payouts/{payoutId}`
+```typescript
+{
+  id: string;
+  storeId: string;
+  amount: number;
+  status: 'pending' | 'approved' | 'completed' | 'rejected';
+  requestedAt: number;
+  approvedAt?: number;
+  completedAt?: number;
+  bankDetails: object;         // Store's bank account info
+}
+```
+
+### Ledger Structure
+Firebase Realtime Database path: `ledgers/stores/{storeId}/transactions/{transactionId}`
+```typescript
+{
+  orderId: string;
+  amount: number;              // Total order amount
+  storeAmount: number;         // Store's portion after fees
+  status: 'PAID' | 'SETTLED' | 'PENDING';
+  createdAt: number;
+}
+```
+
+### Wallet Management Scripts
+Located in `scripts/` directory, require firebase-admin setup:
+
+**Setup for Scripts**:
+```bash
+# PowerShell
+$env:GOOGLE_APPLICATION_CREDENTIALS="path\to\serviceAccount.json"
+$env:FIREBASE_DATABASE_URL="https://your-project.firebaseio.com"
+
+# OR in Bash
+export GOOGLE_APPLICATION_CREDENTIALS="path/to/serviceAccount.json"
+export FIREBASE_DATABASE_URL="https://your-project.firebaseio.com"
+```
+
+**Backfill Wallets** (`scripts/backfill-wallets.js`):
+```bash
+npm run backfill:wallets
+```
+- Recalculates wallet balances from ledgers and payouts
+- Computes available, pending, and withdrawn amounts
+- Use after manual database changes or data migration
+
+**Approve Payout** (`scripts/approve-payout.js`):
+```bash
+npm run payout:approve -- --id=PAYOUT-123 --store=STORE_ID --amount=500
+```
+- Moves amount from available → pendingWithdrawal
+- Sets payout status to 'approved'
+- Logs approval event
+
+**Complete Payout** (`scripts/complete-payout.js`):
+```bash
+npm run payout:complete -- --id=PAYOUT-123 --store=STORE_ID --amount=500
+```
+- Moves amount from pendingWithdrawal → totalWithdrawn
+- Sets payout status to 'completed'
+- Logs completion event
+
+**Fix Product Status** (`scripts/fix-product-status.js`):
+- One-time script to fix products with quantity=0 but status='available'
+- Ensures out-of-stock products are properly marked
+- Manual configuration required (update service account path and database URL)
+
+### Wallet Calculation Logic
+Available balance is computed as:
+```
+available = totalEarned - totalWithdrawn - pendingWithdrawal
+```
+
+Where:
+- `totalEarned` = sum of all PAID/SETTLED ledger transactions (storeAmount field)
+- `totalWithdrawn` = sum of all 'completed' payout amounts
+- `pendingWithdrawal` = sum of all 'pending' + 'approved' payout amounts
+
+### Testing Requirements
+- **Jest** for backend/service testing
+- **Black-box testing** for functionality validation
+- **User acceptance testing** with actual sari-sari store owners
+- **Cross-platform compatibility** testing (Android/iOS)
+
+## Sales Analytics & Reporting System
+
+TindaGo is designed as a comprehensive sales and reporting platform, not just an ordering app. Store owners gain business insights through real-time analytics.
+
+### Sales Reporting Features
+
+**Transaction Recording:**
+- Every completed order automatically creates a `sales/` record
+- Captures: order total, platform fee, store earnings, payment method
+- Links to order, customer, and product details
+- Timestamp for time-based analysis
+
+**Revenue Analytics:**
+- **Daily/Weekly/Monthly Reports**: Sales totals aggregated by time period
+- **Product Performance**: Best-selling items, slow-moving inventory
+- **Profit Margins**: Track earnings after platform fees
+- **Payment Method Breakdown**: Cash vs GCash vs PayMaya distribution
+
+**Inventory Intelligence:**
+- **Turnover Rates**: How quickly products sell
+- **Restock Recommendations**: Based on sales velocity and current stock
+- **Low Stock Alerts**: Automatic notifications when inventory runs low
+- **Out-of-Stock Impact**: Track lost sales opportunities
+
+**Loss Management Reporting:**
+- **Spoilage Tracking**: Monitor damaged/expired goods by category
+- **Return Analysis**: Patterns in customer returns (reasons, products, frequency)
+- **Loss Prevention**: Identify high-loss products to minimize future waste
+- **Financial Impact**: Calculate cost of spoilage and returns
+
+**Customer Insights:**
+- **Ordering Patterns**: Peak ordering times, average order value
+- **Repeat Customer Rate**: Customer retention metrics
+- **Product Preferences**: What customers buy together
+- **Review Trends**: Quality ratings over time
+
+**Trend Analysis for Business Decisions:**
+- **What to Restock**: Data-driven purchase decisions based on sales velocity
+- **What to Discontinue**: Identify underperforming products
+- **Pricing Optimization**: Compare sales at different price points
+- **Seasonal Patterns**: Identify seasonal demand fluctuations
+
+### Data-Driven Operations
+
+The reporting system helps store owners transition from intuition-based to data-driven management:
+- **Before TindaGo**: Guesswork on what to buy, manual counting, memory-based reordering
+- **With TindaGo**: Real-time dashboards, automated alerts, trend-based predictions
+
+This positions TindaGo as a modern business intelligence tool for traditional micro-retail, making sari-sari stores more competitive and sustainable.
+
+## Payment Integration
+
+The app supports multiple payment methods for customer orders:
+
+### Supported Payment Methods
+1. **Cash on Pickup** - Customer pays when collecting order
+2. **GCash** - Philippine mobile wallet (via payment gateway)
+3. **PayMaya** - Philippine mobile wallet (via payment gateway)
+
+### Payment Gateway
+- **Xendit** integration via `xendit-node` package
+- Used for processing GCash and PayMaya payments
+- Payment status tracked in order records: `'pending' | 'paid' | 'refunded'`
+
+### Payment Flow
+1. Customer selects payment method during checkout
+2. For online payments (GCash/PayMaya):
+   - Payment request sent to Xendit API
+   - Customer redirected to payment gateway
+   - Webhook/callback confirms payment
+   - Order status updated to 'paid'
+3. For cash payments:
+   - Payment status remains 'pending' until pickup
+   - Store confirms payment on collection
+
+### Revenue Distribution
+- Platform service fee deducted from order total
+- Store receives `storeAmount` (order total minus fees)
+- Ledger transactions track payment splits
+- See Wallet & Payout Management section for details
+
+## Pickup-Only Logistics Model
+
+Unlike delivery-focused platforms, TindaGo is intentionally designed for **pickup-only** fulfillment. This reflects the reality of sari-sari store operations in Philippine communities.
+
+### Why Pickup-Only?
+
+**Community Context:**
+- Sari-sari stores operate within **walking distance** of their customers (typically 1-5 minute walk)
+- Customers already visit stores in person for immediate needs
+- Neighborhood familiarity makes pickup natural and convenient
+
+**Operational Benefits:**
+- **Simplified for Store Owners**: No need to manage delivery logistics, drivers, or routing
+- **Cost-Efficient**: Eliminates delivery fees, making orders more affordable
+- **Faster Fulfillment**: No wait for delivery slots - customers pick up when ready
+- **Lower Complexity**: Store owners can focus on product quality and inventory management
+
+**Business Model Alignment:**
+- Keeps platform fees low (no delivery infrastructure costs)
+- Maintains sari-sari store's role as neighborhood hub
+- Preserves face-to-face customer relationships
+- Reduces operational overhead for micro-retailers
+
+### Order Flow with Pickup
+1. Customer browses products from nearby stores (map-based discovery)
+2. Places order with preferred pickup time
+3. Store receives order notification, prepares items
+4. Customer receives "Ready for Pickup" notification
+5. Customer walks to store, confirms order, pays (if cash), and collects items
+6. Order marked as completed
+
+This model keeps TindaGo focused on digitizing operations without disrupting the traditional community shopping experience.
+
+## Location & Maps Integration
+
+The app includes location-based features for store discovery and pickup coordination:
+
+### Map Features
+- **Store Locator**: Display nearby sari-sari stores on map (within walking distance)
+- **Distance Calculation**: Using `geolib` for accurate distance measurements
+- **Navigation**: Integration with `react-native-maps-directions` for walking directions to pickup location
+- **Store Discovery**: Find stores within specific radius (typically 500m-1km)
+- **Pickup Location**: Display exact store location with address for order collection
+- **Store Proximity Filter**: Show only stores within practical walking distance
+
+### Location-Based Features
+- **Nearest Store First**: Sort product listings by store proximity
+- **Walkability Indicators**: Show estimated walking time to each store
+- **Neighborhood Boundaries**: Help customers find stores in their barangay/community
+- **Pickup Reminders**: Location-based notifications when customer is near pickup location
+
+### Required Permissions
+- Location permissions (`expo-location`)
+- Map rendering (`react-native-maps`)
+- Philippine region optimized (GCash, PayMaya, local addressing)
+
+### Testing Requirements
+- **Jest** for backend/service testing
+- **Black-box testing** for functionality validation
+- **User acceptance testing** with actual sari-sari store owners
+- **Cross-platform compatibility** testing (Android/iOS)
+
 ## Important Conventions
 
 ### Import Paths
@@ -517,6 +871,10 @@ notifyStoreNewOrder(storeId: string, orderId: string): Promise<void>
   - `expo-blur` - Glassmorphism effects
   - `expo-image-picker`, `expo-document-picker` - File uploads
   - `figma-context-mcp` - Figma design integration
+  - `react-native-maps` - Location and map features
+  - `xendit-node` - Payment gateway integration
+  - `axios` - HTTP client for API requests
+  - `geolib` - Geolocation calculations
 
 ### Styling Patterns
 - Always use responsive scaling functions (s, vs, ms)

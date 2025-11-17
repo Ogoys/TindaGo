@@ -782,6 +782,16 @@ export default function HomeScreen() {
           />
         </TouchableOpacity>
 
+        {/* Refresh Button */}
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={onRefresh}
+          disabled={refreshing}
+        >
+          <View style={styles.notificationCircle} />
+          <Text style={styles.refreshIcon}>{refreshing ? '⏳' : '🔄'}</Text>
+        </TouchableOpacity>
+
         {/* Notification Button - Figma: 759:205, x:375, y:74, width:40, height:40 */}
         <TouchableOpacity style={styles.notificationButton}>
           {/* Circle Background - Figma: 759:206 */}
@@ -1222,6 +1232,22 @@ const styles = StyleSheet.create({
     top: s(7),
     width: s(25),
     height: s(25),
+  },
+
+  // Refresh Button - NEW: Manual refresh
+  refreshButton: {
+    position: "absolute",
+    left: s(275), // Positioned before map button
+    top: vs(20),
+    width: s(40),
+    height: s(40),
+  },
+
+  refreshIcon: {
+    position: "absolute",
+    left: s(7),
+    top: s(7),
+    fontSize: ms(20),
   },
 
   // Map Button - NEW: Access nearby stores map

@@ -177,6 +177,17 @@ export default function OrdersScreen() {
         {/* Title - Figma: x:171, y:83 */}
         <Text style={styles.title}>My Orders</Text>
 
+        {/* Refresh Button */}
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={onRefresh}
+          disabled={refreshing}
+        >
+          <View style={styles.notifCircle}>
+            <Text style={styles.refreshIcon}>{refreshing ? '⏳' : '🔄'}</Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Notification Icon - Figma: x:375, y:74, size:40x40 */}
         <TouchableOpacity style={styles.notifButton}>
           <View style={styles.notifCircle}>
@@ -506,6 +517,14 @@ const styles = StyleSheet.create({
     color: Colors.darkGray,
     lineHeight: ms(22),
     textAlign: 'center',
+  },
+  // Refresh Button
+  refreshButton: {
+    position: 'absolute',
+    right: s(70), // Positioned before notification button
+  },
+  refreshIcon: {
+    fontSize: ms(20),
   },
   // Notification - Figma: x:375, y:74
   notifButton: {

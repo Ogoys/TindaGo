@@ -62,6 +62,7 @@ export default function StoreOrdersScreen() {
   const [realOrders, setRealOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [headerRefreshing, setHeaderRefreshing] = useState(false);
 
   // Fetch store orders from Firebase (ONE-TIME FETCH - prevents spam reads)
   // OPTIMIZED: Query only this store's orders + use get() instead of onValue()
@@ -189,6 +190,44 @@ export default function StoreOrdersScreen() {
       setRefreshing(false);
     }
   };
+  
+  // Header refresh button handler
+  const handleHeaderRefresh = async () => {
+    if (!user) return;
+    
+    setHeaderRefreshing(true);
+    try {
+      const storeId = user.id;
+      const ordersRef = ref(database, 'orders');
+      const storeOrdersQuery = query(
+        ordersRef,
+        orderByChild('storeId'),
+        equalTo(storeId)
+      );
+
+      const snapshot = await get(storeOrdersQuery);
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const storeOrders = Object.keys(data)
+          .map(orderId => ({
+            ...data[orderId],
+            id: orderId,
+          }))
+          .sort((a: Order, b: Order) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+        setRealOrders(storeOrders as Order[]);
+      } else {
+        setRealOrders([]);
+      }
+    } catch (error) {
+      console.error('Error refreshing orders:', error);
+    } finally {
+      setHeaderRefreshing(false);
+    }
+  };
 
   // Filter orders based on selected status
   const filteredOrders = realOrders.filter(order => order.status === selectedFilter);
@@ -312,6 +351,16 @@ export default function StoreOrdersScreen() {
 
         {/* Title - Figma: x:183, y:83 */}
         <Text style={styles.title}>{getTitle()}</Text>
+        
+        {/* Refresh Button */}
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={handleHeaderRefresh}
+          disabled={headerRefreshing}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.refreshIcon}>{headerRefreshing ? '⏳' : '🔄'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter Tabs - Figma: x:-23, y:145, width:463, height:30 */}
@@ -561,6 +610,27 @@ const styles = StyleSheet.create({
     width: s(15),
     height: s(15),
     resizeMode: 'contain',
+  },
+  
+  // Refresh Button
+  refreshButton: {
+    position: 'absolute',
+    right: s(20),
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  
+  refreshIcon: {
+    fontSize: ms(20),
   },
 
   // Title - Figma: x:183, y:83

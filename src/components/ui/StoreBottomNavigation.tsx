@@ -98,7 +98,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     width: "100%",
-    height: vs(100),
+    height: vs(85),
+    paddingBottom: vs(10),
   },
 
   background: {
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     width: "100%",
-    height: vs(100),
+    height: vs(85),
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: s(20),
     borderTopRightRadius: s(20),
@@ -121,58 +122,60 @@ const styles = StyleSheet.create({
   homeTab: {
     position: "absolute",
     left: s(40),
-    bottom: vs(36),
+    bottom: vs(22),
     alignItems: "center",
   },
   homeIcon: {
-    width: s(30),
-    height: s(30),
-    marginBottom: vs(4),
+    width: s(26),
+    height: s(26),
+    marginBottom: vs(3),
   },
 
   ordersTab: {
     position: "absolute",
     left: s(130),
-    bottom: vs(36),
+    bottom: vs(22),
     alignItems: "center",
   },
   ordersIcon: {
-    width: s(30),
-    height: s(30),
-    marginBottom: vs(4),
+    width: s(26),
+    height: s(26),
+    marginBottom: vs(3),
   },
 
   walletTab: {
     position: "absolute",
     right: s(130),
-    bottom: vs(36),
+    bottom: vs(22),
     alignItems: "center",
   },
   walletIcon: {
-    width: s(30),
-    height: s(30),
-    marginBottom: vs(4),
+    width: s(26),
+    height: s(26),
+    marginBottom: vs(3),
   },
 
   profileTab: {
     position: "absolute",
     right: s(40),
-    bottom: vs(36),
+    bottom: vs(22),
     alignItems: "center",
   },
   profileIcon: {
-    width: s(30),
-    height: s(30),
-    marginBottom: vs(4),
+    width: s(26),
+    height: s(26),
+    marginBottom: vs(3),
   },
 
   tabLabel: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "400",
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 10,
+    lineHeight: 12,
     color: "rgba(30, 30, 30, 0.5)",
     textAlign: "center",
+    marginTop: 0,
+    paddingBottom: 0,
   },
   tabLabelActive: {
     color: "#1E1E1E",

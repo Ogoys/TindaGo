@@ -30,6 +30,7 @@ export default function StoreHomeScreen() {
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('pending');
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Sales metrics
   const [salesToday, setSalesToday] = useState(0);
@@ -197,6 +198,69 @@ export default function StoreHomeScreen() {
 
     fetchAllOrders();
   }, []);
+
+  // Refresh handler
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        setRefreshing(false);
+        return;
+      }
+
+      // Refetch store data
+      const registrationData = await StoreRegistrationService.getRegistrationData(user.uid);
+      if (registrationData) {
+        const businessInfo = registrationData.businessInfo || {};
+        const personalInfo = registrationData.personalInfo || {};
+        const location = registrationData.location || { address: '', city: '' };
+
+        const displayAddress = location.address || businessInfo.address || 'Address not set';
+        const displayCity = location.city || businessInfo.city || 'City';
+
+        setStoreData({
+          storeName: businessInfo.storeName || 'Store Owner',
+          ownerName: personalInfo.name || 'Owner',
+          storeAddress: displayAddress,
+          city: displayCity,
+          logo: businessInfo.logo || null,
+        });
+      }
+
+      // Refetch orders
+      const ordersRef = ref(database, 'orders');
+      const storeOrdersQuery = query(
+        ordersRef,
+        orderByChild('storeId'),
+        equalTo(user.uid)
+      );
+
+      const snapshot = await get(storeOrdersQuery);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const orders = Object.keys(data)
+          .map(orderId => ({
+            ...data[orderId],
+            id: orderId,
+          }))
+          .sort((a: Order, b: Order) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+        setAllOrders(orders as Order[]);
+        calculateMetrics(orders as Order[]);
+      } else {
+        setAllOrders([]);
+        calculateMetrics([]);
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      Alert.alert('Error', 'Failed to refresh data');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Calculate sales from ledger and order counts from orders
   const calculateMetrics = async (orders: Order[]) => {
@@ -483,6 +547,15 @@ export default function StoreHomeScreen() {
               style={styles.notificationIcon}
               resizeMode="contain"
             />
+          </TouchableOpacity>
+
+          {/* Refresh Button */}
+          <TouchableOpacity 
+            style={styles.refreshButton} 
+            onPress={handleRefresh}
+            disabled={refreshing}
+          >
+            <Typography style={styles.refreshIcon}>{refreshing ? '⏳' : '🔄'}</Typography>
           </TouchableOpacity>
 
           {/* Current Location - Dynamic from Firebase - Figma: 176,126 88x22 and 123,148 193x22 */}
@@ -843,6 +916,28 @@ const styles = StyleSheet.create({
   notificationIcon: {
     width: s(25),
     height: s(25),
+  },
+
+  // Refresh Button
+  refreshButton: {
+    position: 'absolute',
+    top: vs(50),
+    right: s(70), // Position to the left of notification button
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: '#FFFFFF',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  refreshIcon: {
+    fontSize: ms(20),
   },
 
   // Location Section - Figma: Current Location at 176,126 88x22 and Jacinto Street at 123,148 193x22

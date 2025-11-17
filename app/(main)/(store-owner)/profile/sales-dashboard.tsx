@@ -63,6 +63,7 @@ const SalesDashboardScreen = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [headerRefreshing, setHeaderRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<TimeFilter>('all');
 
   // Sales totals
@@ -202,6 +203,12 @@ const SalesDashboardScreen = () => {
     setRefreshing(true);
     fetchAllSalesData();
   };
+  
+  // Header refresh button handler
+  const handleHeaderRefresh = () => {
+    setHeaderRefreshing(true);
+    fetchAllSalesData().finally(() => setHeaderRefreshing(false));
+  };
 
   const calculateTotals = (allTransactions: Transaction[]) => {
     const now = new Date();
@@ -312,7 +319,17 @@ const SalesDashboardScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
       {/* Header */}
-      <ProfileScreenHeader title="Sales Dashboard" />
+      <View>
+        <ProfileScreenHeader title="Sales Dashboard" />
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={handleHeaderRefresh}
+          disabled={headerRefreshing}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.refreshIcon}>{headerRefreshing ? '⏳' : '🔄'}</Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -668,6 +685,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.backgroundGray,
+  },
+  
+  refreshButton: {
+    position: 'absolute',
+    right: s(20),
+    top: vs(79),
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  
+  refreshIcon: {
+    fontSize: ms(20),
   },
 
   scrollContent: {
