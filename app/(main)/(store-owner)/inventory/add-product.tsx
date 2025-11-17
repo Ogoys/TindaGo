@@ -544,6 +544,25 @@ const AddProductScreen = () => {
       // ========================================
       // 14. PREPARE PRODUCT DATA
       // ========================================
+      // Convert expiry date from MM/DD/YYYY to ISO string for consistent storage
+      let expiryDateISO = null;
+      if (expiryDate.trim()) {
+        try {
+          // Parse MM/DD/YYYY format
+          const parts = expiryDate.trim().split('/');
+          if (parts.length === 3) {
+            const month = parseInt(parts[0], 10) - 1; // Month is 0-indexed
+            const day = parseInt(parts[1], 10);
+            const year = parseInt(parts[2], 10);
+            const dateObj = new Date(year, month, day);
+            expiryDateISO = dateObj.toISOString();
+            console.log(`📅 Expiry date converted: ${expiryDate} -> ${expiryDateISO}`);
+          }
+        } catch (error) {
+          console.error('❌ Error parsing expiry date:', error);
+        }
+      }
+
       const productData = {
         productName: formattedProductName,
         description: description.trim(),
@@ -552,7 +571,7 @@ const AddProductScreen = () => {
         quantity: formattedQuantity,
         productSize: productSize.trim(),
         unit: selectedUnit,
-        expiryDate: expiryDate.trim() || null, // Include expiry date if provided
+        expiryDate: expiryDateISO, // Store as ISO string for consistent parsing
         productImageUrl: productImageUrl, // Cloudinary URL (NEW - Phase 2)
         storeOwnerId: currentUser.uid,
         storeId: currentUser.uid,

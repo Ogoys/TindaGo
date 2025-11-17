@@ -194,9 +194,19 @@ export default function SignInScreen() {
                     // Store owner has started/completed registration
                     console.log("Store registration found with status:", registrationData.status);
 
-                    // Check if approved/active - go directly to dashboard
-                    if (registrationData.status === STORE_STATUS.APPROVED ||
-                        registrationData.status === STORE_STATUS.ACTIVE) {
+                    // Check store status and navigate accordingly
+                    if (registrationData.status === STORE_STATUS.SUSPENDED) {
+                      // Store is suspended - block access
+                      console.log("⚠️ Store is suspended - showing suspension notice");
+                      Alert.alert(
+                        "Store Suspended",
+                        "Your store has been suspended. Please contact TindaGo support for more information.",
+                        [{ text: "OK", onPress: () => router.replace("/(auth)/signin") }]
+                      );
+                      await auth.signOut(); // Sign out the user
+                      return;
+                    } else if (registrationData.status === STORE_STATUS.APPROVED ||
+                               registrationData.status === STORE_STATUS.ACTIVE) {
                       // Store is approved/active - navigate to dashboard
                       console.log("✅ Store is approved/active - navigating to dashboard");
                       router.replace("/(main)/(store-owner)/home");
@@ -212,6 +222,29 @@ export default function SignInScreen() {
                   }
                 } catch (error) {
                   console.error("Error checking store registration:", error);
+                  
+                  // Try checking stores collection as fallback
+                  try {
+                    const storeRef = ref(database, `stores/${user.uid}`);
+                    const storeSnapshot = await get(storeRef);
+                    
+                    if (storeSnapshot.exists()) {
+                      const storeData = storeSnapshot.val();
+                      if (storeData.status === STORE_STATUS.SUSPENDED) {
+                        console.log("⚠️ Store is suspended (from stores collection)");
+                        Alert.alert(
+                          "Store Suspended",
+                          "Your store has been suspended. Please contact TindaGo support for more information.",
+                          [{ text: "OK", onPress: () => router.replace("/(auth)/signin") }]
+                        );
+                        await auth.signOut();
+                        return;
+                      }
+                    }
+                  } catch (storeError) {
+                    console.error("Error checking stores collection:", storeError);
+                  }
+                  
                   // On error, redirect to StoreRegistration as fallback
                   router.replace("/(auth)/(store-owner)/StoreRegistration");
                 }

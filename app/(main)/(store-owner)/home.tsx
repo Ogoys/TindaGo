@@ -105,7 +105,7 @@ export default function StoreHomeScreen() {
     fetchStoreData();
   }, []);
 
-  // Real-time sync of store open/close status and location from Firebase
+  // Real-time sync of store open/close status, location, and suspension check from Firebase
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
@@ -114,6 +114,27 @@ export default function StoreHomeScreen() {
     const unsubscribe = onValue(storeRef, (snapshot) => {
       if (snapshot.exists()) {
         const store = snapshot.val();
+        
+        // Check if store is suspended
+        if (store.status === 'suspended') {
+          console.log('⚠️ Store is suspended - signing out user');
+          Alert.alert(
+            'Store Suspended',
+            'Your store has been suspended by the administrator. Please contact TindaGo support for more information.',
+            [
+              {
+                text: 'OK',
+                onPress: async () => {
+                  await auth.signOut();
+                  router.replace('/(auth)/signin');
+                }
+              }
+            ],
+            { cancelable: false }
+          );
+          return;
+        }
+        
         setIsStoreOpen(store.isOpen ?? true); // Default to open if not set
         
         // Update location if changed

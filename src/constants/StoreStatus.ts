@@ -15,6 +15,7 @@ export const STORE_STATUS = {
   APPROVED: 'approved',
   REJECTED: 'rejected',
   ACTIVE: 'active',
+  SUSPENDED: 'suspended',
 
   // Document verification statuses
   DOCUMENTS_UPLOADED: 'documents_uploaded',
@@ -41,6 +42,7 @@ export const STATUS_LABELS = {
   [STORE_STATUS.APPROVED]: 'Approved',
   [STORE_STATUS.REJECTED]: 'Rejected',
   [STORE_STATUS.ACTIVE]: 'Active',
+  [STORE_STATUS.SUSPENDED]: 'Suspended',
   [STORE_STATUS.DOCUMENTS_UPLOADED]: 'Documents Uploaded',
   [STORE_STATUS.DOCUMENTS_VERIFIED]: 'Documents Verified',
   [STORE_STATUS.DOCUMENTS_REJECTED]: 'Documents Rejected',
@@ -54,6 +56,7 @@ export const STATUS_COLORS = {
   [STORE_STATUS.APPROVED]: '#34C759', // Green
   [STORE_STATUS.REJECTED]: '#FF3B30', // Red
   [STORE_STATUS.ACTIVE]: '#3BB77E', // TindaGo green
+  [STORE_STATUS.SUSPENDED]: '#FF9500', // Orange
   [STORE_STATUS.DOCUMENTS_UPLOADED]: '#007AFF', // Blue
   [STORE_STATUS.DOCUMENTS_VERIFIED]: '#34C759', // Green
   [STORE_STATUS.DOCUMENTS_REJECTED]: '#FF3B30', // Red
@@ -73,6 +76,10 @@ export const isRegistrationComplete = (status: string): boolean => {
 
 export const isStoreOperational = (status: string): boolean => {
   return status === STORE_STATUS.ACTIVE;
+};
+
+export const isStoreSuspended = (status: string): boolean => {
+  return status === STORE_STATUS.SUSPENDED;
 };
 
 export const needsAdminReview = (status: string): boolean => {

@@ -77,6 +77,35 @@ const StoreProductScreen = () => {
   const [stockAdjustmentValue, setStockAdjustmentValue] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Helper function to parse expiry date (supports both MM/DD/YYYY and ISO formats)
+  const parseExpiryDate = (expiryDate: string | undefined): Date | null => {
+    if (!expiryDate) return null;
+
+    try {
+      // Try parsing as ISO string first (new format)
+      const isoDate = new Date(expiryDate);
+      if (!isNaN(isoDate.getTime())) {
+        return isoDate;
+      }
+
+      // Try parsing MM/DD/YYYY format (old format)
+      const parts = expiryDate.split('/');
+      if (parts.length === 3) {
+        const month = parseInt(parts[0], 10) - 1; // Month is 0-indexed
+        const day = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+        const dateObj = new Date(year, month, day);
+        if (!isNaN(dateObj.getTime())) {
+          return dateObj;
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing expiry date:', expiryDate, error);
+    }
+
+    return null;
+  };
+
   // Categories - Figma: x: 0, y: 281, horizontal scroll
   const categories: CategoryItem[] = [
     {
@@ -258,6 +287,17 @@ const StoreProductScreen = () => {
           ...data[key],
           status: data[key].status || 'available',
         }));
+        
+        // Debug logging for products with expiry dates
+        const productsWithExpiry = productsList.filter(p => p.expiryDate);
+        if (productsWithExpiry.length > 0) {
+          console.log(`📅 Found ${productsWithExpiry.length} products with expiry dates:`);
+          productsWithExpiry.forEach(p => {
+            const parsed = parseExpiryDate(p.expiryDate);
+            console.log(`  - ${p.productName}: ${p.expiryDate} -> ${parsed ? parsed.toLocaleDateString() : 'FAILED TO PARSE'}`);
+          });
+        }
+        
         setProducts(productsList);
       } else {
         setProducts([]);
@@ -536,11 +576,14 @@ const StoreProductScreen = () => {
                       </View>
 
                       {/* Expired Badge - Only for Store Owners */}
-                      {product.expiryDate && new Date(product.expiryDate) < new Date() && (
-                        <View style={styles.expiredBadge}>
-                          <Text style={styles.expiredBadgeText}>⚠️ EXPIRED</Text>
-                        </View>
-                      )}
+                      {(() => {
+                        const expDate = parseExpiryDate(product.expiryDate);
+                        return expDate && expDate < new Date() ? (
+                          <View style={styles.expiredBadge}>
+                            <Text style={styles.expiredBadgeText}>⚠️ EXPIRED</Text>
+                          </View>
+                        ) : null;
+                      })()}
                     </View>
                   </TouchableOpacity>
 
@@ -725,23 +768,30 @@ const StoreProductScreen = () => {
                     <View style={styles.infoSection}>
                       <Text style={styles.sectionTitle}>Additional Details</Text>
                       
-                      {selectedProduct.expiryDate && (
-                        <View style={styles.detailsRow}>
-                          <Text style={styles.detailsLabel}>Expiry Date</Text>
-                          <Text style={[
-                            styles.detailsValue,
-                            new Date(selectedProduct.expiryDate) < new Date() ? { color: '#E92B45', fontWeight: '700' } :
-                            new Date(selectedProduct.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) ? { color: '#FF9800', fontWeight: '700' } :
-                            { color: Colors.darkGray, fontWeight: '600' }
-                          ]}>
-                            {new Date(selectedProduct.expiryDate).toLocaleDateString()}
-                            {new Date(selectedProduct.expiryDate) < new Date() && ' ⚠️'}
-                            {new Date(selectedProduct.expiryDate) >= new Date() && 
-                             new Date(selectedProduct.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && 
-                             ' ⚠️'}
-                          </Text>
-                        </View>
-                      )}
+                      {(() => {
+                        const expDate = parseExpiryDate(selectedProduct.expiryDate);
+                        if (!expDate) return null;
+
+                        const now = new Date();
+                        const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                        const isExpired = expDate < now;
+                        const isExpiringSoon = expDate >= now && expDate < thirtyDaysFromNow;
+
+                        return (
+                          <View style={styles.detailsRow}>
+                            <Text style={styles.detailsLabel}>Expiry Date</Text>
+                            <Text style={[
+                              styles.detailsValue,
+                              isExpired ? { color: '#E92B45', fontWeight: '700' } :
+                              isExpiringSoon ? { color: '#FF9800', fontWeight: '700' } :
+                              { color: Colors.darkGray, fontWeight: '600' }
+                            ]}>
+                              {expDate.toLocaleDateString()}
+                              {(isExpired || isExpiringSoon) && ' ⚠️'}
+                            </Text>
+                          </View>
+                        );
+                      })()}
 
                       <View style={styles.detailsRow}>
                         <Text style={styles.detailsLabel}>Date Added</Text>
