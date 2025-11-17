@@ -3,7 +3,8 @@ import { useState, useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
-import { auth, database } from '@/lib/firebase';
+import { auth, database } from '../../FirebaseConfig';
+import { handleAuthError, parseAuthError, showAuthError, createAuthError, AuthErrorType } from '../../src/utils/authErrorHandler';
 import { Button } from "../../src/components/ui/Button";
 import { FormInput } from "../../src/components/ui/FormInput";
 import { SignInGlassCard } from "../../src/components/ui/SignInGlassCard";
@@ -48,7 +49,12 @@ export default function SignInScreen() {
       const isPhone = phoneRegex.test(input);
       
       if (!isEmail && !isPhone) {
-        Alert.alert("Error", "Please enter a valid email address or phone number");
+        const validationError = createAuthError(
+          AuthErrorType.VALIDATION,
+          'Invalid Input',
+          'Please enter a valid email address or phone number'
+        );
+        showAuthError(validationError);
         setLoading(false);
         return;
       }
@@ -108,36 +114,54 @@ export default function SignInScreen() {
 
       const user = userCredential.user;
 
-      // Check if email is verified
-      if (!user.emailVerified) {
+      // Get user data from Realtime Database first
+      try {
+        if (!userData) {
+          const userRef = ref(database, `users/${user.uid}`);
+          const userSnapshot = await get(userRef);
+          
+          if (userSnapshot.exists()) {
+            userData = userSnapshot.val();
+          }
+        }
+      } catch (dbError) {
+        console.error("Error fetching user data:", dbError);
+      }
+
+      // Check email verification from database (primary source) or Firebase Auth (fallback)
+      const isEmailVerified = userData?.emailVerified ?? user.emailVerified;
+      
+      if (!isEmailVerified) {
+        // Determine which verification screen to show based on user type
+        const isStoreOwner = userData?.userType === 'store_owner';
+        
         Alert.alert(
           "Email Not Verified", 
           "Please verify your email address before signing in. We'll redirect you to the verification screen.",
           [
             {
-              text: "OK",
+              text: "Verify Now",
               onPress: () => {
                 router.push({
-                  pathname: "/(auth)/verify-email",
-                  params: { email: input }
+                  pathname: isStoreOwner ? "/(auth)/verify-email-store-owner" : "/(auth)/verify-email",
+                  params: { 
+                    email: input,
+                    name: userData?.name,
+                    uid: user.uid
+                  }
                 });
               }
+            },
+            {
+              text: "Cancel",
+              style: "cancel"
             }
           ]
         );
         return;
       }
 
-      // Get user data from Realtime Database to determine user type
-      // If we already have userData from phone lookup, use it, otherwise fetch from database
-      if (!userData) {
-        const userRef = ref(database, `users/${user.uid}`);
-        const userSnapshot = await get(userRef);
-        
-        if (userSnapshot.exists()) {
-          userData = userSnapshot.val();
-        }
-      }
+      // userData was already fetched during email verification check
       
       if (userData) {
         // Create user object for context
@@ -218,28 +242,28 @@ export default function SignInScreen() {
         ]);
       }
       
-    } catch (error: any) {
-      let errorMessage = "Login failed. Please try again.";
+    } catch (error: unknown) {
+      // Parse the error first
+      const errorInfo = parseAuthError(error);
       
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = "No account found with this email or phone number.";
-          break;
-        case 'auth/wrong-password':
-          errorMessage = "Incorrect password.";
-          break;
-        case 'auth/invalid-email':
-          errorMessage = "Invalid email address.";
-          break;
-        case 'auth/user-disabled':
-          errorMessage = "This account has been disabled.";
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = "Too many failed attempts. Please try again later.";
-          break;
+      // Add "Reset Password" action for password-related errors
+      if (errorInfo.code === 'auth/wrong-password' || 
+          errorInfo.code === 'auth/invalid-login-credentials' ||
+          errorInfo.code === 'auth/too-many-requests') {
+        showAuthError(errorInfo, [
+          {
+            text: 'Reset Password',
+            onPress: handleForgotPassword,
+          },
+          {
+            text: 'Try Again',
+            style: 'cancel',
+          },
+        ]);
+      } else {
+        // Use standard error handling for other errors
+        handleAuthError(error, 'Sign In');
       }
-      
-      Alert.alert("Login Error", errorMessage);
     } finally {
       setLoading(false);
     }

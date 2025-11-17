@@ -1,6 +1,6 @@
 // Firebase SDK v12+ for React Native Expo 2025
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, Auth } from 'firebase/auth';
 import { getDatabase, connectDatabaseEmulator } from 'firebase/database';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -24,7 +24,7 @@ export const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Services with AsyncStorage persistence
 // Use getAuth if already initialized, otherwise initialize with persistence
-let auth;
+let auth: Auth;
 try {
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(ReactNativeAsyncStorage)

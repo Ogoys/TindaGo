@@ -3,7 +3,6 @@ import { useState } from "react";
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
 // import { FormInput } from "@/components/ui/FormInput";
@@ -86,12 +85,16 @@ export default function DocumentUploadScreen() {
         const document = result.assets[0];
         const documentUri = document.uri;
         const fileName = document.name || `${documentType}.pdf`;
+        const fileSize = document.size;
 
-        // Show uploading indicator
-        Alert.alert(
-          "Uploading...",
-          "Please wait while we upload your document to the cloud."
-        );
+        // Validate file size (20MB max for documents)
+        if (fileSize && fileSize > 20 * 1024 * 1024) {
+          Alert.alert(
+            "File Too Large",
+            "Document size must be less than 20MB. Please choose a smaller file."
+          );
+          return;
+        }
 
         try {
           // Upload document to Cloudinary
@@ -101,29 +104,22 @@ export default function DocumentUploadScreen() {
             `store-documents/${auth.currentUser?.uid}`
           );
 
-          // Determine MIME type for backward compatibility
+          // Determine MIME type
           let mimeType = 'application/pdf';
           if (document.mimeType) {
             mimeType = document.mimeType;
-          } else if (fileName.toLowerCase().includes('.jpg')) {
+          } else if (fileName.toLowerCase().includes('.jpg') || fileName.toLowerCase().includes('.jpeg')) {
             mimeType = 'image/jpeg';
           } else if (fileName.toLowerCase().includes('.png')) {
             mimeType = 'image/png';
           }
 
-          // Also create base64 for backward compatibility (optional)
-          const base64 = await FileSystem.readAsStringAsync(documentUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const documentBase64 = `data:${mimeType};base64,${base64}`;
-
-          // Create document info object with both Cloudinary URL and base64
+          // Create document info object with only Cloudinary URL (no base64)
           const documentInfo = {
             name: fileName,
-            url: cloudinaryUrl,          // NEW: Cloudinary URL
-            uri: documentBase64,         // OLD: base64 for backward compatibility
+            url: cloudinaryUrl,          // Cloudinary URL only
             mimeType: mimeType,
-            size: document.size || 0,
+            size: fileSize || 0,
             uploaded: true,
             uploadedAt: new Date().toISOString()
           };
@@ -138,11 +134,17 @@ export default function DocumentUploadScreen() {
           console.log(`  - Size: ${documentInfo.size} bytes`);
 
           Alert.alert("Success", `${documentType} uploaded successfully!`);
-        } catch (uploadError) {
+        } catch (uploadError: any) {
           console.error(`❌ Error uploading ${documentType} to Cloudinary:`, uploadError);
+          
+          let errorMessage = 'Failed to upload document. Please try again.';
+          if (uploadError.message) {
+            errorMessage = uploadError.message;
+          }
+          
           Alert.alert(
             "Upload Failed",
-            "Failed to upload document to cloud. Please check your internet connection and try again."
+            errorMessage
           );
         }
       }

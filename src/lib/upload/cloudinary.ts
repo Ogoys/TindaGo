@@ -260,9 +260,8 @@ export async function uploadImageToCloudinary(
     formData.append('upload_preset', uploadPreset);
     formData.append('folder', `tindago/${folder}`);
 
-    // Optional: Add transformation for upload-time optimization
-    // This reduces storage and improves performance
-    formData.append('transformation', 'q_auto,f_auto');
+    // Note: Transformations cannot be used with unsigned uploads
+    // Apply transformations when displaying the image using getOptimizedImageUrl()
 
     // Upload to Cloudinary
     const response = await fetch(

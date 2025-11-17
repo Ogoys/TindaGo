@@ -1,5 +1,4 @@
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState, useCallback } from "react";
@@ -12,7 +11,6 @@ import { uploadImageToCloudinary } from '@/lib/upload/cloudinary';
 interface StoreFormData {
   storeName: string;
   description: string;
-  storeAddress: string;
   city: string;
   zipCode: string;
   logo: string | null;
@@ -22,7 +20,6 @@ interface StoreFormData {
 interface StoreErrors {
   storeName: string;
   description: string;
-  storeAddress: string;
   city: string;
   zipCode: string;
   logo: string;
@@ -74,7 +71,6 @@ export default function StoreDetailsScreen() {
   const [formData, setFormData] = useState<StoreFormData>({
     storeName: "",
     description: "",
-    storeAddress: "",
     city: "",
     zipCode: "",
     logo: null,
@@ -84,7 +80,6 @@ export default function StoreDetailsScreen() {
   const [errors, setErrors] = useState<StoreErrors>({
     storeName: "",
     description: "",
-    storeAddress: "",
     city: "",
     zipCode: "",
     logo: "",
@@ -92,6 +87,8 @@ export default function StoreDetailsScreen() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   // Memoized handlers to prevent keyboard issues
   const handleStoreNameChange = useCallback((text: string) => {
@@ -100,10 +97,6 @@ export default function StoreDetailsScreen() {
 
   const handleDescriptionChange = useCallback((text: string) => {
     setFormData(prev => ({ ...prev, description: text }));
-  }, []);
-
-  const handleStoreAddressChange = useCallback((text: string) => {
-    setFormData(prev => ({ ...prev, storeAddress: text }));
   }, []);
 
   const handleCityChange = useCallback((text: string) => {
@@ -118,7 +111,6 @@ export default function StoreDetailsScreen() {
     const newErrors: StoreErrors = {
       storeName: "",
       description: "",
-      storeAddress: "",
       city: "",
       zipCode: "",
       logo: "",
@@ -137,13 +129,6 @@ export default function StoreDetailsScreen() {
       newErrors.description = "Description is required";
     } else if (formData.description.trim().length < 10) {
       newErrors.description = "Description must be at least 10 characters";
-    }
-
-    // Store Address validation
-    if (!formData.storeAddress.trim()) {
-      newErrors.storeAddress = "Store address is required";
-    } else if (formData.storeAddress.trim().length < 5) {
-      newErrors.storeAddress = "Please enter a complete address";
     }
 
     // City validation
@@ -192,12 +177,23 @@ export default function StoreDetailsScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
+        const imageSize = result.assets[0].fileSize;
 
-        // Show uploading indicator
-        Alert.alert(
-          "Uploading...",
-          `Please wait while we upload your ${type === 'logo' ? 'store logo' : 'cover image'}.`
-        );
+        // Validate file size (10MB max for images)
+        if (imageSize && imageSize > 10 * 1024 * 1024) {
+          Alert.alert(
+            "File Too Large",
+            "Image size must be less than 10MB. Please choose a smaller image."
+          );
+          return;
+        }
+
+        // Set loading state
+        if (type === 'logo') {
+          setUploadingLogo(true);
+        } else {
+          setUploadingCover(true);
+        }
 
         try {
           // Upload image to Cloudinary
@@ -206,29 +202,40 @@ export default function StoreDetailsScreen() {
             type === 'logo' ? `stores/${auth.currentUser?.uid}/logo` : `stores/${auth.currentUser?.uid}/cover`
           );
 
-          // Also create base64 for backward compatibility (optional)
-          const base64 = await FileSystem.readAsStringAsync(imageUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const imageBase64 = `data:image/jpeg;base64,${base64}`;
-
-          // Store both Cloudinary URL and base64
+          // Store only Cloudinary URL (no base64 needed)
           setFormData(prev => ({
             ...prev,
-            [type]: cloudinaryUrl,           // Store Cloudinary URL as primary
-            [`${type}Legacy`]: imageBase64   // Keep base64 for backward compatibility
+            [type]: cloudinaryUrl,
+          }));
+
+          setErrors(prev => ({
+            ...prev,
+            [type]: '',
           }));
 
           console.log(`✅ ${type} uploaded to Cloudinary`);
           console.log(`  - Cloudinary URL: ${cloudinaryUrl}`);
 
           Alert.alert("Success", `${type === 'logo' ? 'Store logo' : 'Cover image'} uploaded successfully!`);
-        } catch (uploadError) {
+        } catch (uploadError: any) {
           console.error(`❌ Error uploading ${type} to Cloudinary:`, uploadError);
+          
+          let errorMessage = 'Failed to upload image. Please try again.';
+          if (uploadError.message) {
+            errorMessage = uploadError.message;
+          }
+          
           Alert.alert(
             "Upload Failed",
-            `Failed to upload ${type} to cloud. Please check your internet connection and try again.`
+            errorMessage
           );
+        } finally {
+          // Clear loading state
+          if (type === 'logo') {
+            setUploadingLogo(false);
+          } else {
+            setUploadingCover(false);
+          }
         }
       }
     } catch (error) {
@@ -254,13 +261,13 @@ export default function StoreDetailsScreen() {
 
     try {
       // Use centralized service to update store details with standardized status
+      // Note: Address will be set later from map pin in set-store-location.tsx
       await StoreRegistrationService.updateStoreDetails({
         ownerName: ownerName || "",
         ownerMobile: ownerMobile || "",
         ownerEmail: ownerEmail || "",
         storeName: formData.storeName.trim(),
         description: formData.description.trim(),
-        storeAddress: formData.storeAddress.trim(),
         city: formData.city.trim(),
         zipCode: formData.zipCode.trim(),
         logo: formData.logo,
@@ -322,12 +329,18 @@ export default function StoreDetailsScreen() {
       <TouchableOpacity
         style={[
           styles.uploadBox,
-          errors[type] ? styles.uploadBoxError : null
+          errors[type] ? styles.uploadBoxError : null,
+          (type === 'logo' && uploadingLogo) || (type === 'coverImage' && uploadingCover) ? styles.uploadBoxLoading : null
         ]}
         onPress={() => handleImagePicker(type)}
         activeOpacity={0.8}
+        disabled={(type === 'logo' && uploadingLogo) || (type === 'coverImage' && uploadingCover)}
       >
-        {formData[type] ? (
+        {((type === 'logo' && uploadingLogo) || (type === 'coverImage' && uploadingCover)) ? (
+          <View style={styles.uploadPlaceholder}>
+            <Text style={styles.uploadingText}>Uploading...</Text>
+          </View>
+        ) : formData[type] ? (
           <Image source={{ uri: formData[type]! }} style={styles.uploadedImage} />
         ) : (
           <View style={styles.uploadPlaceholder}>
@@ -423,14 +436,7 @@ export default function StoreDetailsScreen() {
               isTextArea={true}
             />
 
-            {/* Figma: Store Address field at y:735 */}
-            <FormInputField
-              label="Store Address"
-              placeholder="Enter store address"
-              value={formData.storeAddress}
-              onChangeText={handleStoreAddressChange}
-              style={styles.addressField}
-            />
+            {/* Note: Store address will be automatically generated from map pin location in the next step */}
 
             {/* Figma: City and Zip Code in a row at y:835 */}
             <View style={styles.rowContainer}>
@@ -655,6 +661,17 @@ const styles = StyleSheet.create({
     shadowRadius: s(5),
     elevation: 3,
     overflow: 'hidden',
+  },
+
+  uploadBoxLoading: {
+    opacity: 0.6,
+  },
+
+  uploadingText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '500',
+    fontSize: s(12),
+    color: 'rgba(30, 30, 30, 0.5)',
   },
 
   // Upload Box Error State

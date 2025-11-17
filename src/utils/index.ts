@@ -12,3 +12,6 @@ export * from './validation';
 
 // Helper utilities
 export * from './helpers';
+
+// Auth error handling
+export * from './authErrorHandler';

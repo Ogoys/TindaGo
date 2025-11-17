@@ -66,18 +66,30 @@ export class NotificationService {
       }
 
       // Get the token that uniquely identifies this device
-      const token = await Notifications.getExpoPushTokenAsync();
+      // Note: This requires Firebase Cloud Messaging setup in google-services.json
+      let token;
+      try {
+        token = await Notifications.getExpoPushTokenAsync();
+      } catch (tokenError: any) {
+        // If FCM is not configured, just log and continue without push notifications
+        if (tokenError.message?.includes('FirebaseApp')) {
+          console.log('📱 Firebase Cloud Messaging not configured. Push notifications disabled.');
+          console.log('   To enable: Follow https://docs.expo.dev/push-notifications/fcm-credentials/');
+          return null;
+        }
+        throw tokenError;
+      }
 
       // Save token to Firebase for admin to send notifications
-      if (auth.currentUser) {
+      if (auth.currentUser && token) {
         const userId = auth.currentUser.uid;
         await set(ref(database, `users/${userId}/pushToken`), token.data);
         console.log('✅ Push token saved:', token.data);
       }
 
-      return token.data;
+      return token?.data || null;
     } catch (error) {
-      console.error('❌ Error setting up push notifications:', error);
+      // Silently fail - push notifications are optional
       return null;
     }
   }
@@ -139,7 +151,7 @@ export class NotificationService {
 
       console.log('✅ Local notification sent:', title);
     } catch (error) {
-      console.error('❌ Error sending notification:', error);
+      // Silently fail - notifications are optional
     }
   }
 
@@ -184,7 +196,7 @@ export class NotificationService {
         });
       }
     } catch (error) {
-      console.error('❌ Error sending step completion notification:', error);
+      // Silently fail - notifications are optional
     }
   }
 
@@ -197,7 +209,7 @@ export class NotificationService {
       const snapshot = await get(tokenRef);
       return snapshot.exists() ? snapshot.val() : null;
     } catch (error) {
-      console.error('❌ Error getting push token:', error);
+      // Silently fail
       return null;
     }
   }
@@ -243,11 +255,11 @@ export class NotificationService {
         console.log('✅ Push notification sent successfully');
         return true;
       } else {
-        console.error('❌ Push notification failed:', result);
+        // Push notification failed
         return false;
       }
     } catch (error) {
-      console.error('❌ Error sending push notification:', error);
+      // Silently fail
       return false;
     }
   }
@@ -264,7 +276,7 @@ export class NotificationService {
       await Notifications.cancelAllScheduledNotificationsAsync();
       console.log('✅ All notifications cancelled');
     } catch (error) {
-      console.error('❌ Error cancelling notifications:', error);
+      // Silently fail
     }
   }
 
@@ -279,7 +291,7 @@ export class NotificationService {
       const { status } = await Notifications.getPermissionsAsync();
       return status;
     } catch (error) {
-      console.error('❌ Error getting permissions status:', error);
+      // Silently fail
       return 'undetermined';
     }
   }

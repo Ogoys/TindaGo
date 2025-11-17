@@ -250,6 +250,38 @@ export default function StoreOwnerRegisterScreen() {
       return;
     }
 
+    // Check email verification from database
+    try {
+      const userId = auth.currentUser.uid;
+      const userRef = ref(database, `users/${userId}`);
+      const userSnapshot = await get(userRef);
+      
+      if (userSnapshot.exists()) {
+        const userData = userSnapshot.val();
+        if (!userData.emailVerified) {
+          Alert.alert(
+            "Email Not Verified",
+            "Please verify your email address before proceeding with store registration.",
+            [
+              {
+                text: "Go to Email Verification",
+                onPress: () => router.push("/(auth)/verify-email-store-owner")
+              },
+              {
+                text: "Cancel",
+                style: "cancel"
+              }
+            ]
+          );
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error checking email verification:", error);
+      Alert.alert("Error", "Failed to verify email status. Please try again.");
+      return;
+    }
+
     setLoading(true);
 
     try {

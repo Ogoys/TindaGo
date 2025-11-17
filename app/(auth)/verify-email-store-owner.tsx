@@ -2,7 +2,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Image, ImageBackground, Pressable, StyleSheet, View, Alert, Text } from "react-native";
 import { sendEmailVerification, reload } from 'firebase/auth';
-import { auth } from '../../FirebaseConfig';
+import { ref, update } from 'firebase/database';
+import { auth, database } from '../../FirebaseConfig';
 import { Button } from "../../src/components/ui/Button";
 import { Typography } from "../../src/components/ui/Typography";
 import { Colors } from "../../src/constants/Colors";
@@ -40,6 +41,23 @@ export default function VerifyEmailStoreOwnerScreen() {
       await reload(auth.currentUser);
 
       if (auth.currentUser.emailVerified) {
+        // ✅ Email is verified - Update Realtime Database
+        console.log('📧 Email verified! Updating database...');
+        
+        try {
+          // Update emailVerified field in Realtime Database
+          const userRef = ref(database, `users/${auth.currentUser.uid}`);
+          await update(userRef, {
+            emailVerified: true,
+            emailVerifiedAt: new Date().toISOString()
+          });
+          
+          console.log('✅ Database updated: emailVerified = true');
+        } catch (dbError) {
+          console.error('❌ Failed to update database:', dbError);
+          // Continue anyway since Firebase Auth verification is the source of truth
+        }
+        
         // Email is verified, proceed to store registration
         Alert.alert(
           "Email Verified!",

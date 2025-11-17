@@ -4,6 +4,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { ref, set, serverTimestamp } from 'firebase/database';
 import { auth, database } from '../../FirebaseConfig';
+import { handleAuthError, createValidationError, showAuthError } from '../../src/utils/authErrorHandler';
 import { Button } from "../../src/components/ui/Button";
 import { CheckboxWithText } from "../../src/components/ui/CheckboxWithText";
 import { FormInput } from "../../src/components/ui/FormInput";
@@ -87,13 +88,19 @@ export default function RegisterScreen() {
     }
 
     setErrors(newErrors);
-    return Object.values(newErrors).every(error => error === "");
+    
+    const isValid = Object.values(newErrors).every(error => error === "");
+    return { isValid, errors: newErrors };
   };
 
   const handleSignUp = async () => {
-    if (!validateForm()) {
-      const errorMessage = Object.values(errors).filter(error => error).join("\n");
-      Alert.alert("Validation Error", errorMessage);
+    const validation = validateForm();
+    if (!validation.isValid) {
+      const errorMessages = Object.values(validation.errors)
+        .filter(error => error)
+        .join("\n");
+      const validationError = createValidationError(errorMessages);
+      showAuthError(validationError);
       return;
     }
 
@@ -108,7 +115,10 @@ export default function RegisterScreen() {
       const isPhone = phoneRegex.test(formData.emailOrPhone.trim());
 
       if (!isEmail && !isPhone) {
-        Alert.alert("Error", "Please enter a valid email address or phone number");
+        const validationError = createValidationError(
+          'Please enter a valid email address or phone number'
+        );
+        showAuthError(validationError);
         setLoading(false);
         return;
       }
@@ -170,7 +180,7 @@ export default function RegisterScreen() {
           userType: 'customer',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          emailVerified: user.emailVerified,
+          emailVerified: false, // Always false for new accounts
           profile: {
             avatar: null,
             phone: null,
@@ -245,7 +255,7 @@ export default function RegisterScreen() {
           userType: 'store_owner',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          emailVerified: user.emailVerified,
+          emailVerified: false, // Will be set to true after email verification
           profile: {
             avatar: null,
             phone: null,
@@ -286,28 +296,8 @@ export default function RegisterScreen() {
         );
       }
 
-    } catch (error: any) {
-      let errorMessage = "Account creation failed. Please try again.";
-
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          errorMessage = "An account with this email already exists.";
-          break;
-        case 'auth/invalid-email':
-          errorMessage = "Invalid email address.";
-          break;
-        case 'auth/operation-not-allowed':
-          errorMessage = "Email/password accounts are not enabled.";
-          break;
-        case 'auth/weak-password':
-          errorMessage = "Password should be at least 6 characters.";
-          break;
-        case 'auth/network-request-failed':
-          errorMessage = "Network error. Please check your connection.";
-          break;
-      }
-
-      Alert.alert("Registration Error", errorMessage);
+    } catch (error: unknown) {
+      handleAuthError(error, 'Registration');
     } finally {
       setLoading(false);
     }

@@ -119,8 +119,9 @@ export const useStoreRegistration = (userId?: string): UseStoreRegistrationRetur
   // Setup push notifications on mount
   useEffect(() => {
     if (auth.currentUser) {
-      NotificationService.setupPushNotifications().catch(err => {
-        console.error('❌ Error setting up push notifications:', err);
+      NotificationService.setupPushNotifications().catch(() => {
+        // Silently handle push notification setup errors
+        // This is optional functionality and shouldn't block the app
       });
     }
   }, []);

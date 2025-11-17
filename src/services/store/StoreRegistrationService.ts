@@ -126,7 +126,7 @@ export class StoreRegistrationService {
     ownerEmail: string;
     storeName: string;
     description: string;
-    storeAddress: string;
+    storeAddress?: string; // Optional - will be set from map pin location
     city: string;
     zipCode: string;
     logo?: string | null;
@@ -148,7 +148,7 @@ export class StoreRegistrationService {
       businessInfo: {
         storeName: storeData.storeName,
         description: storeData.description,
-        address: storeData.storeAddress,
+        address: storeData.storeAddress || '', // Will be updated from map pin location
         city: storeData.city,
         zipCode: storeData.zipCode,
         businessType: 'Sari-Sari Store',
@@ -300,57 +300,61 @@ export class StoreRegistrationService {
       documents: {
         barangayBusinessClearance: documents.barangayBusinessClearance ? {
           name: documents.barangayBusinessClearance.name || '',
-          uri: documents.barangayBusinessClearance.uri || '',         // Legacy base64
-          url: documents.barangayBusinessClearance.url || undefined,  // NEW: Cloudinary URL
+          url: documents.barangayBusinessClearance.url,  // Cloudinary URL
           type: documents.barangayBusinessClearance.mimeType || '',
+          size: documents.barangayBusinessClearance.size || 0,
           uploaded: true,
           uploadedAt: serverTimestamp(),
         } : {
           name: '',
-          uri: '',
+          url: '',
           type: '',
+          size: 0,
           uploaded: false,
           uploadedAt: null,
         },
         businessPermit: documents.businessPermit ? {
           name: documents.businessPermit.name || '',
-          uri: documents.businessPermit.uri || '',         // Legacy base64
-          url: documents.businessPermit.url || undefined,  // NEW: Cloudinary URL
+          url: documents.businessPermit.url,  // Cloudinary URL
           type: documents.businessPermit.mimeType || '',
+          size: documents.businessPermit.size || 0,
           uploaded: true,
           uploadedAt: serverTimestamp(),
         } : {
           name: '',
-          uri: '',
+          url: '',
           type: '',
+          size: 0,
           uploaded: false,
           uploadedAt: null,
         },
         dtiRegistration: documents.dtiRegistration ? {
           name: documents.dtiRegistration.name || '',
-          uri: documents.dtiRegistration.uri || '',         // Legacy base64
-          url: documents.dtiRegistration.url || undefined,  // NEW: Cloudinary URL
+          url: documents.dtiRegistration.url,  // Cloudinary URL
           type: documents.dtiRegistration.mimeType || '',
+          size: documents.dtiRegistration.size || 0,
           uploaded: true,
           uploadedAt: serverTimestamp(),
         } : {
           name: '',
-          uri: '',
+          url: '',
           type: '',
+          size: 0,
           uploaded: false,
           uploadedAt: null,
         },
         validId: documents.validId ? {
           name: documents.validId.name || '',
-          uri: documents.validId.uri || '',         // Legacy base64
-          url: documents.validId.url || undefined,  // NEW: Cloudinary URL
+          url: documents.validId.url,  // Cloudinary URL
           type: documents.validId.mimeType || '',
+          size: documents.validId.size || 0,
           uploaded: true,
           uploadedAt: serverTimestamp(),
         } : {
           name: '',
-          uri: '',
+          url: '',
           type: '',
+          size: 0,
           uploaded: false,
           uploadedAt: null,
         },
