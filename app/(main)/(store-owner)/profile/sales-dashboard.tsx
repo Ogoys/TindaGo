@@ -30,8 +30,8 @@ import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
-import { getWalkInSales } from '../../../../src/api/walkInSales';
 import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
+import PaymentMethodBadge from '../../../../src/components/common/PaymentMethodBadge';
 
 interface Transaction {
   id: string;
@@ -94,9 +94,9 @@ const SalesDashboardScreen = () => {
         return;
       }
 
-      // Fetch walk-in sales
-      const walkInSales = await getWalkInSales(currentUser.uid);
-
+      // Sales Dashboard only shows APP ORDERS (not walk-in sales)
+      // Walk-in sales are tracked in Sales History instead
+      
       // Fetch ledger transactions (SAME AS WALLET/EARNINGS SCREEN)
       const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
       const ledgerSnapshot = await get(ledgerRef);
@@ -170,27 +170,22 @@ const SalesDashboardScreen = () => {
               orderNumber: orderNumber,
               invoiceId: txnData.invoiceId,
               items: orderItems.map((item: any) => ({
-                productName: item.productName || 'Product',
+                productName: item.productName || item.name || 'Product',
                 quantity: item.quantity || 0,
                 price: item.price || 0,
+                // Normalize image fields for consistent display
+                productImageUrl: item.productImageUrl || item.imageUrl || '',
+                productImage: item.productImage || item.image || '',
               })),
             });
           }
         }
       }
 
-      // Combine walk-in and app orders
-      const walkInTransactions: Transaction[] = walkInSales.map(sale => ({
-        id: sale.id,
-        type: 'walk-in' as const,
-        totalAmount: sale.totalAmount,
-        itemsCount: sale.items.length,
-        createdAt: sale.createdAt,
-        customerName: sale.customerName || 'Walk-in Customer',
-      }));
-
-      const allTransactions = [...walkInTransactions, ...appOrders]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      // Sort app orders by date (newest first)
+      const allTransactions = appOrders.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
       setTransactions(allTransactions);
       calculateTotals(allTransactions);
@@ -503,7 +498,9 @@ const SalesDashboardScreen = () => {
                       </Text>
                       
                       {transaction.paymentMethod && (
-                        <Text style={styles.paymentMethod}>{transaction.paymentMethod}</Text>
+                        <View style={styles.paymentMethodContainer}>
+                          <PaymentMethodBadge method={transaction.paymentMethod} size="small" />
+                        </View>
                       )}
                     </View>
                     <View style={styles.transactionAmountContainer}>
@@ -636,9 +633,7 @@ const SalesDashboardScreen = () => {
                     {selectedTransaction.paymentMethod && (
                       <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>Method:</Text>
-                        <Text style={[styles.detailValue, styles.paymentMethodBadge]}>
-                          {selectedTransaction.paymentMethod.toUpperCase()}
-                        </Text>
+                        <PaymentMethodBadge method={selectedTransaction.paymentMethod} size="medium" />
                       </View>
                     )}
                     <View style={styles.detailRow}>
@@ -924,6 +919,11 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: ms(13),
     color: Colors.textSecondary,
+    marginBottom: vs(4),
+  },
+  
+  paymentMethodContainer: {
+    marginTop: vs(4),
   },
   
   transactionOrderId: {

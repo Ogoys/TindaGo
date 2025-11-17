@@ -246,8 +246,8 @@ const RecordWalkInSaleScreen = () => {
       const saleItems: WalkInSaleItem[] = selectedProducts.map(p => ({
         productId: p.id,
         productName: p.productName,
-        productImage: p.productImage,
-        productImageUrl: p.productImageUrl,
+        productImage: p.productImage || '',  // Prevent undefined
+        productImageUrl: p.productImageUrl || '',  // Prevent undefined
         quantity: p.saleQuantity,
         price: p.price,
         subtotal: p.subtotal,

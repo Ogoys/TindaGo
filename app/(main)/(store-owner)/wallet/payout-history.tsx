@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ref, get } from 'firebase/database';
+import { ref, get, onValue } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
 import { useUser } from '../../../../src/contexts/UserContext';
 import { Typography } from '../../../../src/components/ui/Typography';
@@ -61,42 +61,51 @@ export default function PayoutHistory() {
   const [loading, setLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('all');
 
+  // Real-time listener for payout status updates
   useEffect(() => {
-    const load = async () => {
-      const sid = user?.storeId || user?.id;
-      if (!sid) {
-        setPayouts([]);
-        setLoading(false);
-        return;
-      }
-      try {
-        const payoutsRef = ref(database, 'payouts');
-        const payoutsSnap = await get(payoutsRef);
-        if (payoutsSnap.exists()) {
-          const data = payoutsSnap.val();
-          const userPayouts: Payout[] = Object.entries(data)
-            .filter(([_, p]: [string, any]) => p.storeId === sid)
-            .map(([id, p]: [string, any]) => ({
-              id,
-              amount: p.amount || 0,
-              method: p.method || 'bank',
-              accountName: p.accountName || '',
-              status: p.status || 'pending',
-              createdAt: p.createdAt || new Date().toISOString(),
-            }))
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setPayouts(userPayouts);
-        } else {
+    const sid = user?.storeId || user?.id;
+    if (!sid) {
+      setPayouts([]);
+      setLoading(false);
+      return;
+    }
+
+    const payoutsRef = ref(database, 'payouts');
+    const unsubscribe = onValue(
+      payoutsRef,
+      (snapshot) => {
+        try {
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            const userPayouts: Payout[] = Object.entries(data)
+              .filter(([_, p]: [string, any]) => p.storeId === sid)
+              .map(([id, p]: [string, any]) => ({
+                id,
+                amount: p.amount || 0,
+                method: p.method || 'bank',
+                accountName: p.accountName || '',
+                status: p.status || 'pending',
+                createdAt: p.createdAt || new Date().toISOString(),
+              }))
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setPayouts(userPayouts);
+          } else {
+            setPayouts([]);
+          }
+        } catch (err) {
+          console.error('Error processing payouts:', err);
           setPayouts([]);
+        } finally {
+          setLoading(false);
         }
-      } catch (err) {
-        console.error('Error loading payouts:', err);
-        setPayouts([]);
-      } finally {
+      },
+      (error) => {
+        console.error('Error listening to payouts:', error);
         setLoading(false);
       }
-    };
-    load();
+    );
+
+    return () => unsubscribe();
   }, [user?.storeId, user?.id]);
 
   // Handle back navigation
@@ -231,82 +240,80 @@ export default function PayoutHistory() {
           <View style={styles.payoutListContainer}>
             {visiblePayouts.map((payout) => (
               <View key={payout.id} style={styles.payoutCard}>
-                {/* Card Background */}
-                <View style={styles.payoutCardBackground} />
-
-                {/* Amount Icon */}
-                <View style={styles.amountIconContainer}>
-                  <View style={styles.amountIconBackground} />
-                  <Image
-                    source={require('../../../../src/assets/images/store-owner-dashboard/wallet-icon.png')}
-                    style={styles.amountIcon}
-                    resizeMode="contain"
-                  />
+                {/* Amount with Icon */}
+                <View style={styles.amountSection}>
+                  <View style={styles.amountIconContainer}>
+                    <Image
+                      source={require('../../../../src/assets/images/store-owner-dashboard/wallet-icon.png')}
+                      style={styles.amountIcon}
+                      resizeMode="contain"
+                    />
+                  </View>
+                  <View style={styles.amountTextContainer}>
+                    <Typography style={styles.amountLabel}>Amount</Typography>
+                    <Typography style={styles.amountValue}>₱{payout.amount.toFixed(2)}</Typography>
+                  </View>
+                  {/* Status Badge */}
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(payout.status) }]}>
+                    <Text style={styles.statusBadgeText}>
+                      {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
+                    </Text>
+                  </View>
                 </View>
 
-                {/* Payout Info */}
-                <View style={styles.payoutInfo}>
-                  {/* Amount and Status */}
-                  <View style={styles.payoutHeader}>
-                    <View>
-                      <Typography style={styles.amountLabel}>Amount</Typography>
-                      <Typography style={styles.amountValue}>₱{payout.amount.toFixed(2)}</Typography>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(payout.status) }]}>
-                      <Text style={styles.statusBadgeText}>
-                        {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
-                      </Text>
-                    </View>
-                  </View>
+                {/* Divider */}
+                <View style={styles.cardDivider} />
 
-                  {/* Divider */}
-                  <View style={styles.divider} />
-
-                  {/* Details Row */}
-                  <View style={styles.detailsRow}>
-                    {/* Method */}
-                    <View style={styles.detailItem}>
+                {/* Details Section */}
+                <View style={styles.detailsSection}>
+                  {/* Method */}
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIconWrapper}>
                       <Image
                         source={require('../../../../src/assets/images/store-owner-dashboard/cheque-icon.png')}
                         style={styles.detailIcon}
                         resizeMode="contain"
                       />
-                      <View style={styles.detailTextContainer}>
-                        <Typography style={styles.detailLabel}>Method</Typography>
-                        <Typography style={styles.detailValue}>
-                          {payout.method.charAt(0).toUpperCase() + payout.method.slice(1)}
-                        </Typography>
-                      </View>
                     </View>
+                    <View style={styles.detailContent}>
+                      <Typography style={styles.detailLabel}>Method</Typography>
+                      <Typography style={styles.detailValue}>
+                        {payout.method.charAt(0).toUpperCase() + payout.method.slice(1)}
+                      </Typography>
+                    </View>
+                  </View>
 
-                    {/* Account */}
-                    <View style={styles.detailItem}>
+                  {/* Account */}
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIconWrapper}>
                       <Image
                         source={require('../../../../src/assets/images/store-owner-dashboard/person-icon.png')}
                         style={styles.detailIcon}
                         resizeMode="contain"
                       />
-                      <View style={styles.detailTextContainer}>
-                        <Typography style={styles.detailLabel}>Account</Typography>
-                        <Typography style={styles.detailValue} numberOfLines={1}>
-                          {payout.accountName}
-                        </Typography>
-                      </View>
                     </View>
+                    <View style={styles.detailContent}>
+                      <Typography style={styles.detailLabel}>Account</Typography>
+                      <Typography style={styles.detailValue} numberOfLines={1}>
+                        {payout.accountName || 'N/A'}
+                      </Typography>
+                    </View>
+                  </View>
 
-                    {/* Date */}
-                    <View style={styles.detailItem}>
+                  {/* Date */}
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIconWrapper}>
                       <Image
                         source={require('../../../../src/assets/images/store-owner-dashboard/cheque-icon.png')}
                         style={styles.detailIcon}
                         resizeMode="contain"
                       />
-                      <View style={styles.detailTextContainer}>
-                        <Typography style={styles.detailLabel}>Date</Typography>
-                        <Typography style={styles.detailValue} numberOfLines={1}>
-                          {formatDate(payout.createdAt)}
-                        </Typography>
-                      </View>
+                    </View>
+                    <View style={styles.detailContent}>
+                      <Typography style={styles.detailLabel}>Date</Typography>
+                      <Typography style={styles.detailValue} numberOfLines={1}>
+                        {formatDate(payout.createdAt)}
+                      </Typography>
                     </View>
                   </View>
                 </View>
@@ -468,125 +475,110 @@ const styles = StyleSheet.create({
     gap: vs(16),
   },
 
-  // Payout Card (Matching Orders card structure)
+  // Payout Card - Improved design
   payoutCard: {
-    position: 'relative',
-    height: vs(200),
-    marginBottom: vs(4),
-  },
-  payoutCardBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: vs(200),
     backgroundColor: Colors.white,
     borderRadius: s(16),
+    padding: s(20),
+    marginBottom: vs(12),
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: s(4),
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: s(8),
+    elevation: 2,
   },
 
-  // Amount Icon (Like order logo)
+  // Amount Section (Top of card)
+  amountSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: vs(16),
+  },
   amountIconContainer: {
-    position: 'absolute',
-    left: s(20),
-    top: vs(20),
-    width: s(40),
-    height: s(40),
+    width: s(48),
+    height: s(48),
+    borderRadius: s(12),
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  amountIconBackground: {
-    position: 'absolute',
-    width: s(40),
-    height: s(40),
-    borderRadius: s(20),
-    backgroundColor: Colors.primary,
-    opacity: 0.1,
+    marginRight: s(12),
   },
   amountIcon: {
     width: s(24),
     height: s(24),
-    tintColor: Colors.primary,
+    tintColor: Colors.white,
   },
-
-  // Payout Info
-  payoutInfo: {
-    position: 'absolute',
-    left: s(75),
-    right: s(20),
-    top: vs(20),
-    bottom: vs(20),
-  },
-
-  // Header (Amount + Status)
-  payoutHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: vs(12),
+  amountTextContainer: {
+    flex: 1,
   },
   amountLabel: {
     fontFamily: Fonts.primary,
-    fontSize: ms(11),
+    fontSize: ms(12),
     color: Colors.textSecondary,
     marginBottom: vs(2),
   },
   amountValue: {
     fontFamily: Fonts.primary,
-    fontSize: ms(20),
+    fontSize: ms(22),
     fontWeight: '700',
     color: Colors.primary,
   },
   statusBadge: {
-    paddingHorizontal: s(12),
+    paddingHorizontal: s(14),
     paddingVertical: vs(6),
-    borderRadius: s(12),
+    borderRadius: s(16),
+    alignSelf: 'flex-start',
   },
   statusBadgeText: {
     fontFamily: Fonts.primary,
     fontSize: ms(11),
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.white,
+    textTransform: 'capitalize',
   },
 
-  // Divider
-  divider: {
+  // Card Divider
+  cardDivider: {
     height: 1,
     backgroundColor: '#F0F0F0',
-    marginVertical: vs(12),
+    marginBottom: vs(16),
   },
 
-  // Details Row
-  detailsRow: {
-    gap: vs(12),
+  // Details Section
+  detailsSection: {
+    gap: vs(14),
   },
-  detailItem: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  detailIcon: {
-    width: s(20),
-    height: s(20),
-    tintColor: Colors.textSecondary,
+  detailIconWrapper: {
+    width: s(36),
+    height: s(36),
+    borderRadius: s(8),
+    backgroundColor: '#F8F9FA',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: s(12),
   },
-  detailTextContainer: {
+  detailIcon: {
+    width: s(18),
+    height: s(18),
+    tintColor: Colors.textSecondary,
+  },
+  detailContent: {
     flex: 1,
   },
   detailLabel: {
     fontFamily: Fonts.primary,
     fontSize: ms(11),
     color: Colors.textSecondary,
-    marginBottom: vs(2),
+    marginBottom: vs(3),
   },
   detailValue: {
     fontFamily: Fonts.primary,
-    fontSize: ms(13),
-    fontWeight: '500',
+    fontSize: ms(14),
+    fontWeight: '600',
     color: Colors.darkGray,
   },
 });

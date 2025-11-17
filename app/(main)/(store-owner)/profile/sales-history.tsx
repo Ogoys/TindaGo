@@ -14,7 +14,6 @@ import { equalTo, get, orderByChild, query, ref } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   RefreshControl,
   ScrollView,
@@ -32,7 +31,7 @@ import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { ms, s, vs } from '../../../../src/constants/responsive';
 import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
-import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
+import PaymentMethodBadge from '../../../../src/components/common/PaymentMethodBadge';
 
 interface SaleTransaction {
   id: string;
@@ -84,50 +83,89 @@ const SalesHistoryScreen = () => {
       // Fetch walk-in sales
       const walkInSales = await getWalkInSales(currentUser.uid);
 
-      // Fetch app orders and ledger data
-      const ordersRef = ref(database, 'orders');
-      const ordersQuery = query(
-        ordersRef,
-        orderByChild('storeOwnerId'),
-        equalTo(currentUser.uid)
-      );
-
-      // OPTIMIZED: Replace onValue with get() to prevent spam reads
-      const snapshot = await get(ordersQuery);
+      // Fetch app orders from LEDGER (same as Sales Dashboard)
+      const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
+      const ledgerSnapshot = await get(ledgerRef);
+      
       const appOrders: SaleTransaction[] = [];
 
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-
-        // Fetch ledger transactions for commission data
-        const ledgerRef = ref(database, `ledgers/stores/${currentUser.uid}/transactions`);
-        const ledgerSnapshot = await get(ledgerRef);
-
-        const ledgerData = ledgerSnapshot.exists() ? ledgerSnapshot.val() : {};
-
-        Object.keys(data).forEach(key => {
-          const order = data[key];
-          // Only include completed/delivered orders
-          if (order.status === 'completed' || order.status === 'delivered') {
-            const ledgerTxn = Object.values(ledgerData).find(
-              (txn: any) => txn.orderId === key || txn.orderNumber === order.orderNumber
-            ) as any;
-
+      if (ledgerSnapshot.exists()) {
+        const ledgerData = ledgerSnapshot.val();
+        
+        // Fetch all orders first for efficient lookup
+        const ordersRef = ref(database, 'orders');
+        const ordersSnapshot = await get(ordersRef);
+        const allOrders = ordersSnapshot.exists() ? ordersSnapshot.val() : {};
+        
+        // Use ledger transactions (which have PAID/SETTLED status)
+        for (const [txnId, txn] of Object.entries(ledgerData)) {
+          const txnData: any = txn;
+          // Only include PAID or SETTLED transactions (same as Sales Dashboard)
+          if (txnData.status === 'PAID' || txnData.status === 'SETTLED') {
+            const totalAmount = txnData.amount || 0;
+            const commission = txnData.commission || 0;
+            const storeAmount = txnData.storeAmount || (totalAmount - commission);
+            const orderNumber = txnData.orderNumber;
+            
+            // Fetch order items
+            let orderItems: any[] = [];
+            let itemCount = 1;
+            
+            // Get real customer name from users table
+            let realCustomerName = txnData.customerName || 'Customer';
+            if (txnData.customerId) {
+              try {
+                const userRef = ref(database, `users/${txnData.customerId}`);
+                const userSnapshot = await get(userRef);
+                if (userSnapshot.exists()) {
+                  const userData = userSnapshot.val();
+                  realCustomerName = userData.name || userData.firstName || txnData.customerName || 'Customer';
+                }
+              } catch (err) {
+                console.error('Error fetching customer name:', err);
+              }
+            }
+            
+            if (orderNumber) {
+              // Find order by orderNumber
+              const orderEntry = Object.entries(allOrders).find(
+                ([_, order]: [string, any]) => order.orderNumber === orderNumber
+              );
+              
+              if (orderEntry) {
+                const [orderId, orderData]: [string, any] = orderEntry;
+                // Normalize item fields for consistent display
+                orderItems = (orderData.items || []).map((item: any) => ({
+                  ...item,
+                  // Ensure consistent field names for images
+                  productImageUrl: item.productImageUrl || item.imageUrl || '',
+                  productImage: item.productImage || item.image || '',
+                  // Ensure consistent field names for other properties
+                  productName: item.productName || item.name || 'Product',
+                  productSize: item.productSize || item.size || '',
+                  price: item.price || 0,
+                  quantity: item.quantity || 0,
+                  subtotal: item.subtotal || (item.price || 0) * (item.quantity || 0),
+                }));
+                itemCount = orderItems.length || 1;
+              }
+            }
+            
             appOrders.push({
-              id: key,
+              id: txnId,
               type: 'app-order',
-              totalAmount: order.totalAmount || 0,
-              itemsCount: order.items?.length || 0,
-              createdAt: order.createdAt,
-              customerName: order.customerName || 'Customer',
-              status: order.status,
-              commission: ledgerTxn?.commission || 0,
-              storeAmount: ledgerTxn?.storeAmount || order.totalAmount || 0,
-              paymentMethod: order.paymentMethod || 'COD',
-              items: order.items || [],
+              totalAmount: totalAmount,
+              itemsCount: itemCount,
+              createdAt: txnData.paidAt || txnData.createdAt,
+              customerName: realCustomerName,
+              status: txnData.status,
+              commission: commission,
+              storeAmount: storeAmount,
+              paymentMethod: txnData.paymentMethod || txnData.method || 'COD',
+              items: orderItems,
             });
           }
-        });
+        }
       }
 
       // Combine walk-in and app orders
@@ -349,11 +387,9 @@ const SalesHistoryScreen = () => {
                         {transaction.itemsCount} item{transaction.itemsCount > 1 ? 's' : ''}
                       </Text>
                       {transaction.paymentMethod && (
-                        <Text style={styles.paymentMethod}>
-                          {transaction.paymentMethod === 'gcash' ? 'GCash' :
-                           transaction.paymentMethod === 'paymaya' ? 'PayMaya' :
-                           transaction.paymentMethod}
-                        </Text>
+                        <View style={styles.paymentMethodContainer}>
+                          <PaymentMethodBadge method={transaction.paymentMethod} size="small" />
+                        </View>
                       )}
                     </View>
                     <View style={styles.transactionAmountContainer}>
@@ -386,7 +422,7 @@ const SalesHistoryScreen = () => {
         animationType="slide"
         onRequestClose={() => setShowFiltersModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, {justifyContent: 'center', alignItems: 'center'}]}>
           <View style={styles.filtersModal}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Filters</Text>
@@ -461,113 +497,101 @@ const SalesHistoryScreen = () => {
       {/* Transaction Details Modal */}
       <Modal
         visible={showDetailsModal}
+        animationType="slide"
         transparent={true}
-        animationType="fade"
         onRequestClose={() => setShowDetailsModal(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDetailsModal(false)}
-        >
-          <View style={styles.detailsModal}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowDetailsModal(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-
-            {selectedTransaction && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.modalTitle}>Transaction Details</Text>
-
-                <View style={styles.detailBadgeRow}>
-                  <View style={[
-                    styles.detailTypeBadge,
-                    selectedTransaction.type === 'walk-in' ? styles.walkInBadge : styles.appOrderBadge
-                  ]}>
-                    <Text style={styles.transactionTypeText}>
-                      {selectedTransaction.type === 'walk-in' ? 'Walk-in Sale' : 'App Order'}
-                    </Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Transaction Details</Text>
+              <TouchableOpacity 
+                onPress={() => setShowDetailsModal(false)}
+                style={styles.closeButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {selectedTransaction && (
+                <>
+                  {/* Transaction Type Badge */}
+                  <View style={styles.detailBadgeRow}>
+                    <View style={[
+                      styles.detailTypeBadge,
+                      selectedTransaction.type === 'walk-in' ? styles.walkInBadge : styles.appOrderBadge
+                    ]}>
+                      <Text style={styles.transactionTypeText}>
+                        {selectedTransaction.type === 'walk-in' ? 'Walk-in Sale' : 'App Order'}
+                      </Text>
+                    </View>
                   </View>
-                </View>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Date:</Text>
-                  <Text style={styles.detailValue}>{formatDate(selectedTransaction.createdAt)}</Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Customer:</Text>
-                  <Text style={styles.detailValue}>{selectedTransaction.customerName}</Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Payment:</Text>
-                  <Text style={styles.detailValue}>{selectedTransaction.paymentMethod || 'N/A'}</Text>
-                </View>
-
-                <Text style={styles.itemsTitle}>Items:</Text>
-
-                {selectedTransaction.items.map((item, index) => {
-                  const imageSource = getProductImageSource(
-                    item.productImageUrl || item.imageUrl,
-                    item.productImage || item.image
-                  );
+                  {/* Transaction Info */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailSectionTitle}>Transaction Information</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Date & Time:</Text>
+                      <Text style={styles.detailValue}>{formatDate(selectedTransaction.createdAt)}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Customer:</Text>
+                      <Text style={styles.detailValue}>{selectedTransaction.customerName}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Payment Method:</Text>
+                      <PaymentMethodBadge method={selectedTransaction.paymentMethod || 'cash'} size="medium" />
+                    </View>
+                  </View>
                   
-                  return (
-                    <View key={index} style={styles.itemCard}>
-                      {imageSource ? (
-                        <Image
-                          source={imageSource}
-                          style={styles.itemImage}
-                        />
-                      ) : (
-                        <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
-                          <Text style={styles.placeholderText}>No Image</Text>
+                  {/* Items */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailSectionTitle}>Items ({selectedTransaction.itemsCount})</Text>
+                    {selectedTransaction.items && selectedTransaction.items.length > 0 ? (
+                      selectedTransaction.items.map((item, idx) => (
+                        <View key={idx} style={styles.itemRow}>
+                          <View style={styles.itemInfo}>
+                            <Text style={styles.itemName}>{item.productName || item.name || 'Product'}</Text>
+                            <Text style={styles.itemQuantity}>{item.quantity}x</Text>
+                          </View>
+                          <Text style={styles.itemPrice}>₱{((item.price || 0) * (item.quantity || 0)).toFixed(2)}</Text>
                         </View>
-                      )}
-                      <View style={styles.itemInfo}>
-                      <Text style={styles.itemName}>{item.productName || item.name}</Text>
-                      <Text style={styles.itemSize}>
-                        {item.productSize || item.size} {item.unit}
+                      ))
+                    ) : (
+                      <Text style={styles.noItemsText}>
+                        {selectedTransaction.itemsCount} item{selectedTransaction.itemsCount > 1 ? 's' : ''} (Item details not available)
                       </Text>
-                      <Text style={styles.itemPrice}>
-                        {item.quantity} x ₱{item.price.toFixed(2)} = ₱{item.subtotal.toFixed(2)}
-                      </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-
-                <View style={styles.totalBreakdown}>
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Subtotal:</Text>
-                    <Text style={styles.breakdownValue}>₱{selectedTransaction.totalAmount.toFixed(2)}</Text>
+                    )}
                   </View>
-                  {selectedTransaction.commission && selectedTransaction.commission > 0 && (
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>Commission:</Text>
-                      <Text style={styles.breakdownCommission}>
-                        -₱{selectedTransaction.commission.toFixed(2)}
-                      </Text>
+                  
+                  {/* Payment Details */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailSectionTitle}>Payment Details</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Total Amount:</Text>
+                      <Text style={[styles.detailValue, styles.amountText]}>₱{selectedTransaction.totalAmount.toFixed(2)}</Text>
                     </View>
-                  )}
-                  <View style={styles.totalRow}>
-                    <Text style={styles.totalLabel}>
-                      {selectedTransaction.commission ? 'Your Earnings' : 'Total Amount'}
-                    </Text>
-                    <Text style={styles.totalValue}>
-                      ₱{(selectedTransaction.storeAmount || selectedTransaction.totalAmount).toFixed(2)}
-                    </Text>
+                    {selectedTransaction.commission && selectedTransaction.commission > 0 && (
+                      <>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Commission (1%):</Text>
+                          <Text style={[styles.detailValue, styles.commissionAmount]}>-₱{selectedTransaction.commission.toFixed(2)}</Text>
+                        </View>
+                        <View style={styles.divider} />
+                        <View style={styles.detailRow}>
+                          <Text style={[styles.detailLabel, styles.netLabel]}>Net Earnings:</Text>
+                          <Text style={[styles.detailValue, styles.netAmount]}>₱{(selectedTransaction.storeAmount || 0).toFixed(2)}</Text>
+                        </View>
+                      </>
+                    )}
                   </View>
-                </View>
-              </ScrollView>
-            )}
+                </>
+              )}
+            </ScrollView>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </View>
   );
@@ -819,11 +843,8 @@ const styles = StyleSheet.create({
     marginBottom: vs(4),
   },
 
-  paymentMethod: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: Colors.primary,
-    fontWeight: '500',
+  paymentMethodContainer: {
+    marginTop: vs(4),
   },
 
   transactionAmountContainer: {
@@ -869,8 +890,15 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: s(24),
+    borderTopRightRadius: s(24),
+    maxHeight: '90%',
+    paddingBottom: vs(30),
   },
 
   filtersModal: {
@@ -884,53 +912,39 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 10,
-  },
-
-  detailsModal: {
-    backgroundColor: Colors.white,
-    borderRadius: s(20),
-    width: '90%',
-    maxHeight: '80%',
-    padding: s(20),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+    alignSelf: 'center',
   },
 
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: vs(20),
+    paddingHorizontal: s(20),
+    paddingTop: vs(20),
+    paddingBottom: vs(15),
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
 
   closeButton: {
-    position: 'absolute',
-    top: s(15),
-    right: s(15),
     width: s(32),
     height: s(32),
     borderRadius: s(16),
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
   },
 
   closeButtonText: {
     fontSize: ms(18),
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    color: Colors.darkGray,
   },
 
   modalTitle: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(22),
+    fontSize: ms(20),
     color: Colors.darkGray,
-    marginBottom: vs(20),
   },
 
   filterSectionTitle: {
@@ -991,6 +1005,7 @@ const styles = StyleSheet.create({
 
   detailBadgeRow: {
     marginBottom: vs(15),
+    paddingHorizontal: s(20),
   },
 
   detailTypeBadge: {
@@ -1000,148 +1015,123 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
 
+  detailSection: {
+    paddingHorizontal: s(20),
+    paddingVertical: vs(15),
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+
+  detailSectionTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: Colors.darkGray,
+    marginBottom: vs(12),
+  },
+
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: vs(12),
-    paddingBottom: vs(12),
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    marginBottom: vs(8),
   },
 
   detailLabel: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(15),
-    color: Colors.darkGray,
+    fontSize: ms(14),
+    color: Colors.textSecondary,
+    flex: 1,
   },
 
   detailValue: {
     fontFamily: Fonts.primary,
-    fontSize: ms(15),
-    color: Colors.textSecondary,
-    maxWidth: '60%',
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    flex: 1,
     textAlign: 'right',
   },
 
-  itemsTitle: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
+  paymentMethodBadge: {
+    backgroundColor: Colors.primary,
+    color: Colors.white,
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    borderRadius: s(6),
+    overflow: 'hidden',
+  },
+
+  amountText: {
     fontSize: ms(16),
-    color: Colors.darkGray,
-    marginTop: vs(10),
-    marginBottom: vs(12),
+    color: Colors.primary,
   },
 
-  itemCard: {
+  commissionAmount: {
+    color: '#EF5350',
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    marginVertical: vs(10),
+  },
+
+  netLabel: {
+    fontWeight: '700',
+    fontSize: ms(15),
+  },
+
+  netAmount: {
+    fontSize: ms(16),
+    fontWeight: '700',
+    color: '#4CAF50',
+  },
+
+  itemRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-    borderRadius: s(12),
-    padding: s(10),
-    marginBottom: vs(10),
-  },
-
-  itemImage: {
-    width: s(50),
-    height: s(50),
-    borderRadius: s(8),
-  },
-
-  itemImagePlaceholder: {
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-
-  placeholderText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(10),
-    color: Colors.textSecondary,
+    paddingVertical: vs(8),
+    paddingHorizontal: s(12),
+    backgroundColor: 'rgba(59, 183, 126, 0.05)',
+    borderRadius: s(8),
+    marginBottom: vs(6),
   },
 
   itemInfo: {
     flex: 1,
-    marginLeft: s(10),
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   itemName: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
     fontSize: ms(14),
     color: Colors.darkGray,
-    marginBottom: vs(2),
+    flex: 1,
   },
 
-  itemSize: {
+  itemQuantity: {
     fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: Colors.textSecondary,
-    marginBottom: vs(2),
+    fontSize: ms(13),
+    fontWeight: '600',
+    color: Colors.primary,
+    marginLeft: s(8),
   },
 
   itemPrice: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(13),
-    color: Colors.primary,
-  },
-
-  totalBreakdown: {
-    marginTop: vs(15),
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-    borderRadius: s(12),
-    padding: s(15),
-  },
-
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: vs(8),
-  },
-
-  breakdownLabel: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: Colors.textSecondary,
-  },
-
-  breakdownValue: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: ms(14),
     color: Colors.darkGray,
+    marginLeft: s(12),
   },
 
-  breakdownCommission: {
+  noItemsText: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(14),
-    color: '#EF5350',
-  },
-
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: s(10),
-    padding: s(12),
-    marginTop: vs(10),
-  },
-
-  totalLabel: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
-    color: Colors.white,
-  },
-
-  totalValue: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(20),
-    color: Colors.white,
+    fontSize: ms(13),
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
   },
 });
 

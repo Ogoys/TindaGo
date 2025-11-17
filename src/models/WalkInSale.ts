@@ -8,7 +8,8 @@
 export interface WalkInSaleItem {
   productId: string;
   productName: string;
-  productImage: string;
+  productImage: string;          // Legacy base64 image
+  productImageUrl?: string;      // New Cloudinary URL
   quantity: number;
   price: number;
   subtotal: number;

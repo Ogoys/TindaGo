@@ -57,7 +57,9 @@ export default function PayoutRequest() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [hasStoredPaymentInfo, setHasStoredPaymentInfo] = useState(false);
 
+  // Fetch wallet balance
   useEffect(() => {
     const sid = user?.storeId || user?.id;
     if (!sid) {
@@ -76,6 +78,38 @@ export default function PayoutRequest() {
     return () => {
       try { (unsub as any)?.(); } catch {}
     };
+  }, [user?.storeId, user?.id]);
+
+  // Fetch stored payment info from store registration
+  useEffect(() => {
+    const fetchPaymentInfo = async () => {
+      const sid = user?.storeId || user?.id;
+      if (!sid) return;
+
+      try {
+        const storeRef = ref(database, `stores/${sid}/paymentInfo`);
+        const snapshot = await get(storeRef);
+        
+        if (snapshot.exists()) {
+          const paymentInfo = snapshot.val();
+          // Pre-fill form with stored payment details
+          if (paymentInfo.method === 'gcash' || paymentInfo.method === 'paymaya') {
+            setMethod(paymentInfo.method as PaymentMethod);
+          }
+          if (paymentInfo.accountName) {
+            setAccountName(paymentInfo.accountName);
+          }
+          if (paymentInfo.accountNumber) {
+            setAccountNumber(paymentInfo.accountNumber);
+          }
+          setHasStoredPaymentInfo(true);
+        }
+      } catch (error) {
+        console.error('Error fetching payment info:', error);
+      }
+    };
+
+    fetchPaymentInfo();
   }, [user?.storeId, user?.id]);
 
   const handleBack = () => {
@@ -117,20 +151,84 @@ export default function PayoutRequest() {
     setSubmitting(true);
     try {
       const payoutId = `PAYOUT-${Date.now()}`;
+      const timestamp = new Date().toISOString();
+      
+      // Fetch store information for admin reference
+      const storeRef = ref(database, `stores/${sid}`);
+      const storeSnapshot = await get(storeRef);
+      const storeData = storeSnapshot.exists() ? storeSnapshot.val() : {};
+      
       const data = {
+        // Payout identification
         payoutId,
         storeId: sid,
+        storeName: storeData.businessInfo?.storeName || storeData.storeName || 'Unknown Store',
+        storeOwnerName: storeData.personalInfo?.name || storeData.ownerName || 'Unknown Owner',
+        storeOwnerEmail: storeData.personalInfo?.email || storeData.ownerEmail || '',
+        
+        // Payout details
         amount: parseFloat(amount),
         method,
         accountName: accountName.trim(),
         accountNumber: accountNumber.trim(),
+        
+        // Status tracking
         status: 'pending',
-        createdAt: Date.now(),
+        createdAt: timestamp,
+        requestedAt: timestamp,
+        
+        // Admin workflow fields
+        approvedBy: null,
+        approvedAt: null,
+        rejectedBy: null,
+        rejectedAt: null,
+        rejectionReason: null,
+        completedBy: null,
+        completedAt: null,
+        completionNote: null,
+        
+        // Audit trail
+        statusHistory: [
+          {
+            status: 'pending',
+            timestamp,
+            note: 'Payout request submitted by store owner',
+          }
+        ],
       };
+      
       const updates: Record<string, any> = {};
+      
+      // Store payout in main payouts collection
       updates[`payouts/${payoutId}`] = data;
-      updates[`payouts_by_store/${sid}/${payoutId}`] = true;
-      updates[`logs/${payoutId}/events/${Date.now()}`] = { action: 'requested', amount: data.amount, storeId: sid, method };
+      
+      // Index by store for easy querying
+      updates[`payouts_by_store/${sid}/${payoutId}`] = {
+        amount: data.amount,
+        status: data.status,
+        createdAt: timestamp,
+      };
+      
+      // Index by status for admin dashboard
+      updates[`payouts_by_status/pending/${payoutId}`] = {
+        storeId: sid,
+        storeName: data.storeName,
+        amount: data.amount,
+        createdAt: timestamp,
+      };
+      
+      // Create notification for admin
+      updates[`admin_notifications/${Date.now()}`] = {
+        type: 'payout_request',
+        payoutId,
+        storeId: sid,
+        storeName: data.storeName,
+        amount: data.amount,
+        method,
+        status: 'unread',
+        createdAt: timestamp,
+      };
+      
       await update(ref(database), updates);
 
       Alert.alert(
@@ -206,6 +304,19 @@ export default function PayoutRequest() {
               <Typography style={styles.balanceValue}>₱{availableBalance.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
             </View>
           </View>
+
+          {/* Stored Payment Info Banner */}
+          {hasStoredPaymentInfo && (
+            <View style={styles.storedInfoBanner}>
+              <Text style={styles.storedInfoIcon}>✓</Text>
+              <View style={styles.storedInfoTextContainer}>
+                <Text style={styles.storedInfoTitle}>E-Wallet Details Loaded</Text>
+                <Text style={styles.storedInfoText}>
+                  Your payment details from registration have been automatically filled below.
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Form Container */}
           <View style={styles.formContainer}>
@@ -470,6 +581,45 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.white,
     letterSpacing: 0.5,
+  },
+
+  // Stored Payment Info Banner
+  storedInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#E8F5E9',
+    borderRadius: s(12),
+    padding: s(16),
+    marginBottom: vs(20),
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: s(4),
+    elevation: 2,
+  },
+  storedInfoIcon: {
+    fontSize: ms(20),
+    color: Colors.primary,
+    marginRight: s(12),
+    fontWeight: '700',
+  },
+  storedInfoTextContainer: {
+    flex: 1,
+  },
+  storedInfoTitle: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    fontWeight: '700',
+    color: Colors.primary,
+    marginBottom: vs(4),
+  },
+  storedInfoText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: '#2E7D32',
+    lineHeight: vs(18),
   },
 
   // Form Container

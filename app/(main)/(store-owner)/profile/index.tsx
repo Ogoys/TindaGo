@@ -131,7 +131,7 @@ export default function ProfileScreen() {
   };
 
   const handleEWalletDetails = () => {
-    console.log("E-Wallet Details pressed");
+    router.push('/(main)/(store-owner)/profile/ewallet-details');
   };
 
   const handleLicenseVerification = () => {
