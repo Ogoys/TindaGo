@@ -2,69 +2,75 @@ import { useEffect, useState } from "react";
 import { Redirect } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { StoreRegistrationService } from "@/services/store";
-import { STORE_STATUS } from "@/lib/constants";
+import { auth, database } from "../FirebaseConfig";
+import { ref, get } from "firebase/database";
+import { useUser } from "../src/contexts/UserContext";
 import { Colors } from "../src/constants/Colors";
 
 export default function Index() {
-  const [user, setUser] = useState<any>(null);
+  const { setUser: setUserContext } = useUser();
   const [loading, setLoading] = useState(true);
-  const [registrationStatus, setRegistrationStatus] = useState<string | null>(null);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log('🔄 Auth state changed:', currentUser?.email || 'Not logged in');
+      console.log('🔄 [index.tsx] Auth state changed:', currentUser?.email || 'Not logged in');
 
       try {
         if (!currentUser) {
-          // User not authenticated - go to onboarding
-          console.log('👤 No user authenticated - redirecting to onboarding');
+          // User not authenticated - clear UserContext and go to onboarding
+          console.log('👤 [index.tsx] No user authenticated - redirecting to onboarding');
+          await setUserContext(null);
           setRedirectPath("/(auth)/onboarding");
         } else {
-          // User is authenticated - check registration status
-          console.log('✅ User authenticated:', currentUser.email);
-          setUser(currentUser);
+          // User is authenticated - fetch user data from database
+          console.log('✅ [index.tsx] User authenticated:', currentUser.email);
 
           try {
-            const registrationData = await StoreRegistrationService.getRegistrationData(currentUser.uid);
-            const status = registrationData?.status;
+            // Fetch user data from database
+            const userRef = ref(database, `users/${currentUser.uid}`);
+            const userSnapshot = await get(userRef);
 
-            console.log('📊 Registration status:', status);
-            setRegistrationStatus(status || null);
+            if (userSnapshot.exists()) {
+              const userData = userSnapshot.val();
+              console.log('📊 [index.tsx] User data fetched:', userData.userType);
 
-            if (!status || !registrationData) {
-              // No registration data - go to role selection
-              console.log('📝 No registration found - redirecting to role selection');
-              setRedirectPath("/(auth)/role-selection");
-            } else {
-              // Has registration - check status and route accordingly
-              if (status === STORE_STATUS.APPROVED || status === STORE_STATUS.ACTIVE) {
-                // Store is approved/active - go directly to dashboard
-                console.log('✅ Store is approved/active - redirecting to dashboard');
+              // Sync with UserContext
+              await setUserContext({
+                id: currentUser.uid,
+                name: userData.name || currentUser.displayName || '',
+                email: userData.email || currentUser.email || '',
+                role: userData.userType === 'store_owner' ? 'store-owner' : 'customer',
+                isEmailVerified: currentUser.emailVerified || false,
+                isPhoneVerified: userData.phoneVerified || false,
+                profileComplete: true,
+                storeId: userData.userType === 'store_owner' ? currentUser.uid : undefined,
+              });
+
+              // Route based on user type
+              if (userData.userType === 'customer') {
+                console.log('🛍️ [index.tsx] Customer user - redirecting to home');
+                setRedirectPath("/(main)/(customer)/home");
+              } else if (userData.userType === 'store_owner') {
+                console.log('🏪 [index.tsx] Store owner - redirecting to store home');
                 setRedirectPath("/(main)/(store-owner)/home");
-              } else if (status === STORE_STATUS.PENDING ||
-                         status === STORE_STATUS.REJECTED ||
-                         status === STORE_STATUS.DOCUMENTS_VERIFIED ||
-                         status === STORE_STATUS.DOCUMENTS_REJECTED) {
-                // Other statuses - show RegistrationComplete
-                console.log('📋 Store status:', status, '- redirecting to RegistrationComplete');
-                setRedirectPath("/(auth)/(store-owner)/RegistrationComplete");
               } else {
-                // Unknown status - go to role selection
-                console.log('❓ Unknown status - redirecting to role selection');
-                setRedirectPath("/(auth)/role-selection");
+                console.log('❓ [index.tsx] Unknown user type - redirecting to onboarding');
+                setRedirectPath("/(auth)/onboarding");
               }
+            } else {
+              console.log('📝 [index.tsx] No user data found - redirecting to onboarding');
+              await setUserContext(null);
+              setRedirectPath("/(auth)/onboarding");
             }
           } catch (error) {
-            console.error('❌ Error checking registration status:', error);
-            // On error, go to role selection as fallback
-            setRedirectPath("/(auth)/role-selection");
+            console.error('❌ [index.tsx] Error fetching user data:', error);
+            await setUserContext(null);
+            setRedirectPath("/(auth)/onboarding");
           }
         }
       } catch (error) {
-        console.error('❌ Error in auth state handler:', error);
+        console.error('❌ [index.tsx] Error in auth state handler:', error);
         setRedirectPath("/(auth)/onboarding");
       } finally {
         setLoading(false);

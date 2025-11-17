@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verified - TindaGo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #02545F 0%, #3BB77E 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .brand {
+            font-size: 32px;
+            font-weight: bold;
+            color: #02545F;
+            margin-bottom: 40px;
+        }
+        
+        .brand span {
+            color: #3BB77E;
+        }
+        
+        .checkmark {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #3BB77E;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: scaleIn 0.5s ease-out;
+        }
+        
+        .checkmark svg {
+            width: 50px;
+            height: 50px;
+            stroke: white;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: drawCheck 0.5s ease-out 0.3s forwards;
+        }
+        
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+            }
+            to {
+                transform: scale(1);
+            }
+        }
+        
+        @keyframes drawCheck {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: #1e1e1e;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .button {
+            display: inline-block;
+            background: #02545F;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .button:hover {
+            background: #3BB77E;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            font-size: 14px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🏪</div>
+        <div class="brand">Tinda<span>Go</span></div>
+        
+        <div class="checkmark">
+            <svg viewBox="0 0 52 52">
+                <polyline points="14 27 22 35 38 17"/>
+            </svg>
+        </div>
+        
+        <h1>Email Verified Successfully!</h1>
+        <p>
+            Thank you for verifying your email address. Your TindaGo account is now active.
+            <br><br>
+            You can close this page and return to the app to continue.
+        </p>
+        
+        <a href="#" class="button" id="closeBtn">Close This Window</a>
+        
+        <div class="footer">
+            © 2025 TindaGo. All rights reserved.
+        </div>
+    </div>
+    
+    <script>
+        // Auto-close and redirect back to app
+        document.getElementById('closeBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Try to close the window
+            window.close();
+            
+            // If window.close() doesn't work (most mobile browsers), try to go back
+            setTimeout(function() {
+                // Try going back in history
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    // Fallback: show message
+                    document.querySelector('.container').innerHTML = 
+                        '<h1>All Done! ✓</h1><p style="font-size:18px; color:#3BB77E;">You can now return to the TindaGo app.</p>';
+                }
+            }, 100);
+        });
+        
+        // Auto-redirect after 3 seconds
+        setTimeout(function() {
+            window.close();
+            setTimeout(function() {
+                if (window.history.length > 1) {
+                    window.history.back();
+                }
+            }, 100);
+        }, 3000);
+    </script>
+</body>
+</html>

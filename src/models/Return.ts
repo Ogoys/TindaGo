@@ -22,7 +22,8 @@ export type ReturnStatus = 'pending' | 'processed' | 'rejected';
 export interface ReturnItem {
   productId: string;
   productName: string;
-  productImage: string;
+  productImage?: string; // Legacy base64 (optional)
+  productImageUrl?: string; // New Cloudinary URL (optional)
   quantity: number;
   price: number; // Original price per unit
   refundAmount: number; // quantity * price

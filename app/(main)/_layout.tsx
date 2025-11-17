@@ -5,39 +5,22 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { Colors } from '../../src/constants/Colors';
 import { Fonts } from '../../src/constants/Fonts';
 import { s, vs } from '../../src/constants/responsive';
-import { getSelectedStoreId } from '@/lib/storage/selectedStore';
+import { getSelectedStoreId } from '../../src/lib/storage/selectedStore';
 
 export default function MainLayout() {
   const { user, isLoading } = useUser();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!user) {
-        // No user logged in, redirect to auth
-        router.replace('/(auth)/onboarding');
-        return;
-      }
-
-      if (!user.role) {
-        // User logged in but no role selected
-        router.replace('/role-selection');
-        return;
-      }
-
-      // User has role, redirect to appropriate home
-      if (user.role === 'customer') {
-        (async () => {
-          // Try Firebase first (cross-device), fallback to local
-          const selected = await getSelectedStoreId(user.id);
-          if (selected) {
-            router.replace('/(main)/(customer)/home');
-          } else {
-            router.replace('/(main)/(customer)/stores-map');
-          }
-        })();
-      } else {
-        router.replace('/(main)/(store-owner)/home');
-      }
+    console.log('🔍 [MainLayout] useEffect triggered - isLoading:', isLoading, 'user:', user ? user.email : 'null');
+    // REMOVED AUTO-REDIRECT: Let navigation flow naturally
+    // The main layout should NOT force redirects
+    // Each screen handles its own navigation
+    if (!isLoading && !user) {
+      // Only redirect to auth if no user at all
+      console.log('⚠️ [MainLayout] No user found, redirecting to onboarding');
+      router.replace('/(auth)/onboarding');
+    } else if (!isLoading && user) {
+      console.log('✅ [MainLayout] User exists, staying in main layout');
     }
   }, [user, isLoading]);
 

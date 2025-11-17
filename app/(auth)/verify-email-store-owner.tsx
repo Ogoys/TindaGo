@@ -113,7 +113,11 @@ export default function VerifyEmailStoreOwnerScreen() {
         return;
       }
 
-      await sendEmailVerification(auth.currentUser);
+      const actionCodeSettings = {
+        url: 'https://tindagoproject.web.app', // Redirect to TindaGo success page
+        handleCodeInApp: false,
+      };
+      await sendEmailVerification(auth.currentUser, actionCodeSettings);
       Alert.alert(
         "Verification Email Sent",
         "We've sent a new verification email to your address. Please check your email and click the verification link."

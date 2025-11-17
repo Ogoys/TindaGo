@@ -25,22 +25,29 @@ import { Fonts } from '../../src/constants/Fonts';
 import { s, vs, ms } from '../../src/constants/responsive';
 
 export default function EnableLocationScreen() {
+  console.log('🟢 [EnableLocation] Component mounted');
   const [isRequesting, setIsRequesting] = useState(false);
 
   const handleEnableLocation = async () => {
+    console.log('🔵 [EnableLocation] handleEnableLocation started');
     try {
       setIsRequesting(true);
+      console.log('🔵 [EnableLocation] Requesting location permission...');
       
       // Request location permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
+      console.log('🔵 [EnableLocation] Permission status:', status);
       
       if (status === 'granted') {
+        console.log('✅ [EnableLocation] Permission granted, getting location...');
         // Get current location to verify
         const location = await Location.getCurrentPositionAsync({});
-        console.log('✅ Location enabled:', location);
+        console.log('✅ [EnableLocation] Location enabled:', location);
         
-        // Navigate to main customer screen
-        router.replace('/(main)/(customer)/home');
+        // Navigate to stores map for new customer store selection
+        console.log('🗺️ [EnableLocation] Navigating to stores-map...');
+        router.replace('/(main)/(customer)/stores-map');
+        console.log('🗺️ [EnableLocation] Navigation called');
       } else {
         Alert.alert(
           'Permission Denied',
@@ -60,16 +67,19 @@ export default function EnableLocationScreen() {
         );
       }
     } catch (error) {
-      console.error('Error requesting location:', error);
+      console.error('❌ [EnableLocation] Error:', error);
+      console.error('❌ [EnableLocation] Error stack:', error instanceof Error ? error.stack : 'No stack');
       Alert.alert('Error', 'Failed to enable location services. Please try again.');
     } finally {
+      console.log('🔵 [EnableLocation] Finally block, setting isRequesting to false');
       setIsRequesting(false);
     }
   };
 
   const handleSkip = () => {
-    // Navigate to main customer screen without location
-    router.replace('/(main)/(customer)/home');
+    console.log('⏭️ [EnableLocation] Skip button pressed, navigating to stores-map...');
+    // Navigate to stores map even without location
+    router.replace('/(main)/(customer)/stores-map');
   };
 
   return (
@@ -111,6 +121,15 @@ export default function EnableLocationScreen() {
           <Text style={styles.allowButtonText}>
             {isRequesting ? 'Requesting...' : 'Allow location access'}
           </Text>
+        </TouchableOpacity>
+
+        {/* Skip Button */}
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={handleSkip}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.skipButtonText}>Skip for now</Text>
         </TouchableOpacity>
 
       </View>
@@ -189,5 +208,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: ms(16),
     color: '#FFFFFF',
+  },
+
+  // Skip Button
+  skipButton: {
+    width: '100%',
+    height: vs(56),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: vs(12),
+  },
+
+  skipButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(14),
+    color: '#757575',
   },
 });

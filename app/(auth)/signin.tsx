@@ -11,8 +11,8 @@ import { SignInGlassCard } from "../../src/components/ui/SignInGlassCard";
 import { Colors } from "../../src/constants/Colors";
 import { s, vs, ms } from "../../src/constants/responsive";
 import { useUser, User, UserRole } from "../../src/contexts/UserContext";
-import { StoreRegistrationService } from "@/services/store";
-import { STORE_STATUS } from "@/lib/constants";
+import { StoreRegistrationService } from "../../src/services/store/StoreRegistrationService";
+import { STORE_STATUS } from "../../src/constants/StoreStatus";
 
 export default function SignInScreen() {
   const [emailOrPhone, setEmailOrPhone] = useState("");
@@ -114,6 +114,14 @@ export default function SignInScreen() {
 
       const user = userCredential.user;
 
+      // Reload user from Firebase to get latest email verification status
+      try {
+        await user.reload();
+        console.log('✅ User reloaded from Firebase. Email verified:', user.emailVerified);
+      } catch (reloadError) {
+        console.error('Error reloading user:', reloadError);
+      }
+
       // Get user data from Realtime Database first
       try {
         if (!userData) {
@@ -128,8 +136,9 @@ export default function SignInScreen() {
         console.error("Error fetching user data:", dbError);
       }
 
-      // Check email verification from database (primary source) or Firebase Auth (fallback)
-      const isEmailVerified = userData?.emailVerified ?? user.emailVerified;
+      // Check email verification - Firebase Auth is the source of truth
+      // Database value is secondary (might not be updated yet)
+      const isEmailVerified = user.emailVerified || userData?.emailVerified;
       
       if (!isEmailVerified) {
         // Determine which verification screen to show based on user type
@@ -143,7 +152,7 @@ export default function SignInScreen() {
               text: "Verify Now",
               onPress: () => {
                 router.push({
-                  pathname: isStoreOwner ? "/(auth)/verify-email-store-owner" : "/(auth)/verify-email",
+                  pathname: isStoreOwner ? "/(auth)/verify-email-store-owner" : "/(auth)/verify-email-code",
                   params: { 
                     email: input,
                     name: userData?.name,
@@ -249,8 +258,9 @@ export default function SignInScreen() {
                   router.replace("/(auth)/(store-owner)/StoreRegistration");
                 }
               } else {
-                // Navigate to enable location screen for customers
-                router.replace("/(auth)/enable-location");
+                // Customer login - go straight to home (skip onboarding)
+                console.log('✅ Customer login - navigating to home');
+                router.replace("/(main)/(customer)/home");
               }
             }
           }

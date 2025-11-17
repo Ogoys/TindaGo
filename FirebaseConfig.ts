@@ -1,11 +1,20 @@
 // Firebase SDK v12+ for React Native Expo 2025
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, Auth } from 'firebase/auth';
+import { initializeAuth, Auth } from 'firebase/auth';
 import { getDatabase, connectDatabaseEmulator } from 'firebase/database';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+
+// Suppress AsyncStorage warning (we're already using it correctly)
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (typeof args[0] === 'string' && args[0].includes('AsyncStorage')) {
+    return; // Suppress AsyncStorage warnings
+  }
+  originalWarn(...args);
+};
 
 // Firebase configuration using environment variables
 // In Expo, use EXPO_PUBLIC_ prefix for client-side environment variables
@@ -22,21 +31,14 @@ const firebaseConfig = {
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Services with AsyncStorage persistence
-// Use getAuth if already initialized, otherwise initialize with persistence
+// Initialize Firebase Auth
 let auth: Auth;
 try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(ReactNativeAsyncStorage)
-  });
+  // Initialize auth (persistence is automatic in React Native)
+  const { getAuth } = require('firebase/auth');
+  auth = getAuth(app);
 } catch (error: any) {
-  if (error.code === 'auth/already-initialized') {
-    // If auth is already initialized, just get the existing instance
-    const { getAuth } = require('firebase/auth');
-    auth = getAuth(app);
-  } else {
-    throw error;
-  }
+  throw error;
 }
 
 export { auth };

@@ -14,13 +14,13 @@ import MapView, { PROVIDER_GOOGLE, Marker, Region, Polyline } from 'react-native
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { database } from '@/lib/firebase';
+import { database } from '../../../FirebaseConfig';
 import { ref, get } from 'firebase/database';
 import { getDistance } from 'geolib';
-import { s, vs } from '@/constants/responsive';
-import { MapErrorBoundary } from '@/components/MapErrorBoundary';
-import { getSelectedStoreId, setSelectedStoreId } from '@/lib/storage/selectedStore';
-import { useUser } from '@/contexts/UserContext';
+import { s, vs } from '../../../src/constants/responsive';
+import { MapErrorBoundary } from '../../../src/components/MapErrorBoundary';
+import { getSelectedStoreId, setSelectedStoreId } from '../../../src/lib/storage/selectedStore';
+import { useUser } from '../../../src/contexts/UserContext';
 
 interface StoreLocation {
   id: string;
@@ -51,7 +51,11 @@ const DISTANCE_FILTERS = [
 ];
 
 export default function StoresMapScreen() {
+  console.log('🗺️ [StoresMap] Component mounted');
+  
   const { user } = useUser();
+  console.log('👤 [StoresMap] User:', user?.id ? 'Logged in' : 'Not logged in');
+  
   const mapRef = useRef<MapView>(null);
   const isMounted = useRef(true);
   const [stores, setStores] = useState<StoreLocation[]>([]);
@@ -83,8 +87,10 @@ export default function StoresMapScreen() {
 
   // Delayed map initialization (prevents race condition)
   useEffect(() => {
+    console.log('⏱️ [StoresMap] Starting map initialization delay...');
     const timer = setTimeout(() => {
       if (isMounted.current) {
+        console.log('✅ [StoresMap] Map ready flag set to true');
         setMapReady(true);
       }
     }, 500); // 500ms delay to ensure Google Maps SDK fully loaded
@@ -94,20 +100,28 @@ export default function StoresMapScreen() {
   // Load user location
   useEffect(() => {
     if (mapReady) {
+      console.log('📍 [StoresMap] Map ready, loading user location...');
       loadUserLocation();
+    } else {
+      console.log('⏳ [StoresMap] Waiting for map to be ready...');
     }
   }, [mapReady]);
 
   const loadUserLocation = async () => {
+    console.log('🔍 [StoresMap] loadUserLocation() started');
     try {
       // Check existing permission first
+      console.log('🔐 [StoresMap] Checking location permissions...');
       const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      console.log('🔐 [StoresMap] Existing permission status:', existingStatus);
       
       let finalStatus = existingStatus;
       
       // If not determined, request permission
       if (existingStatus !== 'granted') {
+        console.log('🔐 [StoresMap] Requesting location permission...');
         const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log('🔐 [StoresMap] Permission request result:', status);
         finalStatus = status;
       }
 
@@ -130,9 +144,11 @@ export default function StoresMapScreen() {
       }
 
       // Get location with high accuracy for precise map positioning
+      console.log('📍 [StoresMap] Getting current position...');
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Highest,
       });
+      console.log('📍 [StoresMap] Location retrieved:', location.coords);
 
       const userCoords = {
         latitude: location.coords.latitude,
@@ -151,7 +167,7 @@ export default function StoresMapScreen() {
         console.log('📍 User location loaded:', userCoords);
       }
     } catch (error) {
-      console.error('Error getting user location:', error);
+      console.error('❌ [StoresMap] Error in loadUserLocation:', error);
       setIsLoading(false);
       Alert.alert('Error', 'Unable to get your location. Please check if location services are enabled.');
     }
@@ -162,15 +178,19 @@ export default function StoresMapScreen() {
 
   useEffect(() => {
     const loadStores = async () => {
+      console.log('🏪 [StoresMap] loadStores() started');
       try {
         // Don't load stores if permission denied
         if (locationPermissionDenied) {
+          console.log('⚠️ [StoresMap] Location permission denied, skipping store load');
           return;
         }
         
+        console.log('🏪 [StoresMap] Fetching stores from Firebase...');
         setIsLoading(true);
         const storesRef = ref(database, 'stores');
         const snapshot = await get(storesRef);
+        console.log('🏪 [StoresMap] Firebase snapshot received');
 
         if (snapshot.exists()) {
           const storesData = snapshot.val();
@@ -258,16 +278,19 @@ export default function StoresMapScreen() {
           console.log('⚠️ No stores found');
         }
       } catch (error) {
-        console.error('Error loading stores:', error);
+        console.error('❌ [StoresMap] Error loading stores:', error);
         Alert.alert('Error', 'Failed to load stores. Please try again.');
       } finally {
+        console.log('🏁 [StoresMap] loadStores() finished, loading = false');
         setIsLoading(false);
       }
     };
 
     if (userLocation) {
+      console.log('📍 [StoresMap] User location available, loading stores...');
       loadStores();
     } else if (!locationPermissionDenied) {
+      console.log('⏳ [StoresMap] Waiting for user location...');
       // Still loading location
       setIsLoading(true);
     }

@@ -1,59 +1,29 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { Alert, Image, ImageBackground, Pressable, StyleSheet, TextInput, TouchableOpacity, Text, View } from "react-native";
+import { useState } from "react";
+import { Alert, Image, ImageBackground, Pressable, StyleSheet, TouchableOpacity, Text, View } from "react-native";
 import { sendEmailVerification } from 'firebase/auth';
-import { auth } from '../../FirebaseConfig';
+import { ref, update, get } from 'firebase/database';
+import { auth, database } from '../../FirebaseConfig';
+import { useUser } from "../../src/contexts/UserContext";
 import { Typography } from "../../src/components/ui/Typography";
 import { Colors } from "../../src/constants/Colors";
 import { Fonts } from "../../src/constants/Fonts";
 import { s, vs } from "../../src/constants/responsive";
 
 export default function VerifyEmailCodeScreen() {
-  // Get email from navigation params (passed from verify-email screen)
+  const { setUser: setUserContext } = useUser();
+  // Get email from navigation params
   const { email } = useLocalSearchParams<{ email?: string }>();
+  const displayEmail = email || "your email";
   
-  // State for OTP code inputs
-  const [code, setCode] = useState(["", "", "", ""]);
-  const inputRefs = [
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-  ];
+  const [loading, setLoading] = useState(false);
 
   const handleBackPress = () => {
     router.back();
   };
 
-  const handleCodeChange = (value: string, index: number) => {
-    // Only allow single digit
-    if (value.length > 1) return;
-    
-    const newCode = [...code];
-    newCode[index] = value;
-    setCode(newCode);
-
-    // Auto-focus next input
-    if (value && index < 3) {
-      inputRefs[index + 1].current?.focus();
-    }
-
-    // Auto-verify if all 4 digits are entered
-    if (newCode.every(digit => digit !== "") && index === 3) {
-      handleVerifyCode(newCode.join(""));
-    }
-  };
-
-  const handleKeyPress = (key: string, index: number) => {
-    // Handle backspace to go to previous input
-    if (key === "Backspace" && !code[index] && index > 0) {
-      inputRefs[index - 1].current?.focus();
-    }
-  };
-
-  const handleVerifyCode = async (verificationCode: string) => {
-    console.log("Checking email verification status...");
-    
+  const handleVerifyEmail = async () => {
+    setLoading(true);
     try {
       if (!auth.currentUser) {
         Alert.alert("Error", "Please sign in first.");
@@ -65,28 +35,66 @@ export default function VerifyEmailCodeScreen() {
       await auth.currentUser.reload();
       
       if (auth.currentUser.emailVerified) {
-        Alert.alert("Success", "Email verified successfully! You can now sign in.", [
-          {
-            text: "OK",
-            onPress: () => router.push("/(auth)/signin")
+        // Update database to mark email as verified
+        try {
+          const userRef = ref(database, `users/${auth.currentUser.uid}`);
+          await update(userRef, {
+            emailVerified: true,
+            emailVerifiedAt: new Date().toISOString()
+          });
+          console.log('✅ Database updated: emailVerified = true');
+          
+          // Sync with UserContext - fetch user data
+          const userSnapshot = await get(userRef);
+          if (userSnapshot.exists()) {
+            const userData = userSnapshot.val();
+            await setUserContext({
+              id: auth.currentUser.uid,
+              name: userData.name || auth.currentUser.displayName || '',
+              email: userData.email || auth.currentUser.email || '',
+              role: userData.userType === 'store_owner' ? 'store-owner' : 'customer',
+              isEmailVerified: true,
+              isPhoneVerified: userData.phoneVerified || false,
+              profileComplete: true,
+              storeId: userData.userType === 'store_owner' ? auth.currentUser.uid : undefined,
+            });
+            console.log('✅ UserContext synced after email verification');
           }
-        ]);
+        } catch (dbError) {
+          console.error('❌ Failed to update database or sync UserContext:', dbError);
+        }
+
+        // Navigate to location permission screen for customers
+        Alert.alert(
+          "Email Verified!",
+          "Great! Let's help you find nearby stores.",
+          [
+            {
+              text: "Continue",
+              onPress: () => {
+                console.log('🧭 [VerifyEmail] Navigating to enable-location...');
+                router.replace("/(auth)/enable-location");
+              }
+            }
+          ]
+        );
       } else {
         Alert.alert(
           "Email Not Verified Yet", 
-          "Please check your email (including spam folder) and click the verification link. After clicking the link, come back and tap 'Check Verification Status'.",
+          "Please check your email (including spam folder) and click the verification link. After clicking the link, come back and tap 'Check Again'.",
           [
-            { text: "Check Verification Status", onPress: () => handleVerifyCode("") },
-            { text: "Resend Email", onPress: () => handleResendCode() }
+            { text: "Resend Email", onPress: () => handleResendEmail() }
           ]
         );
       }
     } catch (error: any) {
       Alert.alert("Verification Error", "Failed to check verification status. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleResendCode = async () => {
+  const handleResendEmail = async () => {
     try {
       if (!auth.currentUser) {
         Alert.alert("Error", "Please sign in first.");
@@ -94,12 +102,12 @@ export default function VerifyEmailCodeScreen() {
         return;
       }
 
-      await sendEmailVerification(auth.currentUser);
+      const actionCodeSettings = {
+        url: 'https://tindagoproject.web.app', // Redirect to TindaGo success page
+        handleCodeInApp: false,
+      };
+      await sendEmailVerification(auth.currentUser, actionCodeSettings);
       Alert.alert("Verification Email Sent", "A new verification email has been sent to your address.");
-      
-      // Clear current code inputs
-      setCode(["", "", "", ""]);
-      inputRefs[0].current?.focus();
     } catch (error: any) {
       let errorMessage = "Failed to send verification email.";
       
@@ -112,11 +120,6 @@ export default function VerifyEmailCodeScreen() {
       Alert.alert("Error", errorMessage);
     }
   };
-
-  // Focus first input on mount
-  useEffect(() => {
-    inputRefs[0].current?.focus();
-  }, []);
 
   return (
     <View style={styles.container}>
@@ -139,26 +142,29 @@ export default function VerifyEmailCodeScreen() {
         />
       </Pressable>
 
-      {/* Email Title - Figma: x:196, y:98, width:49, height:22 */}
+      {/* Verify Email Title */}
       <View style={styles.titleContainer}>
         <Typography variant="h2" color="black" style={styles.title}>
-          Email
+          Verify Email
         </Typography>
       </View>
 
-      {/* Description Text - Figma: x:20, y:150, width:207, height:22 */}
+      {/* Description Text */}
       <View style={styles.descriptionContainer}>
         <Typography variant="body" color="textSecondary" style={styles.description}>
-          Check your email and click the verification link
+          We've sent a verification link to {displayEmail}. Click the link in your email to verify your account.
         </Typography>
       </View>
 
       {/* Check Verification Button */}
       <TouchableOpacity 
-        style={styles.checkButton} 
-        onPress={() => handleVerifyCode("")}
+        style={[styles.checkButton, loading && styles.checkButtonDisabled]} 
+        onPress={handleVerifyEmail}
+        disabled={loading}
       >
-        <Text style={styles.checkButtonText}>Check Verification Status</Text>
+        <Text style={styles.checkButtonText}>
+          {loading ? "Checking..." : "I've Verified My Email"}
+        </Text>
       </TouchableOpacity>
 
       {/* Didn't receive email text - Figma: x:20, y:382, width:238, height:22 */}
@@ -168,8 +174,8 @@ export default function VerifyEmailCodeScreen() {
         </Typography>
       </View>
 
-      {/* Resend email text - Figma: x:20, y:409, width:153, height:22 */}
-      <Pressable style={styles.resendContainer} onPress={handleResendCode}>
+      {/* Resend email text */}
+      <Pressable style={styles.resendContainer} onPress={handleResendEmail}>
         <Typography variant="body" style={styles.resendText}>
           Resend verification email
         </Typography>
@@ -220,12 +226,12 @@ const styles = StyleSheet.create({
     height: vs(15),
   },
 
-  // Title Container - Figma: x:196, y:98, width:49, height:22
+  // Title Container
   titleContainer: {
     position: "absolute",
-    left: s(196),
+    left: s(20),
+    right: s(20),
     top: vs(98),
-    width: s(49),
     height: vs(22),
     alignItems: "center",
     justifyContent: "center",
@@ -239,29 +245,30 @@ const styles = StyleSheet.create({
     color: Colors.black,
   },
 
-  // Description Container - Figma: x:20, y:150, width:207, height:22  
+  // Description Container
   descriptionContainer: {
     position: "absolute",
     left: s(20),
+    right: s(20),
     top: vs(150),
-    width: s(207),
-    height: vs(22),
+    paddingHorizontal: s(10),
   },
   description: {
     fontFamily: Fonts.primary,
-    fontSize: s(18),
-    fontWeight: Fonts.weights.medium,
+    fontSize: s(16),
+    fontWeight: Fonts.weights.normal,
     lineHeight: vs(22),
     color: Colors.textSecondary,
+    textAlign: "center",
   },
 
-  // Check Button - positioned where code inputs were
+  // Check Button
   checkButton: {
     position: "absolute",
-    left: s(60),
-    top: vs(272),
-    right: s(60),
-    height: vs(70),
+    left: s(40),
+    top: vs(250),
+    right: s(40),
+    height: vs(60),
     backgroundColor: '#E92B45',
     borderRadius: s(20),
     justifyContent: "center",
@@ -272,43 +279,49 @@ const styles = StyleSheet.create({
     shadowRadius: s(10),
     elevation: 8,
   },
+  checkButtonDisabled: {
+    opacity: 0.6,
+  },
   checkButtonText: {
     fontFamily: Fonts.primary,
-    fontSize: s(18),
+    fontSize: s(16),
     fontWeight: Fonts.weights.medium,
     color: Colors.white,
     textAlign: "center",
   },
 
-  // No Code Container - Figma: x:20, y:382, width:238, height:22
+  // No Code Container
   noCodeContainer: {
     position: "absolute",
     left: s(20),
-    top: vs(382),
-    width: s(238),
-    height: vs(22),
+    right: s(20),
+    top: vs(350),
+    alignItems: "center",
   },
   noCodeText: {
     fontFamily: Fonts.primary,
-    fontSize: s(18),
-    fontWeight: Fonts.weights.medium,
+    fontSize: s(14),
+    fontWeight: Fonts.weights.normal,
     lineHeight: vs(22),
     color: Colors.textSecondary,
+    textAlign: "center",
   },
 
-  // Resend Container - Figma: x:20, y:409, width:153, height:22
+  // Resend Container
   resendContainer: {
     position: "absolute",
     left: s(20),
-    top: vs(409),
-    width: s(153),
-    height: vs(22),
+    right: s(20),
+    top: vs(385),
+    alignItems: "center",
+    paddingVertical: vs(10),
   },
   resendText: {
     fontFamily: Fonts.primary,
-    fontSize: s(18),
+    fontSize: s(14),
     fontWeight: Fonts.weights.medium,
     lineHeight: vs(22),
-    color: '#E92B45', // Red color from Figma (fill_W1J10I)
+    color: '#E92B45',
+    textDecorationLine: "underline",
   },
 });

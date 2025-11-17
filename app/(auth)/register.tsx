@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useState, useCallback } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { View, StyleSheet, ScrollView, Platform, Alert, Linking, Text } from "react-native";
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { ref, set, serverTimestamp } from 'firebase/database';
 import { auth, database } from '../../FirebaseConfig';
@@ -18,7 +18,7 @@ import { responsive, s, vs } from "../../src/constants/responsive";
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({
     name: "",
-    emailOrPhone: "",
+    email: "",
     password: "",
     userType: "customer" as "customer" | "store_owner",
     acceptedTerms: false,
@@ -26,7 +26,7 @@ export default function RegisterScreen() {
 
   const [errors, setErrors] = useState({
     name: "",
-    emailOrPhone: "",
+    email: "",
     password: "",
     terms: "",
   });
@@ -38,8 +38,8 @@ export default function RegisterScreen() {
     setFormData(prev => ({ ...prev, name: text }));
   }, []);
 
-  const handleEmailOrPhoneChange = useCallback((text: string) => {
-    setFormData(prev => ({ ...prev, emailOrPhone: text }));
+  const handleEmailChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, email: text }));
   }, []);
 
   const handlePasswordChange = useCallback((text: string) => {
@@ -49,7 +49,7 @@ export default function RegisterScreen() {
   const validateForm = () => {
     const newErrors = {
       name: "",
-      emailOrPhone: "",
+      email: "",
       password: "",
       terms: "",
     };
@@ -61,17 +61,15 @@ export default function RegisterScreen() {
       newErrors.name = "Name must be at least 2 characters";
     }
 
-    // Email or phone validation
-    if (!formData.emailOrPhone.trim()) {
-      newErrors.emailOrPhone = "Email or phone is required";
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneRegex = /^[0-9]{10,}$/;
-      const isEmail = emailRegex.test(formData.emailOrPhone);
-      const isPhone = phoneRegex.test(formData.emailOrPhone.replace(/\D/g, ''));
+      const isEmail = emailRegex.test(formData.email);
 
-      if (!isEmail && !isPhone) {
-        newErrors.emailOrPhone = "Please enter a valid email or phone number";
+      if (!isEmail) {
+        newErrors.email = "Please enter a valid email address";
       }
     }
 
@@ -107,62 +105,12 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      // Detect if input is email or phone number
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneRegex = /^[0-9+\-\s()]{10,}$/;
-
-      const isEmail = emailRegex.test(formData.emailOrPhone.trim());
-      const isPhone = phoneRegex.test(formData.emailOrPhone.trim());
-
-      if (!isEmail && !isPhone) {
-        const validationError = createValidationError(
-          'Please enter a valid email address or phone number'
-        );
-        showAuthError(validationError);
-        setLoading(false);
-        return;
-      }
-
-      // DIFFERENT LOGIC BASED ON USER TYPE:
+      // CUSTOMER REGISTRATION - Email only flow
 
       if (formData.userType === "customer") {
-        // CUSTOMER REGISTRATION - Simple flow with email/phone only
-
-        if (isPhone) {
-          // Phone registration for customers
-          Alert.alert(
-            "Phone Registration",
-            "You'll verify your phone number with SMS, then complete registration.",
-            [
-              {
-                text: "Continue",
-                onPress: () => {
-                  router.push({
-                    pathname: "/(auth)/verify-phone",
-                    params: {
-                      phoneNumber: formData.emailOrPhone.trim(),
-                      name: formData.name,
-                      userType: 'customer'
-                    }
-                  });
-                }
-              },
-              {
-                text: "Use Email Instead",
-                onPress: () => {
-                  setFormData({ ...formData, emailOrPhone: "" });
-                }
-              }
-            ]
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Email registration for customers - proceed directly
         const userCredential = await createUserWithEmailAndPassword(
           auth,
-          formData.emailOrPhone.trim(),
+          formData.email.trim(),
           formData.password
         );
 
@@ -176,7 +124,7 @@ export default function RegisterScreen() {
         const userData = {
           uid: user.uid,
           name: formData.name.trim(),
-          email: formData.emailOrPhone.trim(),
+          email: formData.email.trim(),
           userType: 'customer',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -195,18 +143,40 @@ export default function RegisterScreen() {
         const userRef = ref(database, `users/${user.uid}`);
         await set(userRef, userData);
 
-        // Send email verification
-        await sendEmailVerification(user);
+        // Send email verification with custom redirect
+        const actionCodeSettings = {
+          url: 'https://tindagoproject.web.app', // Redirect to TindaGo success page
+          handleCodeInApp: false, // Open in browser, not in app
+        };
+        await sendEmailVerification(user, actionCodeSettings);
         Alert.alert(
           "Account Created!",
-          "Your customer account has been created! Please check your email for verification.",
+          "We've sent a verification email to your inbox. Check your email now?",
           [
             {
-              text: "OK",
+              text: "Open Email App",
+              onPress: () => {
+                // Open web Gmail (works on all platforms, opens in browser)
+                const webGmailUrl = 'https://mail.google.com';
+                
+                Linking.openURL(webGmailUrl)
+                  .catch((error) => {
+                    console.log('Error opening web Gmail:', error);
+                  })
+                  .finally(() => {
+                    router.push({
+                      pathname: "/(auth)/verify-email-code",
+                      params: { email: formData.email.trim() }
+                    });
+                  });
+              }
+            },
+            {
+              text: "I'll Check Later",
               onPress: () => {
                 router.push({
-                  pathname: "/(auth)/verify-email",
-                  params: { email: formData.emailOrPhone.trim() }
+                  pathname: "/(auth)/verify-email-code",
+                  params: { email: formData.email.trim() }
                 });
               }
             }
@@ -214,30 +184,10 @@ export default function RegisterScreen() {
         );
 
       } else {
-        // STORE OWNER REGISTRATION - Different flow, redirect to store owner signup with documents
-
-        // For store owners, require email for business communications
-        if (!isEmail) {
-          Alert.alert(
-            "Store Owner Registration",
-            "Store owners must provide a valid email address for business communications. Phone registration is not available for store owners.",
-            [
-              {
-                text: "OK",
-                onPress: () => {
-                  setFormData({ ...formData, emailOrPhone: "" });
-                }
-              }
-            ]
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Create Firebase account for Store Owner first, then redirect to business registration
+        // STORE OWNER REGISTRATION - Email required for business communications
         const userCredential = await createUserWithEmailAndPassword(
           auth,
-          formData.emailOrPhone.trim(),
+          formData.email.trim(),
           formData.password
         );
 
@@ -251,7 +201,7 @@ export default function RegisterScreen() {
         const userData = {
           uid: user.uid,
           name: formData.name.trim(),
-          email: formData.emailOrPhone.trim(),
+          email: formData.email.trim(),
           userType: 'store_owner',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -270,21 +220,48 @@ export default function RegisterScreen() {
         const userRef = ref(database, `users/${user.uid}`);
         await set(userRef, userData);
 
-        // Send email verification
-        await sendEmailVerification(user);
+        // Send email verification with custom redirect
+        const actionCodeSettings = {
+          url: 'https://tindagoproject.web.app', // Redirect to TindaGo success page
+          handleCodeInApp: false, // Open in browser, not in app
+        };
+        await sendEmailVerification(user, actionCodeSettings);
 
         Alert.alert(
           "Account Created!",
-          "Your store owner account has been created! Please verify your email before completing your business registration.",
+          "We've sent a verification email to your inbox. Check your email now?",
           [
             {
-              text: "Verify Email Now",
+              text: "Open Email App",
+              onPress: () => {
+                // Open web Gmail (works on all platforms, opens in browser)
+                const webGmailUrl = 'https://mail.google.com';
+                
+                Linking.openURL(webGmailUrl)
+                  .catch((error) => {
+                    console.log('Error opening web Gmail:', error);
+                  })
+                  .finally(() => {
+                    router.push({
+                      pathname: "/(auth)/verify-email-store-owner",
+                      params: {
+                        email: formData.email.trim(),
+                        name: formData.name.trim(),
+                        uid: user.uid,
+                        password: formData.password
+                      }
+                    });
+                  });
+              }
+            },
+            {
+              text: "I'll Check Later",
               onPress: () => {
                 // Navigate to email verification screen first
                 router.push({
                   pathname: "/(auth)/verify-email-store-owner",
                   params: {
-                    email: formData.emailOrPhone.trim(),
+                    email: formData.email.trim(),
                     name: formData.name.trim(),
                     uid: user.uid,
                     password: formData.password
@@ -335,9 +312,9 @@ export default function RegisterScreen() {
             />
 
             <FormInput
-              placeholder={formData.userType === "store_owner" ? "Business Email" : "Email or Phone"}
-              value={formData.emailOrPhone}
-              onChangeText={handleEmailOrPhoneChange}
+              placeholder="Email"
+              value={formData.email}
+              onChangeText={handleEmailChange}
               keyboardType="email-address"
               style={styles.emailInput}
             />

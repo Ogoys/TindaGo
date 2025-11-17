@@ -14,8 +14,8 @@
 import React from 'react';
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
-import { CustomerProfileScreen, MenuItem } from '@/components/ui';
-import { useUser } from '@/contexts/UserContext';
+import { CustomerProfileScreen, MenuItem } from '../../../../src/components/ui';
+import { useUser } from '../../../../src/contexts/UserContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../../FirebaseConfig';
 

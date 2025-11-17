@@ -29,9 +29,18 @@ export default function CustomerLayout() {
     >
       <Stack.Screen name="home" />
       <Stack.Screen name="search" />
+      <Stack.Screen name="stores-map" />
+      <Stack.Screen name="stores-map-test" />
+      <Stack.Screen name="stores-list" />
       <Stack.Screen name="orders" />
+      <Stack.Screen name="order-details" />
+      <Stack.Screen name="track-store" />
       <Stack.Screen name="cart" />
+      <Stack.Screen name="payment" />
+      <Stack.Screen name="invoice" />
+      <Stack.Screen name="review" />
       <Stack.Screen name="category" />
+      <Stack.Screen name="category-detail" />
       <Stack.Screen name="see-more" />
       <Stack.Screen name="profile" />
     </Stack>
