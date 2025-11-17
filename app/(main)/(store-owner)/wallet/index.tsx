@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Text,
+  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ref, get, onValue } from "firebase/database";
@@ -30,6 +31,7 @@ export default function WalletScreen() {
     totalWithdrawn: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const sid = user?.storeId || user?.id;
@@ -38,18 +40,74 @@ export default function WalletScreen() {
       return;
     }
 
+    console.log('🔑 Wallet useEffect - Using storeId:', sid);
+    console.log('🔑 user object:', { storeId: user?.storeId, id: user?.id, uid: user?.uid });
+
     const walletRef = ref(database, `wallets/${sid}`);
     const payoutsRef = ref(database, 'payouts');
     const ledgerRef = ref(database, `ledgers/stores/${sid}/transactions`);
 
     // Realtime wallet listener with fallback
-    const unsubWallet = onValue(walletRef, (snap) => {
+    const unsubWallet = onValue(walletRef, async (snap) => {
       if (snap.exists()) {
         const data = snap.val();
+        
+        // Always fetch accurate totalWithdrawn from completed payouts
+        let actualTotalWithdrawn = 0;
+        try {
+          const payoutsSnap = await get(payoutsRef);
+          console.log('🔍 Fetching payouts for storeId:', sid);
+          
+          if (payoutsSnap.exists()) {
+            const allPayouts = payoutsSnap.val();
+            const list = Object.entries(allPayouts) as [string, any][];
+            console.log('📦 Total payouts in database:', list.length);
+            
+            let completedCount = 0;
+            let myPayoutsCount = 0;
+            
+            list.forEach(([payoutId, p]) => {
+              console.log('Checking payout:', {
+                payoutId,
+                storeId: p.storeId,
+                amount: p.amount,
+                status: p.status,
+                matchesStore: p?.storeId === sid,
+                ourStoreId: sid
+              });
+              
+              if (p?.storeId === sid) {
+                myPayoutsCount++;
+                const amt = Number(p?.amount || 0);
+                const s = String(p?.status || '').toLowerCase();
+                
+                console.log(`  ↳ This is MY payout #${myPayoutsCount} - Status: ${s}, Amount: ${amt}`);
+                
+                if (s === 'approved' || s === 'completed') {
+                  actualTotalWithdrawn += amt;
+                  completedCount++;
+                  console.log('  ✅ APPROVED/COMPLETED! Total so far:', actualTotalWithdrawn);
+                }
+              }
+            });
+            
+            console.log('💰 FINAL RESULT:');
+            console.log('  - My payouts:', myPayoutsCount);
+            console.log('  - Approved/Completed:', completedCount);
+            console.log('  - Total Withdrawn: ₱' + actualTotalWithdrawn);
+          } else {
+            console.log('⚠️ No payouts found in database');
+          }
+        } catch (e) {
+          console.error('Error fetching completed payouts:', e);
+          // Fallback to wallet node value if fetch fails
+          actualTotalWithdrawn = Number(data.totalWithdrawn || 0);
+        }
+        
         setWalletData({
           available: Number(data.available || 0),
           pending: Number(data.pending || 0),
-          totalWithdrawn: Number(data.totalWithdrawn || 0),
+          totalWithdrawn: actualTotalWithdrawn,
         });
         setLoading(false);
       } else {
@@ -87,8 +145,8 @@ export default function WalletScreen() {
             if (p?.storeId !== sid) return;
             const amt = Number(p?.amount || 0);
             const s = String(p?.status || '').toLowerCase();
-            if (s === 'completed') totalWithdrawn += amt;
-            else if (s === 'pending' || s === 'approved') pendingWithdrawal += amt;
+            if (s === 'approved' || s === 'completed') totalWithdrawn += amt;
+            else if (s === 'pending') pendingWithdrawal += amt;
           });
         }
         const availableCalc = Math.max(earned - totalWithdrawn - pendingWithdrawal, 0);
@@ -105,6 +163,51 @@ export default function WalletScreen() {
     };
   }, [user?.storeId, user?.id]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    const sid = user?.storeId || user?.id;
+    if (!sid) {
+      setRefreshing(false);
+      return;
+    }
+
+    try {
+      const walletRef = ref(database, `wallets/${sid}`);
+      const payoutsRef = ref(database, 'payouts');
+
+      const [walletSnap, payoutsSnap] = await Promise.all([
+        get(walletRef),
+        get(payoutsRef)
+      ]);
+
+      let actualTotalWithdrawn = 0;
+      if (payoutsSnap.exists()) {
+        const list = Object.values(payoutsSnap.val() || {}) as any[];
+        list.forEach((p: any) => {
+          if (p?.storeId !== sid) return;
+          const amt = Number(p?.amount || 0);
+          const s = String(p?.status || '').toLowerCase();
+          if (s === 'approved' || s === 'completed') {
+            actualTotalWithdrawn += amt;
+          }
+        });
+      }
+
+      if (walletSnap.exists()) {
+        const data = walletSnap.val();
+        setWalletData({
+          available: Number(data.available || 0),
+          pending: Number(data.pending || 0),
+          totalWithdrawn: actualTotalWithdrawn,
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing wallet:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -118,12 +221,30 @@ export default function WalletScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Typography variant="h1" style={styles.title}>
-            My Wallet
-          </Typography>
+      {/* Fixed Header with Refresh */}
+      <View style={styles.fixedHeader}>
+        <View style={styles.headerSpacer} />
+        <Typography variant="h1" style={styles.headerTitle}>
+          My Wallet
+        </Typography>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <Text style={styles.refreshIcon}>🔄</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor={Colors.primary}
+          />
+        }
+      >
+        {/* Subtitle */}
+        <View style={styles.subtitleContainer}>
           <Typography variant="body" style={styles.subtitle}>
             Manage your balance and payouts
           </Typography>
@@ -210,9 +331,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.backgroundGray,
   },
+  fixedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: s(20),
+    paddingTop: vs(60),
+    paddingBottom: vs(20),
+    backgroundColor: Colors.backgroundGray,
+  },
+  headerSpacer: {
+    width: s(30),
+  },
+  headerTitle: {
+    fontSize: s(28),
+    fontWeight: '700',
+    color: Colors.darkGray,
+  },
+  refreshButton: {
+    width: s(30),
+    height: s(30),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshIcon: {
+    fontSize: s(20),
+  },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: vs(20),
+  },
+  subtitleContainer: {
+    paddingHorizontal: s(20),
+    marginBottom: vs(10),
   },
   loadingContainer: {
     flex: 1,
@@ -223,17 +374,6 @@ const styles = StyleSheet.create({
     marginTop: vs(15),
     fontSize: s(16),
     color: Colors.textSecondary,
-  },
-  header: {
-    paddingHorizontal: s(20),
-    paddingTop: vs(60),
-    paddingBottom: vs(30),
-  },
-  title: {
-    fontSize: s(28),
-    fontWeight: '700',
-    color: Colors.darkGray,
-    marginBottom: vs(8),
   },
   subtitle: {
     fontSize: s(16),

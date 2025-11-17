@@ -197,11 +197,16 @@ const StoreProductScreen = () => {
     if (!selectedProduct) return;
 
     const newQuantity = Math.max(0, selectedProduct.quantity + adjustment);
+    const newStatus = newQuantity === 0 ? 'out_of_stock' : 'available';
 
     try {
       const productRef = ref(database, `products/${selectedProduct.id}`);
-      await update(productRef, { quantity: newQuantity });
-      console.log(`Product ${selectedProduct.id} stock updated to ${newQuantity}`);
+      await update(productRef, { 
+        quantity: newQuantity,
+        status: newStatus,
+        updatedAt: new Date().toISOString()
+      });
+      console.log(`Product ${selectedProduct.id} stock updated to ${newQuantity}, status: ${newStatus}`);
     } catch (error) {
       console.error('Error updating stock:', error);
       Alert.alert('Error', 'Failed to update stock. Please try again.');
@@ -218,11 +223,17 @@ const StoreProductScreen = () => {
       return;
     }
 
+    const newStatus = newQuantity === 0 ? 'out_of_stock' : 'available';
+
     try {
       const productRef = ref(database, `products/${selectedProduct.id}`);
-      await update(productRef, { quantity: newQuantity });
+      await update(productRef, { 
+        quantity: newQuantity,
+        status: newStatus,
+        updatedAt: new Date().toISOString()
+      });
       setStockAdjustmentValue('');
-      console.log(`Product ${selectedProduct.id} stock set to ${newQuantity}`);
+      console.log(`Product ${selectedProduct.id} stock set to ${newQuantity}, status: ${newStatus}`);
     } catch (error) {
       console.error('Error setting stock:', error);
       Alert.alert('Error', 'Failed to set stock. Please try again.');

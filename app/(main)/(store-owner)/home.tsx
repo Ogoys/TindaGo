@@ -521,46 +521,6 @@ export default function StoreHomeScreen() {
           </View>
         </View>
 
-        {/* Sales Analytics Card - Figma: Subtract at 20,350 400x140 */}
-        <View style={styles.salesCard}>
-          {/* Wallet Icon - Figma: 40,370 30x30 */}
-          <Image
-            source={require('../../../src/assets/images/store-owner-dashboard/wallet-icon.png')}
-            style={styles.walletIcon}
-            resizeMode="contain"
-          />
-
-          {/* Total Sales Header - Figma: 90,375 164x20 and 323,375 77x20 */}
-          <View style={styles.salesHeader}>
-            <Typography style={styles.salesTitle}>Total Sales For The Day</Typography>
-            <Typography style={styles.salesAmount}>₱{salesToday.toFixed(2)}</Typography>
-          </View>
-
-          {/* Separator Line - Figma: Vector 43 at 30,415 380x0 */}
-          <View style={styles.salesSeparator} />
-
-          {/* Sales Breakdown - Figma: Week/Month/Year Groups */}
-          <View style={styles.salesBreakdown}>
-            {/* This Week - Figma: 50,437 77x37 */}
-            <View style={styles.salesPeriod}>
-              <Typography style={styles.periodLabel}>This Week</Typography>
-              <Typography style={styles.periodAmount}>₱{salesWeek.toFixed(2)}</Typography>
-            </View>
-
-            {/* This Month - Figma: 176,437 83x37 */}
-            <View style={styles.salesPeriod}>
-              <Typography style={styles.periodLabel}>This Month</Typography>
-              <Typography style={styles.periodAmount}>₱{salesMonth.toFixed(2)}</Typography>
-            </View>
-
-            {/* This Year - Figma: 302,437 87x37 */}
-            <View style={styles.salesPeriod}>
-              <Typography style={styles.periodLabel}>This Year</Typography>
-              <Typography style={styles.periodAmount}>₱{salesYear.toFixed(2)}</Typography>
-            </View>
-          </View>
-        </View>
-
         {/* Dashboard Stats Grid - Figma: Box 1-4 starting at 20,510 */}
         <View style={styles.statsContainer}>
           <View style={styles.statsGrid}>

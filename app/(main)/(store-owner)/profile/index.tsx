@@ -126,16 +126,8 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/my-account');
   };
 
-  const handleNotificationSettings = () => {
-    console.log("Notification Settings pressed");
-  };
-
   const handleEWalletDetails = () => {
     router.push('/(main)/(store-owner)/profile/ewallet-details');
-  };
-
-  const handleLicenseVerification = () => {
-    console.log("License Verification pressed");
   };
 
   const handleStoreInfo = () => {
@@ -290,19 +282,9 @@ export default function ProfileScreen() {
             onPress={handleMyAccount}
           />
           <SettingItem
-            title="Notification Setting"
-            iconName="notifications"
-            onPress={handleNotificationSettings}
-          />
-          <SettingItem
             title="E-Wallet Details"
             iconName="wallet"
             onPress={handleEWalletDetails}
-          />
-          <SettingItem
-            title="License Verification"
-            iconName="shield-checkmark"
-            onPress={handleLicenseVerification}
           />
           <SettingItem
             title="Store Info"
