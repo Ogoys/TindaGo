@@ -227,6 +227,9 @@ export default function HomeScreen() {
             // Only show available products from OPEN stores
             if (product.status !== 'available') return false;
             if (product.storeIsOpen === false) return false;
+            
+            // IMPORTANT: Also check quantity to handle legacy data where status wasn't updated
+            if (product.quantity === 0) return false;
 
             // Log products with missing data
             if (!product.productName || !product.price || !product.storeName) {

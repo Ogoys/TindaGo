@@ -123,6 +123,24 @@ export default function ProductDetailsScreen() {
           router.back();
           return;
         }
+        
+        // Check if product is out of stock for customers (store owners can still view)
+        // User role check: if user.role !== 'store-owner', they are a customer
+        const isCustomer = !user || user.role !== 'store-owner';
+        const isOutOfStock = productData.status === 'out_of_stock' || productData.quantity === 0;
+        
+        if (isCustomer && isOutOfStock) {
+          Alert.alert(
+            'Product Unavailable',
+            'This product is currently out of stock and not available for purchase.',
+            [
+              { text: 'OK', onPress: () => router.back() }
+            ]
+          );
+          router.back();
+          return;
+        }
+        
         console.log('📱 Current product:', productData.productName, '| Category:', productData.category);
         setProduct(productData as Product);
 

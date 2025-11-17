@@ -6,7 +6,7 @@
  *
  * Features:
  * - User information display with Firebase Auth integration
- * - Navigation menu items (My Account, Orders, E-Wallet, Help, Privacy, Logout)
+ * - Navigation menu items (My Account, Orders, Help, Logout)
  * - Back navigation to home
  * - Notification access
  */
@@ -80,16 +80,6 @@ export default function CustomerProfile() {
       icon: require('../../../../src/assets/images/customer-profile-nav/order-history-icon.png'),
       onPress: () => {
         router.push('/(main)/(customer)/profile/order-history');
-      },
-    },
-    {
-      id: 'e-wallet',
-      label: 'E-Wallet Details',
-      icon: require('../../../../src/assets/images/customer-profile-nav/wallet-icon.png'),
-      onPress: () => {
-        console.log('E-Wallet pressed');
-        // TODO: Navigate to e-wallet screen
-        // router.push('/(main)/(customer)/profile/e-wallet');
       },
     },
     {

@@ -364,6 +364,9 @@ const EditProductScreen = () => {
       // ========================================
       // 11. PREPARE UPDATE DATA
       // ========================================
+      // Automatically set status based on quantity
+      const productStatus = formattedQuantity === 0 ? 'out_of_stock' : 'available';
+      
       const updateData = {
         productName: formattedProductName,
         description: description.trim(),
@@ -374,6 +377,7 @@ const EditProductScreen = () => {
         unit: selectedUnit,
         productImage: selectedImage,  // Legacy field for backward compatibility
         productImageUrl: selectedImage?.startsWith('https://res.cloudinary.com/') ? selectedImage : undefined, // NEW: Cloudinary URL
+        status: productStatus, // Automatically set based on quantity
         storeId: currentUser.uid,
         storeName: storeName,
         storeOwnerName: storeOwnerName,
