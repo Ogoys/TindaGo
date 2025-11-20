@@ -14,6 +14,8 @@ import {
   Modal,
   FlatList,
   Pressable,
+  Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { s, vs, ms } from '../../constants/responsive';
 import { Colors } from '../../constants/Colors';
@@ -34,6 +36,8 @@ interface DropdownProps {
   disabled?: boolean;
   error?: string;
   style?: any;
+  iconOnly?: boolean; // Show only icon/placeholder, no selected text
+  iconImage?: ImageSourcePropType; // Custom icon image for iconOnly mode
 }
 
 export const Dropdown: React.FC<DropdownProps> = ({
@@ -45,6 +49,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
   disabled = false,
   error,
   style,
+  iconOnly = false,
+  iconImage,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -52,26 +58,37 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && !iconOnly && <Text style={styles.label}>{label}</Text>}
 
       <TouchableOpacity
         style={[
           styles.dropdown,
           disabled && styles.dropdownDisabled,
           error && styles.dropdownError,
+          iconOnly && styles.dropdownIconOnly,
         ]}
         onPress={() => !disabled && setIsOpen(true)}
         activeOpacity={0.7}
       >
-        <Text
-          style={[
-            styles.dropdownText,
-            !selectedOption && styles.dropdownPlaceholder,
-          ]}
-        >
-          {selectedOption ? selectedOption.label : placeholder}
-        </Text>
-        <Text style={styles.dropdownArrow}>▼</Text>
+        {iconOnly ? (
+          iconImage ? (
+            <Image source={iconImage} style={styles.dropdownIconImage} />
+          ) : (
+            <Text style={styles.dropdownIconText}>{placeholder}</Text>
+          )
+        ) : (
+          <>
+            <Text
+              style={[
+                styles.dropdownText,
+                !selectedOption && styles.dropdownPlaceholder,
+              ]}
+            >
+              {selectedOption ? selectedOption.label : placeholder}
+            </Text>
+            <Text style={styles.dropdownArrow}>▼</Text>
+          </>
+        )}
       </TouchableOpacity>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -192,6 +209,26 @@ const styles = StyleSheet.create({
     fontSize: ms(10),
     color: 'rgba(30, 30, 30, 0.5)',
     marginLeft: s(10),
+  },
+
+  // Icon-only dropdown styles
+  dropdownIconOnly: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: s(10),
+    paddingVertical: vs(10),
+    height: '100%', // Fill parent container height
+  },
+
+  dropdownIconText: {
+    fontSize: ms(22),
+    textAlign: 'center',
+  },
+
+  dropdownIconImage: {
+    width: s(24),
+    height: s(24),
+    resizeMode: 'contain',
   },
 
   errorText: {

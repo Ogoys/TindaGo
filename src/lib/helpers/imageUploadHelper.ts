@@ -1,12 +1,11 @@
 /**
  * IMAGE UPLOAD HELPER
  *
- * Utilities for uploading images to Firebase Storage
+ * Utilities for uploading images to Cloudinary
  * Handles return request photos, product images, etc.
  */
 
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../../FirebaseConfig';
+import { uploadImageToCloudinary } from '../upload/cloudinary';
 
 export interface ImageUploadResult {
   success: boolean;
@@ -15,57 +14,47 @@ export interface ImageUploadResult {
 }
 
 /**
- * Upload a single image to Firebase Storage
+ * Upload a single image to Cloudinary
  * @param uri - Local file URI from image picker
- * @param path - Storage path (e.g., 'returns/customer123/image1.jpg')
+ * @param folder - Cloudinary folder (e.g., 'returns', 'products')
  * @returns Promise with upload result
  */
 export const uploadImage = async (
   uri: string,
-  path: string
+  folder: string = 'images'
 ): Promise<ImageUploadResult> => {
   try {
-    // Convert URI to blob
-    const response = await fetch(uri);
-    const blob = await response.blob();
-
-    // Create storage reference
-    const storageRef = ref(storage, path);
-
-    // Upload blob
-    await uploadBytes(storageRef, blob);
-
-    // Get download URL
-    const downloadURL = await getDownloadURL(storageRef);
-
-    return { success: true, url: downloadURL };
+    // Upload to Cloudinary
+    const url = await uploadImageToCloudinary(uri, folder);
+    return { success: true, url };
   } catch (error) {
     console.error('Error uploading image:', error);
-    return { success: false, error: 'Failed to upload image' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to upload image'
+    };
   }
 };
 
 /**
- * Upload multiple images to Firebase Storage
+ * Upload multiple images to Cloudinary
  * @param uris - Array of local file URIs
- * @param basePath - Base storage path (e.g., 'returns/customer123')
+ * @param folder - Cloudinary folder (e.g., 'returns', 'products')
  * @returns Promise with array of upload results
  */
 export const uploadMultipleImages = async (
   uris: string[],
-  basePath: string
+  folder: string = 'images'
 ): Promise<ImageUploadResult[]> => {
-  const uploadPromises = uris.map((uri, index) => {
-    const fileName = `image_${Date.now()}_${index}.jpg`;
-    const path = `${basePath}/${fileName}`;
-    return uploadImage(uri, path);
+  const uploadPromises = uris.map((uri) => {
+    return uploadImage(uri, folder);
   });
 
   return Promise.all(uploadPromises);
 };
 
 /**
- * Upload return request photos
+ * Upload return request photos to Cloudinary
  * @param customerId - Customer ID
  * @param returnId - Return request ID
  * @param imageUris - Array of local image URIs
@@ -76,8 +65,9 @@ export const uploadReturnPhotos = async (
   returnId: string,
   imageUris: string[]
 ): Promise<string[]> => {
-  const basePath = `returns/${customerId}/${returnId}`;
-  const results = await uploadMultipleImages(imageUris, basePath);
+  // Use 'returns' folder with customer/return subfolder naming
+  const folder = `returns/${customerId}/${returnId}`;
+  const results = await uploadMultipleImages(imageUris, folder);
 
   // Return only successful uploads
   return results

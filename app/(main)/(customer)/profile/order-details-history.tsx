@@ -452,6 +452,12 @@ export default function OrderDetailsHistoryScreen() {
                 style={styles.paymentIcon}
                 resizeMode="contain"
               />
+            ) : safeOrder.paymentMethod === 'paymaya' ? (
+              <Image
+                source={require("../../../../src/assets/images/payment/paymaya-icon.png")}
+                style={styles.paymentIcon}
+                resizeMode="contain"
+              />
             ) : (
               <Image
                 source={require("../../../../src/assets/images/payment/paypal-icon.png")}

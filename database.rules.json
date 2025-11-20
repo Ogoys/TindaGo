@@ -10,6 +10,12 @@
     "roles": {
       ".write": true
     },
+    "return_goods": {
+      ".indexOn": ["customerId", "storeId", "status"]
+    },
+    "orders": {
+      ".indexOn": ["customerId", "storeId", "status"]
+    },
     ".write": "auth != null"
   }
 }

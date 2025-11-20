@@ -28,9 +28,10 @@ export interface CustomerReturnRequest {
     unit?: string;
     returnReason: ReturnReason;
   }>;
-  refundMethod: 'cash' | 'wallet' | 'store_credit';
+  refundMethod: 'gcash' | 'paymaya' | 'loan';
   additionalDetails?: string;
   photoUrls?: string[];
+  loanPaymentDate?: string; // ISO string - date customer will repurchase (for loan refund method)
 }
 
 /**
@@ -90,6 +91,7 @@ export const submitCustomerReturnRequest = async (
       status: 'pending', // Pending store owner review
       additionalDetails: request.additionalDetails || '',
       photoUrls: request.photoUrls || [],
+      loanPaymentDate: request.loanPaymentDate, // Include loan payment date if provided
       createdAt: new Date().toISOString(),
       processedBy: '',
       notes: `Customer return request for order ${request.orderNumber}`,

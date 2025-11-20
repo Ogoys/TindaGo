@@ -134,7 +134,7 @@ export default function ReturnRequestScreen() {
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -186,8 +186,12 @@ export default function ReturnRequestScreen() {
     });
   };
 
-  // Update return reason (dropdown selection)
+  // Update return reason (dropdown selection) - also update textbox
   const updateReturnReason = (productId: string, reason: ReturnReason) => {
+    // Find the label for the selected reason
+    const selectedReasonObj = RETURN_REASONS.find(r => r.value === reason);
+    const reasonLabel = selectedReasonObj?.label || '';
+
     setSelectedItems(prev => {
       const newMap = new Map(prev);
       const item = newMap.get(productId);
@@ -196,6 +200,15 @@ export default function ReturnRequestScreen() {
           ...item,
           returnReason: reason,
         });
+      }
+      return newMap;
+    });
+
+    // Auto-fill textbox with the selected reason label
+    setCustomReasons(prev => {
+      const newMap = new Map(prev);
+      if (reasonLabel) {
+        newMap.set(productId, reasonLabel);
       }
       return newMap;
     });
@@ -515,27 +528,34 @@ export default function ReturnRequestScreen() {
                       onChange={(value) => updateQuantityToReturn(item.productId, value)}
                     />
 
-                    {/* Return Reason Dropdown */}
-                    <Dropdown
-                      label="Return Reason"
-                      options={getReasonOptions()}
-                      value={selectedItem.returnReason}
-                      onSelect={(value) => updateReturnReason(item.productId, value as ReturnReason)}
-                      placeholder="Select reason"
-                    />
+                    {/* Return Reason - Textbox with Dropdown Button on Side */}
+                    <View style={styles.mergedReasonContainer}>
+                      <Text style={styles.mergedReasonLabel}>Return Reason</Text>
+                      <View style={styles.reasonInputRow}>
+                        {/* Textbox - Main Input */}
+                        <TextInput
+                          style={styles.reasonTextInput}
+                          placeholder="Type your reason or select from suggestions..."
+                          placeholderTextColor="rgba(30, 30, 30, 0.4)"
+                          value={customReasons.get(item.productId) || ''}
+                          onChangeText={(text) => updateCustomReason(item.productId, text)}
+                          multiline
+                          numberOfLines={2}
+                          textAlignVertical="top"
+                        />
 
-                    {/* Custom Reason Text Input */}
-                    <View style={styles.customReasonContainer}>
-                      <TextInput
-                        style={styles.customReasonInput}
-                        placeholder="Or type your own reason here..."
-                        placeholderTextColor="rgba(30, 30, 30, 0.4)"
-                        value={customReasons.get(item.productId) || ''}
-                        onChangeText={(text) => updateCustomReason(item.productId, text)}
-                        multiline
-                        numberOfLines={2}
-                        textAlignVertical="top"
-                      />
+                        {/* Icon-Only Dropdown Button on the Right */}
+                        <View style={styles.dropdownButtonContainer}>
+                          <Dropdown
+                            options={getReasonOptions()}
+                            value={selectedItem.returnReason}
+                            onSelect={(value) => updateReturnReason(item.productId, value as ReturnReason)}
+                            placeholder="Select"
+                            iconOnly={true}
+                            iconImage={require("../../../../src/assets/images/customer-orders/dropdown-arrow.png")}
+                          />
+                        </View>
+                      </View>
                     </View>
 
                     {/* Refund Amount for this item */}
@@ -622,9 +642,6 @@ export default function ReturnRequestScreen() {
               {/* Show selected loan payment date */}
               {refundMethod === 'loan' && loanPaymentDate && (
                 <View style={styles.loanDateDisplay}>
-                  <View style={styles.loanDateIconContainer}>
-                    <Text style={styles.loanDateIcon}>📅</Text>
-                  </View>
                   <View style={styles.loanDateTextContainer}>
                     <Text style={styles.loanDateLabel}>Payment Date</Text>
                     <Text style={styles.loanDateValue}>
@@ -923,12 +940,27 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
 
-  // Custom Reason Input
-  customReasonContainer: {
+  // Merged Reason Container (Textbox with Dropdown Button on Side)
+  mergedReasonContainer: {
     marginTop: vs(10),
   },
 
-  customReasonInput: {
+  mergedReasonLabel: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: '#1E1E1E',
+    marginBottom: vs(8),
+  },
+
+  reasonInputRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: s(8),
+  },
+
+  reasonTextInput: {
+    flex: 1,
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#D1D5DB',
@@ -939,7 +971,14 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontSize: ms(14),
     color: '#1E1E1E',
-    minHeight: vs(60),
+    minHeight: vs(70),
+  },
+
+  dropdownButtonContainer: {
+    width: s(50), // Reduced width for icon-only button
+    height: vs(70), // Exact height to match textbox
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Section Card
@@ -1057,20 +1096,6 @@ const styles = StyleSheet.create({
     marginTop: vs(20),
     borderWidth: 1.5,
     borderColor: Colors.primary,
-  },
-
-  loanDateIconContainer: {
-    width: s(45),
-    height: s(45),
-    borderRadius: s(22.5),
-    backgroundColor: Colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: s(12),
-  },
-
-  loanDateIcon: {
-    fontSize: ms(22),
   },
 
   loanDateTextContainer: {

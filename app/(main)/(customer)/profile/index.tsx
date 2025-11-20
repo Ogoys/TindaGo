@@ -83,6 +83,14 @@ export default function CustomerProfile() {
       },
     },
     {
+      id: 'return-history',
+      label: 'Return History',
+      icon: require('../../../../src/assets/images/customer-return-history/return-icon.png'),
+      onPress: () => {
+        router.push('/(main)/(customer)/profile/return-history');
+      },
+    },
+    {
       id: 'help',
       label: 'Help',
       icon: require('../../../../src/assets/images/customer-profile-nav/support-icon.png'),
