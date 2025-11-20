@@ -9,7 +9,7 @@
  * Navigation: Store Home → Orders
  *
  * Features:
- * - Filter tabs: Pending, Preparing, Out for Pickup, Pickup, Cancel
+ * - Filter tabs: Pending, Preparing, Out for Pickup, Completed, Cancel
  * - Order cards matching Store Home page design
  * - Click order card → Navigate to status-specific detail screen
  *
@@ -52,7 +52,7 @@ const FILTER_TABS: FilterTab[] = [
   { label: 'Pending', status: 'pending' },
   { label: 'Preparing', status: 'preparing' },
   { label: 'Out for Pickup', status: 'ready' },
-  { label: 'Pickup', status: 'picked_up' },
+  { label: 'Completed', status: 'picked_up' },
   { label: 'Cancel', status: 'cancelled' },
 ];
 

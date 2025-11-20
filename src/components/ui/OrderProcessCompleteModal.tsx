@@ -81,6 +81,11 @@ export function OrderProcessCompleteModal({
     router.push("/(main)/(customer)/home");
   };
 
+  const handleLater = () => {
+    onClose();
+    // Just close the modal, user can give feedback later
+  };
+
   return (
     <Modal
       visible={visible}
@@ -89,7 +94,7 @@ export function OrderProcessCompleteModal({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={styles.backdrop} onPress={handleLater}>
         <Animated.View
           style={[
             styles.modalContainer,
@@ -141,6 +146,17 @@ export function OrderProcessCompleteModal({
               >
                 <Text style={styles.homeButtonText}>Back to Home</Text>
               </Pressable>
+
+              {/* Later Button */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.laterButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleLater}
+              >
+                <Text style={styles.laterButtonText}>Later</Text>
+              </Pressable>
             </View>
           </Pressable>
         </Animated.View>
@@ -158,13 +174,13 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: s(400),
-    height: vs(500),
+    height: vs(600),
     justifyContent: "center",
     alignItems: "center",
   },
   modalContent: {
     width: s(400),
-    height: vs(500),
+    height: vs(600),
     backgroundColor: Colors.white,
     borderRadius: s(20),
     shadowColor: Colors.shadow,
@@ -174,6 +190,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     position: "relative",
     alignItems: "center",
+    paddingBottom: vs(20),
   },
   // Success Icon Container
   iconContainer: {
@@ -213,7 +230,7 @@ const styles = StyleSheet.create({
   // Give Feedback Button
   feedbackButton: {
     position: "absolute",
-    bottom: vs(120),
+    bottom: vs(170),
     width: s(320),
     height: vs(50),
     backgroundColor: Colors.primary,
@@ -236,7 +253,7 @@ const styles = StyleSheet.create({
   // Back to Home Button
   homeButton: {
     position: "absolute",
-    bottom: vs(50),
+    bottom: vs(100),
     width: s(320),
     height: vs(50),
     backgroundColor: "rgba(217, 217, 217, 0.5)",
@@ -254,6 +271,26 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: s(16),
     color: "rgba(30, 30, 30, 0.5)",
+    textAlign: "center",
+  },
+  // Later Button
+  laterButton: {
+    position: "absolute",
+    bottom: vs(30),
+    width: s(320),
+    height: vs(50),
+    backgroundColor: "transparent",
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    borderRadius: s(15),
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  laterButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: "600",
+    fontSize: s(16),
+    color: Colors.primary,
     textAlign: "center",
   },
   buttonPressed: {

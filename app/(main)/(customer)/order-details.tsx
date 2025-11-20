@@ -17,6 +17,7 @@ import { s, vs, ms } from "../../../src/constants/responsive";
 import { Colors } from "../../../src/constants/Colors";
 import type { Order } from '../../../src/models/Order';
 import { OrderProcessCompleteModal } from '../../../src/components/ui';
+import { getProductImageSource } from '../../../src/lib/helpers/imageHelper';
 
 /**
  * ORDER DETAILS PAGE - PIXEL-PERFECT FIGMA CONVERSION
@@ -317,41 +318,112 @@ export default function OrderDetailsScreen() {
           </View>
         </View>
 
-        {/* BILL CARD - Figma: 759:4056, x:20, y:411, width:400, height:320 */}
+        {/* ORDER ITEMS CARD - Enhanced Professional Design with Scrollable Items */}
+        <View style={styles.orderListCard}>
+          {/* Card Background */}
+          <View style={styles.orderListBackground} />
+
+          {/* Card Header */}
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardHeaderTitle}>Order Summary</Text>
+            <View style={styles.itemCountBadge}>
+              <Text style={styles.itemCountText}>{order.items.length} {order.items.length === 1 ? 'Item' : 'Items'}</Text>
+            </View>
+          </View>
+
+          {/* Header Divider */}
+          <View style={styles.headerDivider} />
+
+          {/* Scrollable Order Items List */}
+          <ScrollView
+            style={styles.itemsScrollView}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            <View style={styles.itemsListContainer}>
+              {order.items.map((item, index) => {
+                const imageSource = getProductImageSource({
+                  productImageUrl: (item as any).productImageUrl,
+                  productImage: item.productImage
+                }, 'small');
+
+                return (
+                  <View key={item.productId} style={styles.modernItemRow}>
+                    {/* Item Info Section */}
+                    <View style={styles.itemInfoSection}>
+                      {/* Product Image */}
+                      <View style={styles.productIconContainer}>
+                        <Image
+                          source={imageSource}
+                          style={styles.productImage}
+                          resizeMode="cover"
+                        />
+                      </View>
+
+                      {/* Product Details */}
+                      <View style={styles.productDetails}>
+                        <Text style={styles.modernItemName} numberOfLines={2}>
+                          {item.productName}
+                        </Text>
+                        {item.weight && item.unit && (
+                          <Text style={styles.itemWeight}>
+                            {item.weight} {item.unit}
+                          </Text>
+                        )}
+                        <Text style={styles.itemPrice}>
+                          ₱{item.price.toFixed(2)} each
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Quantity & Amount Section */}
+                    <View style={styles.itemQuantitySection}>
+                      <View style={styles.quantityBadge}>
+                        <Text style={styles.quantityText}>×{item.quantity}</Text>
+                      </View>
+                      <Text style={styles.modernItemAmount}>₱{item.subtotal.toFixed(2)}</Text>
+                    </View>
+
+                    {/* Item Divider (not for last item) */}
+                    {index < order.items.length - 1 && (
+                      <View style={styles.itemDivider} />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          {/* Billing Section */}
+          <View style={styles.billingSection}>
+            <View style={styles.billingSeparator} />
+
+            {/* Subtotal Row */}
+            <View style={styles.billingRow}>
+              <Text style={styles.billingLabel}>Subtotal</Text>
+              <Text style={styles.billingValue}>₱{order.subtotal.toFixed(2)}</Text>
+            </View>
+
+            {/* Total Divider */}
+            <View style={styles.totalDivider} />
+
+            {/* Grand Total Row */}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total Amount</Text>
+              <Text style={styles.totalValue}>₱{order.total.toFixed(2)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* BILL CARD - Invoice Link */}
         <View style={styles.billCard}>
-          {/* Bill Background with Dashed Edges - Figma: 759:4057 */}
+          {/* Bill Background with Dashed Edges */}
           <View style={styles.billBackground} />
 
-          {/* BILL ITEMS */}
-          {/* Item Count - Figma: 759:4086 & 759:4087, y:434 */}
-          <View style={styles.billRow1}>
-            <Text style={styles.billLabel}>Item</Text>
-            <Text style={styles.billValue}>{order.items.length}</Text>
-          </View>
-
-          {/* Sub Total - Figma: 759:4075 & 759:4085, y:471 */}
-          <View style={styles.billRow2}>
-            <Text style={styles.billLabel}>Sub Total</Text>
-            <Text style={styles.billValue}>₱ {order.subtotal.toFixed(2)}</Text>
-          </View>
-
-          {/* Dashed Divider Line - Figma: 759:4088, y:617 */}
-          <View style={[styles.dashedDivider, { top: vs(97) }]}>
-            {[...Array(18)].map((_, i) => (
-              <View key={i} style={styles.dash} />
-            ))}
-          </View>
-
-          {/* Grand Total - Figma: 759:4080 & 759:4081, y:639 */}
-          <View style={[styles.billRowGrandTotal, { top: vs(119) }]}>
-            <Text style={styles.grandTotalLabel}>Total</Text>
-            <Text style={styles.grandTotalValue}>₱ {order.total.toFixed(2)}</Text>
-          </View>
-
-          {/* Invoice - Figma: 759:4082 & 759:4083, y:676 */}
+          {/* Invoice - Figma: 759:4082 & 759:4083 */}
           <View style={styles.billRowInvoice}>
             <Text style={styles.billLabel}>Invoice</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => {
                 if (testMode) {
@@ -805,20 +877,265 @@ const styles = StyleSheet.create({
     lineHeight: ms(16) * 1.23,
     color: "#3BB77E",
   },
-  // BILL CARD - Figma: 759:4056, x:20, y:471 (adjusted), width:400, height:320
+  // ORDER LIST CARD - Fixed height with scrollable items
+  orderListCard: {
+    position: "absolute",
+    left: s(20),
+    top: vs(520),
+    width: s(400),
+    height: vs(520), // Fixed height
+  },
+
+  // Order List Background - White card with shadow
+  orderListBackground: {
+    position: "absolute",
+    width: s(400),
+    height: vs(520), // Fixed height
+    backgroundColor: "#FFFFFF",
+    borderRadius: s(20),
+    shadowColor: "rgba(0, 0, 0, 0.15)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: s(12),
+    elevation: 8,
+  },
+
+  // Card Header Section
+  cardHeader: {
+    position: "absolute",
+    top: vs(20),
+    left: s(20),
+    right: s(20),
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  cardHeaderTitle: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(18),
+    color: "#1E1E1E",
+  },
+
+  itemCountBadge: {
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: s(12),
+    paddingVertical: vs(4),
+    borderRadius: s(12),
+  },
+
+  itemCountText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(12),
+    color: "#3BB77E",
+  },
+
+  // Header Divider
+  headerDivider: {
+    position: "absolute",
+    top: vs(55),
+    left: s(20),
+    right: s(20),
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+
+  // Items ScrollView - Scrollable container for items
+  itemsScrollView: {
+    position: "absolute",
+    top: vs(70),
+    left: 0,
+    right: 0,
+    height: vs(250), // Max height for scrolling
+    paddingHorizontal: s(20),
+  },
+
+  // Items List Container
+  itemsListContainer: {
+    paddingBottom: vs(10),
+  },
+
+  // Modern Item Row - Each product row
+  modernItemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: vs(12),
+    minHeight: vs(70),
+  },
+
+  // Item Info Section (Left side)
+  itemInfoSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: s(10),
+  },
+
+  // Product Icon Container
+  productIconContainer: {
+    marginRight: s(12),
+    width: s(48),
+    height: s(48),
+    borderRadius: s(12),
+    overflow: 'hidden',
+    backgroundColor: "#F3F4F6",
+  },
+
+  productImage: {
+    width: s(48),
+    height: s(48),
+  },
+
+  // Product Details
+  productDetails: {
+    flex: 1,
+  },
+
+  modernItemName: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(14),
+    color: "#1E1E1E",
+    lineHeight: ms(14) * 1.4,
+    marginBottom: vs(2),
+  },
+
+  itemWeight: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "400",
+    fontSize: ms(11),
+    color: "#6B7280",
+    marginBottom: vs(2),
+  },
+
+  itemPrice: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "400",
+    fontSize: ms(12),
+    color: "#9CA3AF",
+  },
+
+  // Item Quantity Section (Right side)
+  itemQuantitySection: {
+    alignItems: "flex-end",
+  },
+
+  quantityBadge: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    borderRadius: s(8),
+    marginBottom: vs(6),
+  },
+
+  quantityText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(12),
+    color: "#374151",
+  },
+
+  modernItemAmount: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(16),
+    color: "#3BB77E",
+  },
+
+  // Item Divider
+  itemDivider: {
+    position: "absolute",
+    bottom: 0,
+    left: s(60), // Start after icon
+    right: 0,
+    height: 1,
+    backgroundColor: "#F3F4F6",
+  },
+
+  // Billing Section - Fixed at bottom of card
+  billingSection: {
+    position: "absolute",
+    top: vs(330), // Fixed position from top of card
+    left: 0,
+    right: 0,
+    paddingHorizontal: s(20),
+  },
+
+  billingSeparator: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    marginBottom: vs(15),
+  },
+
+  billingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: vs(10),
+  },
+
+  billingLabel: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "400",
+    fontSize: ms(14),
+    color: "#6B7280",
+  },
+
+  billingValue: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(14),
+    color: "#1E1E1E",
+  },
+
+  // Total Divider
+  totalDivider: {
+    height: 2,
+    backgroundColor: "#3BB77E",
+    marginVertical: vs(12),
+    marginHorizontal: s(-20),
+    paddingHorizontal: s(20),
+  },
+
+  // Total Row
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: vs(5),
+  },
+
+  totalLabel: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "600",
+    fontSize: ms(16),
+    color: "#1E1E1E",
+  },
+
+  totalValue: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "700",
+    fontSize: ms(20),
+    color: "#3BB77E",
+  },
+
+  // BILL CARD - Invoice Link Only (smaller card)
   billCard: {
     position: "absolute",
     left: s(20),
-    top: vs(520), // Moved lower to avoid overlap (previously 471)
+    top: vs(1060), // Below order list card (520 + 520 + 20 spacing)
     width: s(400),
-    height: vs(320),
+    height: vs(80),
   },
 
   // Bill Background - Figma: 759:4057 (Subtract boolean operation with dashed edges)
   billBackground: {
     position: "absolute",
     width: s(400),
-    height: vs(320),
+    height: vs(80),
     backgroundColor: "#FFFFFF",
     borderRadius: s(20),
     shadowColor: "rgba(0, 0, 0, 0.25)",
@@ -828,27 +1145,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
-  // Bill Row 1 - Item - Figma: y:434
-  billRow1: {
-    position: "absolute",
-    left: s(20),
-    top: vs(23), // 434 - 411
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Bill Label - Figma: style_ZS8322
+  // Bill Label - For invoice row
   billLabel: {
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "#1E1E1E", // Figma: fill_T5S7YD
-  },
-
-  // Bill Value
-  billValue: {
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
     fontSize: ms(14),
@@ -856,100 +1154,11 @@ const styles = StyleSheet.create({
     color: "#1E1E1E",
   },
 
-  // Bill Row 2 - Sub Total - Figma: y:471
-  billRow2: {
-    position: "absolute",
-    left: s(20),
-    top: vs(60), // 471 - 411
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Bill Row 3 - Service Fee - Figma: y:508
-  billRow3: {
-    position: "absolute",
-    left: s(20),
-    top: vs(97), // 508 - 411
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Bill Row 4 - Discount - Figma: y:545
-  billRow4: {
-    position: "absolute",
-    left: s(20),
-    top: vs(134), // 545 - 411
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Discount Note - Figma: 759:4078, x:40, y:567
-  discountNote: {
-    position: "absolute",
-    left: s(20),
-    top: vs(156), // 567 - 411
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(12),
-    lineHeight: ms(12) * 1.23,
-    color: "rgba(30, 30, 30, 0.5)", // Figma: fill_X1Q1GT
-  },
-
-  // Dashed Divider - Figma: 759:4088, y:617
-  dashedDivider: {
-    position: "absolute",
-    left: s(20),
-    top: vs(206), // 617 - 411
-    width: s(360),
-    height: vs(2),
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  // Individual Dash
-  dash: {
-    width: s(10.71),
-    height: 2,
-    backgroundColor: "#1E1E1E",
-  },
-
-  // Bill Row Grand Total - Figma: y:639
-  billRowGrandTotal: {
-    position: "absolute",
-    left: s(20),
-    top: vs(228), // 639 - 411
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Grand Total Label - Figma: 759:4080
-  grandTotalLabel: {
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "#FF8D2F", // Figma: fill_PSM8ZG
-  },
-
-  // Grand Total Value - Figma: 759:4081
-  grandTotalValue: {
-    fontFamily: "Clash Grotesk Variable",
-    fontWeight: "500",
-    fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "#FF8D2F",
-  },
-
-  // Bill Row Invoice - Figma: y:676
+  // Bill Row Invoice - In smaller card
   billRowInvoice: {
     position: "absolute",
     left: s(20),
-    top: vs(265), // 676 - 411
+    top: vs(28), // Centered in 80px height card
     width: s(360),
     flexDirection: "row",
     justifyContent: "space-between",
@@ -966,22 +1175,23 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 
-  // PAYMENT METHOD LABEL - Figma: 759:4112, x:20, y:751 (adjusted)
+  // PAYMENT METHOD LABEL
   paymentMethodLabel: {
     position: "absolute",
     left: s(20),
-    top: vs(850), // Moved significantly lower
+    top: vs(1160), // Below invoice card (1060 + 80 + 20 spacing)
     fontFamily: "Clash Grotesk Variable",
     fontWeight: "500",
     fontSize: ms(20),
     lineHeight: ms(20) * 1.1,
     color: "#1E1E1E",
   },
-  // PAYMENT CARD - Figma: 759:4114, x:20, y:793, width:400, height:60
+
+  // PAYMENT CARD
   paymentCard: {
     position: "absolute",
     left: s(20),
-    top: vs(892), // Below the label (850 + 42 spacing)
+    top: vs(1202), // Below the label (1160 + 42 spacing)
     width: s(400),
     height: vs(60),
   },
@@ -1050,7 +1260,7 @@ const styles = StyleSheet.create({
 
   // Bottom Padding
   bottomPadding: {
-    height: vs(1100), // Increased to show all content
+    height: vs(1350), // Increased to show all content (payment card at 1202 + 60 + padding)
   },
 
   // Loading Container

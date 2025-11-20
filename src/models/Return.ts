@@ -15,7 +15,7 @@ export type ReturnReason =
 
 export type ReturnCondition = 'sellable' | 'unsellable';
 
-export type RefundMethod = 'cash' | 'wallet' | 'store_credit' | 'none';
+export type RefundMethod = 'gcash' | 'paymaya' | 'loan';
 
 export type ReturnStatus = 'pending' | 'processed' | 'rejected';
 
@@ -25,16 +25,17 @@ export interface ReturnItem {
   productImage?: string; // Legacy base64 (optional)
   productImageUrl?: string; // New Cloudinary URL (optional)
   quantity: number;
+  quantityReturned?: number; // Actual quantity being returned (may differ from ordered quantity)
   price: number; // Original price per unit
   refundAmount: number; // quantity * price
   productSize: string;
   unit: string;
-  
+
   // Return Details
-  reason: ReturnReason;
+  reason: ReturnReason | string; // Can be predefined reason or custom text
   condition: ReturnCondition;
   notes?: string;
-  
+
   // Inventory Impact
   restoreToInventory: boolean; // true if sellable
 }
@@ -45,22 +46,29 @@ export interface Return {
   storeId: string;
   storeOwnerId: string;
   storeName: string;
-  
+
   // Customer Info
   customerName?: string;
   customerId?: string; // For app orders
   orderNumber?: string; // Original order reference
-  
+
   // Items
   items: ReturnItem[];
-  
+
   // Refund
   refundMethod: RefundMethod;
   totalRefund: number;
-  
+
   // Status
   status: ReturnStatus;
-  
+
+  // Additional Details
+  additionalDetails?: string; // Customer notes/explanation
+  photoUrls?: string[]; // Photos of damaged/defective items
+
+  // Loan Details (if refundMethod is 'loan')
+  loanPaymentDate?: string; // ISO string - date customer will repurchase
+
   // Metadata
   createdAt: string;
   processedAt?: string;
@@ -78,25 +86,24 @@ export interface ReturnInput {
 }
 
 /**
- * Return reasons with labels for UI
+ * Return reasons with labels for UI (no icons)
  */
-export const RETURN_REASONS: { value: ReturnReason; label: string; icon: string }[] = [
-  { value: 'defective', label: 'Defective/Damaged', icon: '⚠️' },
-  { value: 'expired', label: 'Expired', icon: '📅' },
-  { value: 'wrong_item', label: 'Wrong Item', icon: '❌' },
-  { value: 'changed_mind', label: 'Changed Mind', icon: '🔄' },
-  { value: 'quality_issues', label: 'Quality Issues', icon: '⭐' },
-  { value: 'other', label: 'Other', icon: '📝' },
+export const RETURN_REASONS: { value: ReturnReason; label: string }[] = [
+  { value: 'defective', label: 'Defective/Damaged' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'wrong_item', label: 'Wrong Item' },
+  { value: 'changed_mind', label: 'Changed Mind' },
+  { value: 'quality_issues', label: 'Quality Issues' },
+  { value: 'other', label: 'Other (Specify Below)' },
 ];
 
 /**
  * Refund methods with labels for UI
  */
 export const REFUND_METHODS: { value: RefundMethod; label: string }[] = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'wallet', label: 'App Wallet' },
-  { value: 'store_credit', label: 'Store Credit' },
-  { value: 'none', label: 'No Refund (Exchange Only)' },
+  { value: 'gcash', label: 'GCash' },
+  { value: 'paymaya', label: 'PayMaya' },
+  { value: 'loan', label: 'Loan (Pay Later)' },
 ];
 
 /**

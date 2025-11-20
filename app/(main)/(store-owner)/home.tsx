@@ -21,7 +21,7 @@ const FILTER_TABS: FilterTab[] = [
   { label: 'Pending', status: 'pending' },
   { label: 'Preparing', status: 'preparing' },
   { label: 'Out for Pickup', status: 'ready' },
-  { label: 'Pickup', status: 'picked_up' },
+  { label: 'Completed', status: 'picked_up' },
   { label: 'Cancel', status: 'cancelled' },
 ];
 

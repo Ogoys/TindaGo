@@ -32,6 +32,7 @@ import { Colors } from "../../../../src/constants/Colors";
 import { Fonts } from "../../../../src/constants/Fonts";
 import { useUser } from '../../../../src/contexts/UserContext';
 import { addToCartWithValidation, clearCart } from '../../../../src/api/cart';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 export default function OrderDetailsHistoryScreen() {
   const params = useLocalSearchParams();
@@ -301,35 +302,100 @@ export default function OrderDetailsHistoryScreen() {
         {/* TITLE - Figma: 903:5771, x:158, y:83, width:124, height:22 */}
         <Text style={styles.title}>Order Details</Text>
 
-        {/* BILL CARD - Figma: 903:5774, x:20, y:166, width:400, height:300 */}
-        <View style={styles.billCard}>
-          {/* Bill Background with Dashed Edges - Figma: 903:5775 */}
-          <View style={styles.billBackground} />
+        {/* ORDER ITEMS CARD - Enhanced Professional Design with Scrollable Items */}
+        <View style={styles.orderListCard}>
+          {/* Card Background */}
+          <View style={styles.orderListBackground} />
 
-          {/* BILL ITEMS */}
-          {/* Item Count - Figma: 903:5802 & 903:5803, y:189 */}
-          <View style={styles.billRow1}>
-            <Text style={styles.billLabel}>Item</Text>
-            <Text style={styles.billValue}>{safeOrder.items.length}</Text>
+          {/* Card Header */}
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardHeaderTitle}>Order Summary</Text>
+            <View style={styles.itemCountBadge}>
+              <Text style={styles.itemCountText}>{safeOrder.items.length} {safeOrder.items.length === 1 ? 'Item' : 'Items'}</Text>
+            </View>
           </View>
 
-          {/* Sub Total - Figma: 903:5793 & 903:5801, y:226 */}
-          <View style={styles.billRow2}>
-            <Text style={styles.billLabel}>Sub Total</Text>
-            <Text style={styles.billValue}>₱ {formatCurrency(safeOrder.subtotal)}</Text>
-          </View>
+          {/* Header Divider */}
+          <View style={styles.headerDivider} />
 
-          {/* Dashed Divider Line - Figma: 903:5804, y:372 */}
-          <View style={styles.dashedDivider}>
-            {[...Array(18)].map((_, i) => (
-              <View key={i} style={styles.dash} />
-            ))}
-          </View>
+          {/* Scrollable Order Items List */}
+          <ScrollView
+            style={styles.itemsScrollView}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            <View style={styles.itemsListContainer}>
+              {safeOrder.items.map((item, index) => {
+                const imageSource = getProductImageSource({
+                  productImageUrl: (item as any).productImageUrl,
+                  productImage: item.productImage
+                }, 'small');
 
-          {/* Grand Total - Figma: 903:5798 & 903:5799, y:394 */}
-          <View style={styles.billRowGrandTotal}>
-            <Text style={styles.grandTotalLabel}>Total</Text>
-            <Text style={styles.grandTotalValue}>₱ {formatCurrency(safeOrder.total)}</Text>
+                return (
+                  <View key={item.productId || index} style={styles.modernItemRow}>
+                    {/* Item Info Section */}
+                    <View style={styles.itemInfoSection}>
+                      {/* Product Image */}
+                      <View style={styles.productIconContainer}>
+                        <Image
+                          source={imageSource}
+                          style={styles.productImage}
+                          resizeMode="cover"
+                        />
+                      </View>
+
+                      {/* Product Details */}
+                      <View style={styles.productDetails}>
+                        <Text style={styles.modernItemName} numberOfLines={2}>
+                          {item.productName}
+                        </Text>
+                        {item.weight && item.unit && (
+                          <Text style={styles.itemWeight}>
+                            {item.weight} {item.unit}
+                          </Text>
+                        )}
+                        <Text style={styles.itemPrice}>
+                          ₱{formatCurrency(item.price)} each
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Quantity & Amount Section */}
+                    <View style={styles.itemQuantitySection}>
+                      <View style={styles.quantityBadge}>
+                        <Text style={styles.quantityText}>×{item.quantity}</Text>
+                      </View>
+                      <Text style={styles.modernItemAmount}>₱{formatCurrency(item.subtotal)}</Text>
+                    </View>
+
+                    {/* Item Divider (not for last item) */}
+                    {index < safeOrder.items.length - 1 && (
+                      <View style={styles.itemDivider} />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          {/* Billing Section */}
+          <View style={styles.billingSection}>
+            <View style={styles.billingSeparator} />
+
+            {/* Subtotal Row */}
+            <View style={styles.billingRow}>
+              <Text style={styles.billingLabelGray}>Subtotal</Text>
+              <Text style={styles.billingValueBlack}>₱{formatCurrency(safeOrder.subtotal)}</Text>
+            </View>
+
+            {/* Total Divider */}
+            <View style={styles.totalDivider} />
+
+            {/* Grand Total Row */}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabelBold}>Total Amount</Text>
+              <Text style={styles.totalValueGreen}>₱{formatCurrency(safeOrder.total)}</Text>
+            </View>
           </View>
         </View>
 
@@ -398,6 +464,15 @@ export default function OrderDetailsHistoryScreen() {
             </Text>
           </View>
         </View>
+
+        {/* REQUEST RETURN BUTTON */}
+        <TouchableOpacity
+          style={styles.returnButton}
+          activeOpacity={0.7}
+          onPress={() => router.push(`/(main)/(customer)/profile/return-request?orderId=${orderId}`)}
+        >
+          <Text style={styles.returnButtonText}>Request Return</Text>
+        </TouchableOpacity>
 
         {/* REORDER BUTTON - Figma: 903:5855, x:20, y:839, width:400, height:50 */}
         <TouchableOpacity
@@ -483,151 +558,256 @@ const styles = StyleSheet.create({
     color: "#1E1E1E", // Figma: fill_51FS4Y
   },
 
-  // BILL CARD - Figma: 903:5774, x:20, y:166, width:400, height:300
-  billCard: {
+  // ORDER LIST CARD - Fixed height with scrollable items
+  orderListCard: {
     position: "absolute",
     left: s(20),
     top: vs(166),
     width: s(400),
-    height: vs(300),
+    height: vs(520), // Fixed height
   },
 
-  // Bill Background - Figma: 903:5775 (Subtract boolean operation with dashed edges)
-  billBackground: {
+  // Order List Background - White card with shadow
+  orderListBackground: {
     position: "absolute",
     width: s(400),
-    height: vs(300),
-    backgroundColor: "#FFFFFF", // Figma: fill_4RZIIB
+    height: vs(520),
+    backgroundColor: "#FFFFFF",
     borderRadius: s(20),
-    shadowColor: "rgba(0, 0, 0, 0.25)",
-    shadowOffset: { width: 0, height: 0 },
+    shadowColor: "rgba(0, 0, 0, 0.15)",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: s(5),
-    elevation: 5,
+    shadowRadius: s(12),
+    elevation: 8,
   },
 
-  // Bill Row 1 - Item - Figma: y:189 (903:5802, 903:5803)
-  billRow1: {
+  // Card Header Section
+  cardHeader: {
     position: "absolute",
-    left: s(20), // 40 - 20 (card offset)
-    top: vs(23), // 189 - 166
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Bill Label - Figma: style_4GMDZC
-  billLabel: {
-    fontFamily: Fonts.primary,
-    fontWeight: "500",
-    fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "#1E1E1E", // Figma: fill_51FS4Y
-  },
-
-  // Bill Value
-  billValue: {
-    fontFamily: Fonts.primary,
-    fontWeight: "500",
-    fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "#1E1E1E",
-  },
-
-  // Bill Row 2 - Sub Total - Figma: y:226 (903:5793, 903:5801)
-  billRow2: {
-    position: "absolute",
+    top: vs(20),
     left: s(20),
-    top: vs(60), // 226 - 166
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Bill Row 3 - Service Fee - Figma: y:263 (903:5794, 903:5800)
-  billRow3: {
-    position: "absolute",
-    left: s(20),
-    top: vs(97), // 263 - 166
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Bill Row 4 - Discount - Figma: y:300 (903:5795, 903:5797)
-  billRow4: {
-    position: "absolute",
-    left: s(20),
-    top: vs(134), // 300 - 166
-    width: s(360),
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  // Discount Note - Figma: 903:5796, x:40, y:322
-  discountNote: {
-    position: "absolute",
-    left: s(20),
-    top: vs(156), // 322 - 166
-    fontFamily: Fonts.primary,
-    fontWeight: "500",
-    fontSize: ms(12),
-    lineHeight: ms(12) * 1.23,
-    color: "rgba(30, 30, 30, 0.5)", // Figma: fill_SIPPVY
-  },
-
-  // Dashed Divider - Figma: 903:5804, y:372
-  dashedDivider: {
-    position: "absolute",
-    left: s(20),
-    top: vs(206), // 372 - 166
-    width: s(360),
-    height: vs(2),
+    right: s(20),
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
 
-  // Individual Dash
-  dash: {
-    width: s(10.71),
-    height: 2,
-    backgroundColor: "#1E1E1E",
+  cardHeaderTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: "600",
+    fontSize: ms(18),
+    color: "#1E1E1E",
   },
 
-  // Bill Row Grand Total - Figma: y:394 (903:5798, 903:5799)
-  billRowGrandTotal: {
+  itemCountBadge: {
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: s(12),
+    paddingVertical: vs(4),
+    borderRadius: s(12),
+  },
+
+  itemCountText: {
+    fontFamily: Fonts.primary,
+    fontWeight: "500",
+    fontSize: ms(12),
+    color: "#3BB77E",
+  },
+
+  // Header Divider
+  headerDivider: {
     position: "absolute",
+    top: vs(55),
     left: s(20),
-    top: vs(228), // 394 - 166
-    width: s(360),
+    right: s(20),
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+
+  // Items ScrollView
+  itemsScrollView: {
+    position: "absolute",
+    top: vs(70),
+    left: 0,
+    right: 0,
+    height: vs(250),
+    paddingHorizontal: s(20),
+  },
+
+  // Items List Container
+  itemsListContainer: {
+    paddingBottom: vs(10),
+  },
+
+  // Modern Item Row
+  modernItemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: vs(12),
+    minHeight: vs(70),
   },
 
-  // Grand Total Label - Figma: 903:5798
-  grandTotalLabel: {
+  // Item Info Section
+  itemInfoSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: s(10),
+  },
+
+  // Product Icon Container
+  productIconContainer: {
+    marginRight: s(12),
+    width: s(48),
+    height: s(48),
+    borderRadius: s(12),
+    overflow: 'hidden',
+    backgroundColor: "#F3F4F6",
+  },
+
+  productImage: {
+    width: s(48),
+    height: s(48),
+  },
+
+  // Product Details
+  productDetails: {
+    flex: 1,
+  },
+
+  modernItemName: {
     fontFamily: Fonts.primary,
     fontWeight: "500",
     fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "#FF8D2F", // Figma: fill_RAEZY2
+    color: "#1E1E1E",
+    lineHeight: ms(14) * 1.4,
+    marginBottom: vs(2),
   },
 
-  // Grand Total Value - Figma: 903:5799
-  grandTotalValue: {
+  itemWeight: {
+    fontFamily: Fonts.primary,
+    fontWeight: "400",
+    fontSize: ms(11),
+    color: "#6B7280",
+    marginBottom: vs(2),
+  },
+
+  itemPrice: {
+    fontFamily: Fonts.primary,
+    fontWeight: "400",
+    fontSize: ms(12),
+    color: "#9CA3AF",
+  },
+
+  // Item Quantity Section
+  itemQuantitySection: {
+    alignItems: "flex-end",
+  },
+
+  quantityBadge: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    borderRadius: s(8),
+    marginBottom: vs(6),
+  },
+
+  quantityText: {
+    fontFamily: Fonts.primary,
+    fontWeight: "600",
+    fontSize: ms(12),
+    color: "#374151",
+  },
+
+  modernItemAmount: {
+    fontFamily: Fonts.primary,
+    fontWeight: "600",
+    fontSize: ms(16),
+    color: "#3BB77E",
+  },
+
+  // Item Divider
+  itemDivider: {
+    position: "absolute",
+    bottom: 0,
+    left: s(60),
+    right: 0,
+    height: 1,
+    backgroundColor: "#F3F4F6",
+  },
+
+  // Billing Section
+  billingSection: {
+    position: "absolute",
+    top: vs(330),
+    left: 0,
+    right: 0,
+    paddingHorizontal: s(20),
+  },
+
+  billingSeparator: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    marginBottom: vs(15),
+  },
+
+  billingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: vs(10),
+  },
+
+  billingLabelGray: {
+    fontFamily: Fonts.primary,
+    fontWeight: "400",
+    fontSize: ms(14),
+    color: "#6B7280",
+  },
+
+  billingValueBlack: {
     fontFamily: Fonts.primary,
     fontWeight: "500",
     fontSize: ms(14),
-    lineHeight: ms(14) * 1.23,
-    color: "#FF8D2F",
+    color: "#1E1E1E",
   },
 
-  // DETAILS CARD - Figma: 903:5828, x:20, y:486, width:400, height:150
+  // Total Divider
+  totalDivider: {
+    height: 2,
+    backgroundColor: "#3BB77E",
+    marginVertical: vs(12),
+    marginHorizontal: s(-20),
+    paddingHorizontal: s(20),
+  },
+
+  // Total Row
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: vs(5),
+  },
+
+  totalLabelBold: {
+    fontFamily: Fonts.primary,
+    fontWeight: "600",
+    fontSize: ms(16),
+    color: "#1E1E1E",
+  },
+
+  totalValueGreen: {
+    fontFamily: Fonts.primary,
+    fontWeight: "700",
+    fontSize: ms(20),
+    color: "#3BB77E",
+  },
+
+  // DETAILS CARD - Updated position below order list card
   detailsCard: {
     position: "absolute",
     left: s(20),
-    top: vs(486),
+    top: vs(706), // Below order list card (166 + 520 + 20 spacing)
     width: s(400),
     height: vs(150),
   },
@@ -727,23 +907,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // PAYMENT METHOD LABEL - Figma: 903:5846, x:20, y:656, width:153, height:22
+  // PAYMENT METHOD LABEL - Updated position
   paymentMethodLabel: {
     position: "absolute",
     left: s(20),
-    top: vs(656),
+    top: vs(876), // Below details card (706 + 150 + 20 spacing)
     fontFamily: Fonts.primary,
     fontWeight: "500",
     fontSize: ms(20),
     lineHeight: ms(20) * 1.1,
-    color: "#1E1E1E", // Figma: fill_51FS4Y
+    color: "#1E1E1E",
   },
 
-  // PAYMENT CARD - Figma: 903:5848, x:20, y:698, width:400, height:60
+  // PAYMENT CARD - Updated position
   paymentCard: {
     position: "absolute",
     left: s(20),
-    top: vs(698),
+    top: vs(918), // Below payment label (876 + 42 spacing)
     width: s(400),
     height: vs(60),
   },
@@ -781,14 +961,41 @@ const styles = StyleSheet.create({
     color: "#1E1E1E", // Figma: fill_51FS4Y
   },
 
-  // REORDER BUTTON - Figma: 903:5855, x:20, y:839, width:400, height:50
+  // REQUEST RETURN BUTTON - Updated position
+  returnButton: {
+    position: "absolute",
+    left: s(20),
+    top: vs(998), // Below payment card (918 + 60 + 20 spacing)
+    width: s(400),
+    height: vs(50),
+    backgroundColor: "#FF8D2F", // Orange color for return action
+    borderRadius: s(20),
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "rgba(0, 0, 0, 0.25)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: s(4),
+    elevation: 4,
+  },
+
+  returnButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: "500",
+    fontSize: ms(20),
+    lineHeight: ms(20) * 1.1,
+    textAlign: "center",
+    color: "#FFFFFF",
+  },
+
+  // REORDER BUTTON - Updated position
   reorderButton: {
     position: "absolute",
     left: s(20),
-    top: vs(839),
+    top: vs(1068), // Below return button (998 + 50 + 20 spacing)
     width: s(400),
     height: vs(50),
-    backgroundColor: "#3BB77E", // Figma: fill_JG8MQE
+    backgroundColor: "#3BB77E",
     borderRadius: s(20),
     justifyContent: "center",
     alignItems: "center",
@@ -817,7 +1024,7 @@ const styles = StyleSheet.create({
 
   // Bottom Padding
   bottomPadding: {
-    height: vs(950), // Ensure all absolutely positioned content is visible
+    height: vs(1200), // Ensure all absolutely positioned content is visible (reorder button at 1068 + 50 + padding)
   },
 
   // Loading Container
