@@ -26,3 +26,4 @@ export { QuantitySelector } from "./QuantitySelector";
 export { RefundMethodSelector } from "./RefundMethodSelector";
 export type { RefundMethodType } from "./RefundMethodSelector";
 export { LoanPaymentDateModal } from "./LoanPaymentDateModal";
+export { CalendarDatePickerModal } from "./CalendarDatePickerModal";

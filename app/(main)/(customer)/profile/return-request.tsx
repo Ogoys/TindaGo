@@ -709,6 +709,7 @@ export default function ReturnRequestScreen() {
         visible={showLoanModal}
         onClose={handleLoanModalClose}
         onConfirm={handleLoanDateConfirm}
+        selectedDate={loanPaymentDate ?? undefined}
       />
     </SafeAreaView>
   );
