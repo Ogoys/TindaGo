@@ -8,11 +8,11 @@
  * PIXEL-PERFECT IMPLEMENTATION with ALL ASSETS EXTRACTED:
  * - Navigation: chevron-left.png (24x24px)
  * - Card Icon: return-icon.png (32x32px on brown background)
- * - Status Icons: status-pending.png, status-processed.png, status-rejected.png (16x16px)
+ * - Status Icons: status-pending.png, status-resolved.png, status-rejected.png (16x16px)
  * - Empty State: empty-state-returns.png (200x200px)
  *
  * Displays all return requests submitted by the customer.
- * Shows return status (pending, processed, rejected), items, and refund amounts.
+ * Shows return status (pending, resolved, rejected), items, and refund amounts.
  * Accessible from Customer Profile section.
  *
  * Asset Generation Guide: docs/guides/RETURN_HISTORY_ASSETS_GUIDE.md
@@ -165,12 +165,12 @@ const ReturnHistoryCard: React.FC<ReturnHistoryCardProps> = ({ returnItem, onPre
           label: 'Pending',
           icon: require("../../../../src/assets/images/customer-return-history/status-pending.png")
         };
-      case 'processed':
+      case 'resolved':
         return {
           backgroundColor: Colors.primary,
           color: '#FFFFFF',
-          label: 'Processed',
-          icon: require("../../../../src/assets/images/customer-return-history/status-processed.png")
+          label: 'Resolved',
+          icon: require("../../../../src/assets/images/customer-return-history/status-resolved.png")
         };
       case 'rejected':
         return {

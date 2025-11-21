@@ -65,7 +65,7 @@ export const createReturn = async (
       items: returnData.items,
       refundMethod: returnData.refundMethod,
       totalRefund: totalRefund,
-      status: 'processed', // Auto-process on creation
+      status: 'resolved', // Auto-resolve on creation
       createdAt: new Date().toISOString(),
       processedAt: new Date().toISOString(),
       processedBy: storeOwnerId,
@@ -172,7 +172,7 @@ export const getReturnById = async (returnId: string): Promise<Return | null> =>
  */
 export const updateReturnStatus = async (
   returnId: string,
-  status: 'pending' | 'processed' | 'rejected'
+  status: 'pending' | 'resolved' | 'rejected'
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const returnRef = ref(database, `returns/${returnId}`);
@@ -180,8 +180,8 @@ export const updateReturnStatus = async (
       status: status,
     };
 
-    // If marking as processed, set processed date
-    if (status === 'processed') {
+    // If marking as resolved, set processed date
+    if (status === 'resolved') {
       updates.processedAt = new Date().toISOString();
     }
 
@@ -223,7 +223,7 @@ export const getTotalRefunds = async (
   try {
     const returns = await getReturns(storeOwnerId);
     
-    let filtered = returns.filter(r => r.status === 'processed');
+    let filtered = returns.filter(r => r.status === 'resolved');
     
     // Apply date filters if provided
     if (startDate) {
@@ -251,25 +251,25 @@ export const getReturnAnalytics = async (storeOwnerId: string): Promise<{
 }> => {
   try {
     const returns = await getReturns(storeOwnerId);
-    const processed = returns.filter(r => r.status === 'processed');
-    
+    const resolved = returns.filter(r => r.status === 'resolved');
+
     // Total returns
-    const totalReturns = processed.length;
-    
+    const totalReturns = resolved.length;
+
     // Total refunded
-    const totalRefunded = processed.reduce((sum, r) => sum + r.totalRefund, 0);
-    
+    const totalRefunded = resolved.reduce((sum, r) => sum + r.totalRefund, 0);
+
     // Returns by reason
     const returnsByReason: Record<string, number> = {};
-    processed.forEach(returnRecord => {
+    resolved.forEach(returnRecord => {
       returnRecord.items.forEach(item => {
         returnsByReason[item.reason] = (returnsByReason[item.reason] || 0) + 1;
       });
     });
-    
+
     // Most returned products
     const productCounts: Record<string, { name: string; count: number }> = {};
-    processed.forEach(returnRecord => {
+    resolved.forEach(returnRecord => {
       returnRecord.items.forEach(item => {
         if (!productCounts[item.productId]) {
           productCounts[item.productId] = { name: item.productName, count: 0 };

@@ -364,7 +364,7 @@ export default function ReturnRequestScreen() {
           [
             {
               text: "OK",
-              onPress: () => router.back(),
+              onPress: () => router.replace("/(main)/(customer)/profile/return-history"),
             }
           ]
         );

@@ -10,11 +10,29 @@
     "roles": {
       ".write": true
     },
+    "products": {
+      ".indexOn": ["storeOwnerId", "status"]
+    },
+    "damages_spoilage": {
+      ".indexOn": ["storeOwnerId", "createdAt"]
+    },
+    "damages": {
+      ".indexOn": ["storeOwnerId", "createdAt"]
+    },
     "return_goods": {
-      ".indexOn": ["customerId", "storeId", "status"]
+      ".indexOn": ["customerId", "storeId", "storeOwnerId", "status"]
+    },
+    "returns": {
+      ".indexOn": ["storeOwnerId", "status"]
     },
     "orders": {
       ".indexOn": ["customerId", "storeId", "status"]
+    },
+    "purchase_orders": {
+      ".indexOn": ["storeOwnerId", "createdAt"]
+    },
+    "walk_in_sales": {
+      ".indexOn": ["storeOwnerId", "createdAt"]
     },
     ".write": "auth != null"
   }

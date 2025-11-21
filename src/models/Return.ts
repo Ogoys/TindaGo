@@ -17,7 +17,7 @@ export type ReturnCondition = 'sellable' | 'unsellable';
 
 export type RefundMethod = 'gcash' | 'paymaya' | 'loan';
 
-export type ReturnStatus = 'pending' | 'processed' | 'rejected';
+export type ReturnStatus = 'pending' | 'resolved' | 'rejected';
 
 export interface ReturnItem {
   productId: string;

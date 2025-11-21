@@ -1,13 +1,21 @@
 /**
- * RETURN HISTORY SCREEN
- * 
- * View and manage all customer returns
+ * STORE OWNER RETURN HISTORY SCREEN
+ *
+ * Figma File: 8I1Nr3vQZllDDknSevstvH
+ * Node: 1428-6992 (Store Owner Return Items)
+ * Baseline: 440x956
+ *
+ * PIXEL-PERFECT IMPLEMENTATION:
+ * Shows all customer return requests for the store owner.
  * Features:
+ * - Return request cards with status badges (Pending, Resolved, Rejected)
+ * - Click to view return details
  * - Search by customer name or return number
  * - Filter by refund method
  * - Analytics summary
- * - Return details modal
  * - Delete returns
+ *
+ * Design Pattern: Similar to customer return history with store owner specific features
  */
 
 import React, { useState, useEffect } from 'react';
@@ -22,25 +30,19 @@ import {
   TextInput,
   RefreshControl,
   Alert,
-  Modal,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
-import {
-  getReturns,
-  deleteReturn,
-} from '../../../../src/api/returns';
-import { Return, RETURN_REASONS, REFUND_METHODS } from '../../../../src/models/Return';
-import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
+import { getStoreReturns } from '../../../../src/api/returns/storeReturns';
+import { Return, ReturnStatus, REFUND_METHODS } from '../../../../src/models/Return';
 
-type FilterRefundMethod = 'all' | 'cash' | 'wallet' | 'store_credit' | 'none';
+type FilterRefundMethod = 'all' | 'gcash' | 'paymaya' | 'loan';
 
-const ReturnHistoryScreen = () => {
+const StoreOwnerReturnHistoryScreen = () => {
   const [returns, setReturns] = useState<Return[]>([]);
   const [filteredReturns, setFilteredReturns] = useState<Return[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +50,6 @@ const ReturnHistoryScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRefundMethod, setFilterRefundMethod] = useState<FilterRefundMethod>('all');
   const [showFilter, setShowFilter] = useState(false);
-  const [selectedReturn, setSelectedReturn] = useState<Return | null>(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
     fetchReturns();
@@ -64,7 +64,7 @@ const ReturnHistoryScreen = () => {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const data = await getReturns(currentUser.uid);
+      const data = await getStoreReturns(currentUser.uid);
       setReturns(data);
     } catch (error) {
       console.error('Error fetching returns:', error);
@@ -85,7 +85,7 @@ const ReturnHistoryScreen = () => {
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(returnRecord => 
+      filtered = filtered.filter(returnRecord =>
         returnRecord.returnNumber.toLowerCase().includes(query) ||
         returnRecord.customerName?.toLowerCase().includes(query)
       );
@@ -99,55 +99,66 @@ const ReturnHistoryScreen = () => {
     fetchReturns();
   };
 
-  const handleDeleteReturn = async (returnId: string) => {
-    Alert.alert(
-      'Delete Return?',
-      'This will permanently delete this return record. Inventory will NOT be affected.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const result = await deleteReturn(returnId);
-              
-              if (result.success) {
-                Alert.alert('Success', 'Return deleted');
-                fetchReturns();
-                setShowDetailsModal(false);
-              } else {
-                Alert.alert('Error', result.error || 'Failed to delete return');
-              }
-            } catch (error) {
-              console.error('Error deleting return:', error);
-              Alert.alert('Error', 'Failed to delete return');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const getReasonLabel = (reason: string) => {
-    return RETURN_REASONS.find(r => r.value === reason)?.label || reason;
+  const handleReturnPress = (returnItem: Return) => {
+    // Navigate to return details screen with returnId parameter
+    router.push(`/(main)/(store-owner)/profile/return-details?returnId=${returnItem.id}` as any);
   };
 
   const getRefundMethodLabel = (method: string) => {
     return REFUND_METHODS.find(m => m.value === method)?.label || method;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    } catch (error) {
+      return 'N/A';
+    }
+  };
+
+  const formatCurrency = (value: number | undefined): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return '0.00';
+    }
+    return value.toFixed(2);
+  };
+
+  const getStatusConfig = (status: ReturnStatus) => {
+    switch (status) {
+      case 'pending':
+        return {
+          backgroundColor: '#FFA500',
+          color: '#FFFFFF',
+          label: 'Pending',
+        };
+      case 'resolved':
+        return {
+          backgroundColor: Colors.primary,
+          color: '#FFFFFF',
+          label: 'Resolved',
+        };
+      case 'rejected':
+        return {
+          backgroundColor: '#E92B45',
+          color: '#FFFFFF',
+          label: 'Rejected',
+        };
+      default:
+        return {
+          backgroundColor: '#9CA3AF',
+          color: '#FFFFFF',
+          label: status,
+        };
+    }
   };
 
   const renderSummary = () => {
     const totalReturns = filteredReturns.length;
     const totalRefunded = filteredReturns.reduce((sum, r) => sum + r.totalRefund, 0);
-    const sellableCount = filteredReturns.reduce((count, r) => 
-      count + r.items.filter(item => item.condition === 'sellable').length, 0
-    );
+    const pendingCount = filteredReturns.filter(r => r.status === 'pending').length;
 
     return (
       <View style={styles.summaryCard}>
@@ -162,175 +173,69 @@ const ReturnHistoryScreen = () => {
             <Text style={styles.summaryLabel}>Returns</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: Colors.primary }]}>{sellableCount}</Text>
-            <Text style={styles.summaryLabel}>Restored</Text>
+            <Text style={[styles.summaryValue, { color: '#FFA500' }]}>{pendingCount}</Text>
+            <Text style={styles.summaryLabel}>Pending</Text>
           </View>
         </View>
       </View>
     );
   };
 
-  const renderReturnCard = (returnRecord: Return) => {
-    const sellableItems = returnRecord.items.filter(item => item.condition === 'sellable').length;
-    
+  const renderReturnCard = (returnItem: Return, index: number) => {
+    const statusConfig = getStatusConfig(returnItem.status);
+    const isFirst = index === 0;
+
     return (
       <TouchableOpacity
-        key={returnRecord.id}
-        style={styles.returnCard}
-        onPress={() => {
-          setSelectedReturn(returnRecord);
-          setShowDetailsModal(true);
-        }}
-        activeOpacity={0.7}
+        key={returnItem.id}
+        style={[
+          styles.returnCard,
+          isFirst && styles.returnCardFirst
+        ]}
+        onPress={() => handleReturnPress(returnItem)}
+        activeOpacity={0.8}
       >
-        <View style={styles.returnHeader}>
-          <View style={styles.returnHeaderLeft}>
-            <Text style={styles.returnNumber}>{returnRecord.returnNumber}</Text>
-            <View style={styles.refundBadge}>
-              <Text style={styles.refundBadgeText}>{getRefundMethodLabel(returnRecord.refundMethod)}</Text>
-            </View>
+        {/* Logo Container - Brown background with return icon */}
+        <View style={styles.logoContainer}>
+          <View style={styles.logoBackground}>
+            <Text style={styles.returnIconText}>↩</Text>
           </View>
-          <Text style={styles.returnDate}>{formatDate(returnRecord.createdAt)}</Text>
         </View>
 
-        {returnRecord.customerName && (
-          <View style={styles.customerRow}>
-            <Text style={styles.customerLabel}>Customer: </Text>
-            <Text style={styles.customerName}>{returnRecord.customerName}</Text>
-          </View>
-        )}
+        {/* Return Info */}
+        <View style={styles.returnInfo}>
+          {/* Return Number */}
+          <Text style={styles.returnNumber}>{returnItem.returnNumber || 'N/A'}</Text>
 
-        <View style={styles.itemsRow}>
-          <Text style={styles.itemsCount}>
-            {returnRecord.items.length} item(s)
-            {sellableItems > 0 && ` • ${sellableItems} restored`}
+          {/* Customer Name */}
+          {returnItem.customerName && (
+            <Text style={styles.customerName}>{returnItem.customerName}</Text>
+          )}
+
+          {/* Status Badge */}
+          <View style={[styles.statusBadge, { backgroundColor: statusConfig.backgroundColor }]}>
+            <Text style={[styles.statusText, { color: statusConfig.color }]}>
+              {statusConfig.label}
+            </Text>
+          </View>
+        </View>
+
+        {/* Right Section */}
+        <View style={styles.rightSection}>
+          {/* Date */}
+          <Text style={styles.date}>
+            {formatDate(returnItem.createdAt)}
           </Text>
-        </View>
 
-        <View style={styles.returnFooter}>
-          <Text style={styles.refundLabel}>Refund:</Text>
-          <Text style={styles.refundAmount}>₱{returnRecord.totalRefund.toFixed(2)}</Text>
+          {/* Items Count */}
+          <Text style={styles.itemsCount}>
+            {returnItem.items.length} {returnItem.items.length === 1 ? 'item' : 'items'}
+          </Text>
+
+          {/* Total Refund */}
+          <Text style={styles.total}>₱{formatCurrency(returnItem.totalRefund)}</Text>
         </View>
       </TouchableOpacity>
-    );
-  };
-
-  const renderDetailsModal = () => {
-    if (!selectedReturn) return null;
-
-    return (
-      <Modal
-        visible={showDetailsModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowDetailsModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.detailsModal}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <View>
-                  <Text style={styles.modalTitle}>{selectedReturn.returnNumber}</Text>
-                  <View style={styles.refundBadge}>
-                    <Text style={styles.refundBadgeText}>{getRefundMethodLabel(selectedReturn.refundMethod)}</Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setShowDetailsModal(false)}
-                  style={styles.closeButton}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.closeButtonText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Return Info */}
-              <View style={styles.infoSection}>
-                <Text style={styles.infoLabel}>Return Date</Text>
-                <Text style={styles.infoValue}>{formatDate(selectedReturn.createdAt)}</Text>
-
-                {selectedReturn.customerName && (
-                  <>
-                    <Text style={[styles.infoLabel, { marginTop: vs(12) }]}>Customer</Text>
-                    <Text style={styles.infoValue}>{selectedReturn.customerName}</Text>
-                  </>
-                )}
-
-                {selectedReturn.orderNumber && (
-                  <>
-                    <Text style={[styles.infoLabel, { marginTop: vs(12) }]}>Order Number</Text>
-                    <Text style={styles.infoValue}>{selectedReturn.orderNumber}</Text>
-                  </>
-                )}
-
-                {selectedReturn.notes && (
-                  <>
-                    <Text style={[styles.infoLabel, { marginTop: vs(12) }]}>Notes</Text>
-                    <Text style={styles.infoValue}>{selectedReturn.notes}</Text>
-                  </>
-                )}
-              </View>
-
-              {/* Items */}
-              <Text style={styles.sectionTitle}>Returned Items</Text>
-              {selectedReturn.items.map((item, index) => {
-                const imageSource = getProductImageSource(
-                  item.productImageUrl,
-                  item.productImage
-                );
-                
-                return (
-                  <View key={index} style={styles.itemCard}>
-                    {imageSource ? (
-                      <Image source={imageSource} style={styles.itemImage} />
-                    ) : (
-                      <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
-                        <Text style={styles.placeholderText}>No Image</Text>
-                      </View>
-                    )}
-                    <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{item.productName}</Text>
-                    <Text style={styles.itemSize}>{item.productSize} {item.unit}</Text>
-                    <Text style={styles.itemReason}>
-                      Reason: {getReasonLabel(item.reason)}
-                    </Text>
-                    <Text style={[
-                      styles.itemCondition,
-                      { color: item.condition === 'sellable' ? Colors.primary : '#E92B45' }
-                    ]}>
-                      {item.condition === 'sellable' ? '✓ Sellable' : '✗ Unsellable'}
-                    </Text>
-                    {item.notes && (
-                      <Text style={styles.itemNotes}>Note: {item.notes}</Text>
-                    )}
-                  </View>
-                  <View style={styles.itemRight}>
-                    <Text style={styles.itemQuantity}>×{item.quantity}</Text>
-                      <Text style={styles.itemRefund}>₱{item.refundAmount.toFixed(2)}</Text>
-                    </View>
-                  </View>
-                );
-              })}
-
-              {/* Total */}
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total Refund</Text>
-                <Text style={styles.totalValue}>₱{selectedReturn.totalRefund.toFixed(2)}</Text>
-              </View>
-
-              {/* Delete Button */}
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDeleteReturn(selectedReturn.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.deleteButtonText}>Delete Return</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     );
   };
 
@@ -338,18 +243,18 @@ const ReturnHistoryScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
-      {/* Header */}
+      {/* Header - Figma: y:0-130 */}
       <View style={styles.headerContainer}>
+        {/* Back Button - Figma: x:20, y:79, size:30x30 */}
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Image
-            source={require('../../../../src/assets/images/store-product/chevron-left.png')}
-            style={styles.backIcon}
-          />
+          <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
+
+        {/* Title - Figma: centered */}
         <Text style={styles.title}>Return History</Text>
       </View>
 
@@ -363,12 +268,7 @@ const ReturnHistoryScreen = () => {
         {/* Search and Filter */}
         <View style={styles.searchFilterRow}>
           <View style={styles.searchContainer}>
-            <Ionicons
-              name="search"
-              size={s(20)}
-              color="rgba(30, 30, 30, 0.5)"
-              style={styles.searchIcon}
-            />
+            <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
               style={styles.searchInput}
               placeholder="Search returns..."
@@ -395,7 +295,7 @@ const ReturnHistoryScreen = () => {
         {/* Filter Options */}
         {showFilter && (
           <View style={styles.filterOptions}>
-            {(['all', 'cash', 'wallet', 'store_credit', 'none'] as FilterRefundMethod[]).map(method => (
+            {(['all', 'gcash', 'paymaya', 'loan'] as FilterRefundMethod[]).map(method => (
               <TouchableOpacity
                 key={method}
                 style={[
@@ -426,13 +326,22 @@ const ReturnHistoryScreen = () => {
 
         {/* Returns List */}
         {loading ? (
-          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: vs(40) }} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Loading return history...</Text>
+          </View>
         ) : filteredReturns.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>
-              {searchQuery || filterRefundMethod !== 'all' 
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📦</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery || filterRefundMethod !== 'all'
                 ? 'No returns found'
-                : 'No returns yet'}
+                : 'No return requests yet'}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery || filterRefundMethod !== 'all'
+                ? 'Try adjusting your search or filters'
+                : 'Customer return requests will appear here'}
             </Text>
             {!searchQuery && filterRefundMethod === 'all' && (
               <TouchableOpacity
@@ -445,7 +354,7 @@ const ReturnHistoryScreen = () => {
             )}
           </View>
         ) : (
-          filteredReturns.map(returnRecord => renderReturnCard(returnRecord))
+          filteredReturns.map((returnItem, index) => renderReturnCard(returnItem, index))
         )}
       </ScrollView>
 
@@ -459,9 +368,6 @@ const ReturnHistoryScreen = () => {
           <Text style={styles.fabText}>+</Text>
         </TouchableOpacity>
       )}
-
-      {/* Details Modal */}
-      {renderDetailsModal()}
     </View>
   );
 };
@@ -472,6 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundGray,
   },
 
+  // Header - Figma: y:0-130
   headerContainer: {
     backgroundColor: Colors.backgroundGray,
     paddingTop: vs(79),
@@ -481,35 +388,39 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
+  // Back Button - Figma: x:20, y:79, size:30x30
   backButton: {
     position: 'absolute',
     left: s(20),
     top: vs(79),
     width: s(30),
-    height: vs(30),
+    height: s(30),
     borderRadius: s(20),
     backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 4,
     zIndex: 10,
   },
 
   backIcon: {
-    width: s(15),
-    height: vs(15),
+    fontSize: ms(20),
+    color: Colors.darkGray,
+    fontWeight: '600',
   },
 
+  // Title - Figma: centered, fontSize:20
   title: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(20),
     lineHeight: vs(22),
     color: Colors.darkGray,
+    textAlign: 'center',
   },
 
   scrollContent: {
@@ -517,6 +428,7 @@ const styles = StyleSheet.create({
     paddingBottom: vs(100),
   },
 
+  // Search and Filter Row
   searchFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -532,11 +444,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(15),
     paddingVertical: vs(12),
     marginRight: s(10),
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 3,
   },
 
   searchIcon: {
-    width: s(20),
-    height: s(20),
+    fontSize: ms(16),
     marginRight: s(10),
   },
 
@@ -554,6 +470,11 @@ const styles = StyleSheet.create({
     borderRadius: s(12),
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 3,
   },
 
   filterIcon: {
@@ -574,7 +495,7 @@ const styles = StyleSheet.create({
     width: s(8),
     height: s(8),
     borderRadius: s(4),
-    backgroundColor: '#EF5350',
+    backgroundColor: '#E92B45',
   },
 
   filterOptions: {
@@ -609,6 +530,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 
+  // Summary Card
   summaryCard: {
     backgroundColor: Colors.white,
     borderRadius: s(16),
@@ -652,118 +574,174 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
+  // Return Card - Figma: width:400, height:100
   returnCard: {
+    width: s(400),
+    minHeight: vs(100),
     backgroundColor: Colors.white,
     borderRadius: s(16),
-    padding: s(15),
-    marginBottom: vs(12),
-    shadowColor: 'rgba(0, 0, 0, 0.15)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
     elevation: 3,
-  },
-
-  returnHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: vs(10),
+    alignItems: 'center',
+    paddingHorizontal: s(20),
+    paddingVertical: vs(20),
+    marginBottom: vs(15),
   },
 
-  returnHeaderLeft: {
-    flex: 1,
+  returnCardFirst: {
+    marginTop: vs(0),
   },
 
-  returnNumber: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(16),
-    color: Colors.darkGray,
-    marginBottom: vs(6),
+  // Logo Container - Figma: size:40x40, brown background
+  logoContainer: {
+    marginRight: s(15),
   },
 
-  refundBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: s(10),
-    paddingVertical: vs(4),
-    borderRadius: s(12),
-    backgroundColor: Colors.primary,
+  logoBackground: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(8),
+    backgroundColor: '#8B4513', // Brown color for return icon
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
-  refundBadgeText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(11),
-    color: Colors.white,
+  returnIconText: {
+    fontSize: ms(24),
+    color: '#FFFFFF',
     fontWeight: '600',
   },
 
-  returnDate: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: Colors.textSecondary,
+  // Return Info
+  returnInfo: {
+    flex: 1,
+    justifyContent: 'center',
   },
 
-  customerRow: {
-    flexDirection: 'row',
-    marginBottom: vs(10),
-  },
-
-  customerLabel: {
+  // Return Number - Figma: fontSize:14, fontWeight:600
+  returnNumber: {
+    fontSize: ms(14),
     fontFamily: Fonts.primary,
-    fontSize: ms(13),
-    color: Colors.textSecondary,
-  },
-
-  customerName: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(13),
+    fontWeight: '600',
     color: Colors.darkGray,
+    lineHeight: ms(17.22),
+    marginBottom: vs(5),
+  },
+
+  // Customer Name - Figma: fontSize:12, opacity:0.5
+  customerName: {
+    fontSize: ms(12),
+    fontFamily: Fonts.primary,
     fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.5)',
+    lineHeight: ms(14.76),
+    marginBottom: vs(6),
   },
 
-  itemsRow: {
-    marginBottom: vs(10),
-  },
-
-  itemsCount: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(13),
-    color: Colors.textSecondary,
-  },
-
-  returnFooter: {
+  // Status Badge
+  statusBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
-    paddingTop: vs(10),
+    alignSelf: 'flex-start',
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    borderRadius: s(8),
   },
 
-  refundLabel: {
+  statusText: {
+    fontSize: ms(11),
     fontFamily: Fonts.primary,
-    fontSize: ms(13),
-    color: Colors.textSecondary,
+    fontWeight: '600',
+    textTransform: 'capitalize',
   },
 
-  refundAmount: {
+  // Right Section
+  rightSection: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+
+  // Date - Figma: fontSize:12, opacity:0.5
+  date: {
+    fontSize: ms(12),
     fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(18),
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.5)',
+    lineHeight: ms(14.76),
+    marginBottom: vs(3),
+    textAlign: 'right',
+  },
+
+  // Items Count - Figma: fontSize:11, opacity:0.4
+  itemsCount: {
+    fontSize: ms(11),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.4)',
+    lineHeight: ms(13.53),
+    marginBottom: vs(4),
+    textAlign: 'right',
+  },
+
+  // Total - Figma: fontSize:16, fontWeight:600, primary color
+  total: {
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
     color: Colors.primary,
+    lineHeight: ms(19.68),
+    textAlign: 'right',
   },
 
-  emptyState: {
+  // Loading State
+  loadingContainer: {
+    paddingVertical: vs(80),
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: vs(60),
   },
 
-  emptyStateText: {
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
     fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+
+  // Empty State
+  emptyContainer: {
+    paddingVertical: vs(80),
+    paddingHorizontal: s(40),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  emptyIcon: {
+    fontSize: ms(80),
+    marginBottom: vs(20),
+    opacity: 0.5,
+  },
+
+  emptyText: {
+    fontSize: ms(18),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: 'rgba(30, 30, 30, 0.5)',
+    marginBottom: vs(10),
+    textAlign: 'center',
+  },
+
+  emptySubtext: {
     fontSize: ms(14),
-    color: Colors.textSecondary,
+    fontFamily: Fonts.primary,
+    fontWeight: '400',
+    color: 'rgba(30, 30, 30, 0.4)',
+    textAlign: 'center',
+    lineHeight: ms(14) * 1.5,
     marginBottom: vs(20),
   },
 
@@ -772,6 +750,7 @@ const styles = StyleSheet.create({
     borderRadius: s(12),
     paddingVertical: vs(12),
     paddingHorizontal: s(24),
+    marginTop: vs(10),
   },
 
   recordButtonText: {
@@ -781,6 +760,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 
+  // Floating Action Button
   fab: {
     position: 'absolute',
     bottom: vs(30),
@@ -803,209 +783,6 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: '300',
   },
-
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-
-  detailsModal: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: s(20),
-    borderTopRightRadius: s(20),
-    paddingTop: vs(20),
-    paddingHorizontal: s(20),
-    paddingBottom: vs(30),
-    maxHeight: '90%',
-  },
-
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: vs(20),
-  },
-
-  modalTitle: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(20),
-    color: Colors.darkGray,
-    marginBottom: vs(8),
-  },
-
-  closeButton: {
-    width: s(30),
-    height: s(30),
-    borderRadius: s(15),
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  closeButtonText: {
-    fontSize: ms(20),
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-
-  infoSection: {
-    backgroundColor: 'rgba(59, 183, 126, 0.08)',
-    borderRadius: s(12),
-    padding: s(15),
-    marginBottom: vs(20),
-  },
-
-  infoLabel: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: Colors.textSecondary,
-    marginBottom: vs(4),
-  },
-
-  infoValue: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: Colors.darkGray,
-    fontWeight: '500',
-  },
-
-  sectionTitle: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
-    color: Colors.darkGray,
-    marginBottom: vs(12),
-  },
-
-  itemCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-    borderRadius: s(12),
-    padding: s(12),
-    marginBottom: vs(10),
-  },
-
-  itemImage: {
-    width: s(60),
-    height: s(60),
-    borderRadius: s(8),
-    marginRight: s(12),
-  },
-
-  itemImagePlaceholder: {
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  placeholderText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(10),
-    color: Colors.textSecondary,
-  },
-
-  itemInfo: {
-    flex: 1,
-  },
-
-  itemName: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(14),
-    color: Colors.darkGray,
-    marginBottom: vs(2),
-  },
-
-  itemSize: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(11),
-    color: Colors.textSecondary,
-    marginBottom: vs(2),
-  },
-
-  itemReason: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: Colors.textSecondary,
-    marginBottom: vs(2),
-  },
-
-  itemCondition: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    fontWeight: '600',
-    marginBottom: vs(2),
-  },
-
-  itemNotes: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(11),
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-  },
-
-  itemRight: {
-    alignItems: 'flex-end',
-  },
-
-  itemQuantity: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: Colors.darkGray,
-    marginBottom: vs(4),
-  },
-
-  itemRefund: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(14),
-    color: Colors.primary,
-  },
-
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: s(12),
-    padding: s(15),
-    marginTop: vs(10),
-    marginBottom: vs(20),
-  },
-
-  totalLabel: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
-    color: Colors.white,
-  },
-
-  totalValue: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(22),
-    color: Colors.white,
-  },
-
-  deleteButton: {
-    backgroundColor: 'rgba(239, 83, 80, 0.1)',
-    borderWidth: 1,
-    borderColor: '#EF5350',
-    borderRadius: s(12),
-    paddingVertical: vs(12),
-    alignItems: 'center',
-  },
-
-  deleteButtonText: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(14),
-    color: '#EF5350',
-  },
 });
 
-export default ReturnHistoryScreen;
+export default StoreOwnerReturnHistoryScreen;

@@ -1,15 +1,12 @@
 /**
- * INVENTORY DASHBOARD - Comprehensive inventory management and analytics
- * 
+ * INVENTORY DASHBOARD - Comprehensive inventory management with tables
+ *
  * Features:
- * - Real-time inventory statistics
- * - Stock level monitoring
- * - Expiry tracking
- * - Inventory value calculations
- * - Quick actions
- * - Date range filters
- * - Category breakdown
- * - Low stock alerts
+ * - Real-time inventory statistics and insights
+ * - Inventory List Table: Product Name, Total, Available, Unavailable, Return, Loan
+ * - Return List Table: Product Name, Total Available, Damage, Action Button
+ * - Restore returns to inventory functionality
+ * - Stock level monitoring and expiry tracking
  */
 
 import React, { useState, useEffect } from 'react';
@@ -22,34 +19,14 @@ import {
   Image,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo, update } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { s, vs, ms } from '../../../../src/constants/responsive';
-
-interface InventoryStats {
-  totalProducts: number;
-  totalValue: number;
-  inStock: number;
-  lowStock: number;
-  outOfStock: number;
-  expired: number;
-  expiringSoon: number;
-  categories: Record<string, number>;
-  recentlyUpdated: number;
-  expiredInDamageHistory: number; // Expired products recorded in damage history
-  expiredNotRecorded: number; // Expired products not yet recorded in damage history
-}
-
-interface ProductStat {
-  productId: string;
-  name: string;
-  orderCount: number;
-  imageUrl?: string;
-}
 
 // Helper function to parse expiry date (supports both MM/DD/YYYY and ISO formats)
 const parseExpiryDate = (expiryDate: string | undefined): Date | null => {
@@ -80,6 +57,53 @@ const parseExpiryDate = (expiryDate: string | undefined): Date | null => {
   return null;
 };
 
+interface InventoryStats {
+  totalProducts: number;
+  totalValue: number;
+  inStock: number;
+  lowStock: number;
+  outOfStock: number;
+  totalAvailable: number;
+  totalUnavailable: number;
+  totalInReturns: number;
+  totalInLoans: number;
+  expired: number;
+  expiringSoon: number;
+  recentlyUpdated: number;
+  expiredNotRecorded: number;
+}
+
+interface ProductStat {
+  productId: string;
+  name: string;
+  orderCount: number;
+  imageUrl?: string;
+}
+
+interface ProductInventory {
+  productId: string;
+  productName: string;
+  productImage?: string;
+  productImageUrl?: string;
+  total: number; // Total quantity across all states
+  available: number; // In stock and sellable
+  unavailable: number; // Out of stock
+  returns: number; // In customer returns (pending resolution)
+  loans: number; // In loan transactions
+  damage: number; // Damaged/spoiled quantity
+  price: number;
+}
+
+interface ReturnItem {
+  productId: string;
+  productName: string;
+  productImage?: string;
+  productImageUrl?: string;
+  totalAvailable: number; // Sellable items from resolved returns
+  damage: number; // Damaged items from returns
+  returnIds: string[]; // Associated return IDs
+}
+
 export default function InventoryDashboardScreen() {
   const [stats, setStats] = useState<InventoryStats>({
     totalProducts: 0,
@@ -87,17 +111,21 @@ export default function InventoryDashboardScreen() {
     inStock: 0,
     lowStock: 0,
     outOfStock: 0,
+    totalAvailable: 0,
+    totalUnavailable: 0,
+    totalInReturns: 0,
+    totalInLoans: 0,
     expired: 0,
     expiringSoon: 0,
-    categories: {},
     recentlyUpdated: 0,
-    expiredInDamageHistory: 0,
     expiredNotRecorded: 0,
   });
+  const [inventoryList, setInventoryList] = useState<ProductInventory[]>([]);
+  const [returnList, setReturnList] = useState<ReturnItem[]>([]);
   const [topProducts, setTopProducts] = useState<ProductStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [restoring, setRestoring] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInventoryData();
@@ -108,36 +136,7 @@ export default function InventoryDashboardScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
-      // Fetch all damage records to exclude expired products that have been recorded
-      const damagesRef = ref(database, 'damages');
-      const damagesQuery = query(
-        damagesRef,
-        orderByChild('storeOwnerId'),
-        equalTo(user.uid)
-      );
-      
-      const damagesSnapshot = await get(damagesQuery);
-      const damagedProductIds = new Set<string>();
-      
-      let expiredDamageCount = 0;
-      
-      if (damagesSnapshot.exists()) {
-        const damages = damagesSnapshot.val();
-        Object.values(damages).forEach((damage: any) => {
-          if (damage.items && Array.isArray(damage.items)) {
-            damage.items.forEach((item: any) => {
-              if (item.productId) {
-                damagedProductIds.add(item.productId);
-                // Count expired items separately for the "Expired" card
-                if (item.reason === 'expired') {
-                  expiredDamageCount++;
-                }
-              }
-            });
-          }
-        });
-      }
-
+      // Fetch all products
       const productsRef = ref(database, 'products');
       const userProductsQuery = query(
         productsRef,
@@ -145,36 +144,150 @@ export default function InventoryDashboardScreen() {
         equalTo(user.uid)
       );
 
-      const snapshot = await get(userProductsQuery);
-      if (!snapshot.exists()) {
-        setStats({
-          totalProducts: 0,
-          totalValue: 0,
-          inStock: 0,
-          lowStock: 0,
-          outOfStock: 0,
-          expired: 0,
-          expiringSoon: 0,
-          categories: {},
-          recentlyUpdated: 0,
-          expiredInDamageHistory: 0,
-          expiredNotRecorded: 0,
-        });
-        setLoading(false);
-        setRefreshing(false);
+      const productsSnapshot = await get(userProductsQuery);
+      if (!productsSnapshot.exists()) {
+        resetData();
         return;
       }
 
-      const products = snapshot.val();
+      const products = productsSnapshot.val();
+
+      // Fetch return goods (pending and resolved)
+      const returnGoodsRef = ref(database, 'return_goods');
+      const returnsQuery = query(
+        returnGoodsRef,
+        orderByChild('storeOwnerId'),
+        equalTo(user.uid)
+      );
+
+      const returnsSnapshot = await get(returnsQuery);
+      const returns = returnsSnapshot.exists() ? returnsSnapshot.val() : {};
+
+      // Fetch damages
+      const damagesRef = ref(database, 'damages_spoilage');
+      const damagesQuery = query(
+        damagesRef,
+        orderByChild('storeOwnerId'),
+        equalTo(user.uid)
+      );
+
+      const damagesSnapshot = await get(damagesQuery);
+      const damages = damagesSnapshot.exists() ? damagesSnapshot.val() : {};
+
+      // Calculate inventory data per product
+      const productInventoryMap: Record<string, ProductInventory> = {};
+      const returnItemsMap: Record<string, ReturnItem> = {};
+
+      // Initialize from products
+      Object.keys(products).forEach(productId => {
+        const product = products[productId];
+        productInventoryMap[productId] = {
+          productId,
+          productName: product.productName || 'Unknown Product',
+          productImage: product.productImage,
+          productImageUrl: product.productImageUrl,
+          total: product.quantity || 0,
+          available: product.quantity || 0,
+          unavailable: 0,
+          returns: 0,
+          loans: 0,
+          damage: 0,
+          price: product.price || 0,
+        };
+      });
+
+      // Process returns - count pending returns and resolved returns
+      Object.keys(returns).forEach(returnId => {
+        const returnData = returns[returnId];
+
+        if (!returnData.items) return;
+
+        returnData.items.forEach((item: any) => {
+          const productId = item.productId;
+          if (!productId) return;
+
+          // Ensure product exists in map
+          if (!productInventoryMap[productId]) {
+            productInventoryMap[productId] = {
+              productId,
+              productName: item.productName || 'Unknown Product',
+              productImage: item.productImage,
+              productImageUrl: item.productImageUrl,
+              total: 0,
+              available: 0,
+              unavailable: 0,
+              returns: 0,
+              loans: 0,
+              damage: 0,
+              price: item.price || 0,
+            };
+          }
+
+          const quantity = item.quantityReturned || item.quantity || 0;
+
+          if (returnData.status === 'pending') {
+            // Pending returns - count as in returns
+            productInventoryMap[productId].returns += quantity;
+          } else if (returnData.status === 'resolved') {
+            // Resolved returns - add to return list for restoration
+            if (item.condition === 'sellable') {
+              if (!returnItemsMap[productId]) {
+                returnItemsMap[productId] = {
+                  productId,
+                  productName: item.productName || 'Unknown Product',
+                  productImage: item.productImage,
+                  productImageUrl: item.productImageUrl,
+                  totalAvailable: 0,
+                  damage: 0,
+                  returnIds: [],
+                };
+              }
+              returnItemsMap[productId].totalAvailable += quantity;
+              if (!returnItemsMap[productId].returnIds.includes(returnId)) {
+                returnItemsMap[productId].returnIds.push(returnId);
+              }
+            } else {
+              // Damaged/unsellable resolved returns
+              if (!returnItemsMap[productId]) {
+                returnItemsMap[productId] = {
+                  productId,
+                  productName: item.productName || 'Unknown Product',
+                  productImage: item.productImage,
+                  productImageUrl: item.productImageUrl,
+                  totalAvailable: 0,
+                  damage: 0,
+                  returnIds: [],
+                };
+              }
+              returnItemsMap[productId].damage += quantity;
+              if (!returnItemsMap[productId].returnIds.includes(returnId)) {
+                returnItemsMap[productId].returnIds.push(returnId);
+              }
+            }
+          }
+        });
+      });
+
+      // Process damages
+      Object.values(damages).forEach((damage: any) => {
+        if (!damage.items) return;
+
+        damage.items.forEach((item: any) => {
+          const productId = item.productId;
+          if (!productId || !productInventoryMap[productId]) return;
+
+          const quantity = item.quantity || 0;
+          productInventoryMap[productId].damage += quantity;
+        });
+      });
+
+      // Calculate stats with expiry tracking
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
-      console.log('=== INVENTORY DASHBOARD DEBUG ===');
-      console.log('Today:', today.toISOString(), '|', today.toLocaleDateString());
 
       const inventoryStats: InventoryStats = {
         totalProducts: 0,
@@ -182,101 +295,69 @@ export default function InventoryDashboardScreen() {
         inStock: 0,
         lowStock: 0,
         outOfStock: 0,
+        totalAvailable: 0,
+        totalUnavailable: 0,
+        totalInReturns: 0,
+        totalInLoans: 0,
         expired: 0,
         expiringSoon: 0,
-        categories: {},
         recentlyUpdated: 0,
-        expiredInDamageHistory: 0,
         expiredNotRecorded: 0,
       };
 
-      const categoryValues: Record<string, { count: number; value: number }> = {};
       const productOrderCounts: Record<string, { name: string; count: number; imageUrl?: string }> = {};
-      let unrecordedExpiredCount = 0; // Count of expired products not yet in damage history
 
       Object.keys(products).forEach(productId => {
-        const product: any = products[productId];
-        
-        // Skip products that have been recorded as damaged
-        if (damagedProductIds.has(productId)) {
-          return;
-        }
-        
-        inventoryStats.totalProducts++;
+        const product = products[productId];
+        const item = productInventoryMap[productId];
 
-        // Calculate stock levels
-        const quantity = product.quantity || 0;
-        const price = product.price || 0;
-        const category = product.category || 'Uncategorized';
+        if (item) {
+          inventoryStats.totalProducts++;
+          inventoryStats.totalValue += item.available * item.price;
+          inventoryStats.totalAvailable += item.available;
+          inventoryStats.totalUnavailable += item.unavailable;
+          inventoryStats.totalInReturns += item.returns;
+          inventoryStats.totalInLoans += item.loans;
 
-        // Check if product is expired
-        const expiryDate = parseExpiryDate(product.expiryDate);
-        const isExpired = expiryDate && expiryDate <= today;
+          if (item.available >= 10) {
+            inventoryStats.inStock++;
+          } else if (item.available > 0) {
+            inventoryStats.lowStock++;
+          } else {
+            inventoryStats.outOfStock++;
+          }
 
-        if (quantity >= 10) {
-          inventoryStats.inStock++;
-        } else if (quantity > 0) {
-          inventoryStats.lowStock++;
-        } else if (!isExpired) {
-          // Only count as out of stock if not expired
-          inventoryStats.outOfStock++;
-        }
+          // Check expiry
+          if (product.expiryDate) {
+            const expiryDate = parseExpiryDate(product.expiryDate);
+            if (expiryDate) {
+              expiryDate.setHours(0, 0, 0, 0);
+              if (expiryDate <= today) {
+                inventoryStats.expiredNotRecorded++;
+              } else if (expiryDate <= thirtyDaysFromNow) {
+                inventoryStats.expiringSoon++;
+              }
+            }
+          }
 
-        // Calculate value
-        if (quantity > 0) {
-          inventoryStats.totalValue += quantity * price;
-        }
+          // Check recently updated
+          if (product.updatedAt) {
+            const updatedDate = new Date(product.updatedAt);
+            if (updatedDate >= sevenDaysAgo) {
+              inventoryStats.recentlyUpdated++;
+            }
+          }
 
-        // Track categories
-        if (!categoryValues[category]) {
-          categoryValues[category] = { count: 0, value: 0 };
-        }
-        categoryValues[category].count++;
-        categoryValues[category].value += quantity * price;
-
-        // Initialize product order count tracking
-        if (!productOrderCounts[productId]) {
+          // Initialize product order count tracking
           productOrderCounts[productId] = {
             name: product.productName || 'Unknown Product',
             count: 0,
             imageUrl: product.productImageUrl || product.productImage
           };
         }
-
-        // Check expiry (exclude products already recorded as damaged)
-        if (product.expiryDate && !damagedProductIds.has(productId)) {
-          const expiryDate = parseExpiryDate(product.expiryDate);
-          
-          if (expiryDate) {
-            expiryDate.setHours(0, 0, 0, 0); // Normalize to start of day
-            
-            console.log(`Product: ${product.productName}`);
-            console.log('  Raw expiry:', product.expiryDate);
-            console.log('  Parsed expiry:', expiryDate.toISOString(), '|', expiryDate.toLocaleDateString());
-            console.log('  Is expired?', expiryDate < today);
-            console.log('  Days difference:', Math.floor((today.getTime() - expiryDate.getTime()) / (1000 * 60 * 60 * 24)));
-            
-            if (expiryDate <= today) {
-              unrecordedExpiredCount++;
-              console.log('  ✅ COUNTED AS UNRECORDED EXPIRED');
-            } else if (expiryDate <= thirtyDaysFromNow) {
-              inventoryStats.expiringSoon++;
-              console.log('  ⚠️ COUNTED AS EXPIRING SOON');
-            } else {
-              console.log('  ✅ FRESH');
-            }
-            console.log('---');
-          }
-        }
-
-        // Check recently updated
-        if (product.updatedAt) {
-          const updatedDate = new Date(product.updatedAt);
-          if (updatedDate >= sevenDaysAgo) {
-            inventoryStats.recentlyUpdated++;
-          }
-        }
       });
+
+      inventoryStats.expired = inventoryStats.expiredNotRecorded;
 
       // Fetch orders to count product order frequencies
       const ordersRef = ref(database, 'orders');
@@ -285,7 +366,7 @@ export default function InventoryDashboardScreen() {
         orderByChild('storeId'),
         equalTo(user.uid)
       );
-      
+
       const ordersSnapshot = await get(storeOrdersQuery);
       if (ordersSnapshot.exists()) {
         const orders = ordersSnapshot.val();
@@ -314,23 +395,14 @@ export default function InventoryDashboardScreen() {
         .sort((a, b) => b.orderCount - a.orderCount)
         .slice(0, 5); // Top 5 products
 
-      // Set expired counts
-      inventoryStats.expiredInDamageHistory = expiredDamageCount;
-      inventoryStats.expiredNotRecorded = unrecordedExpiredCount;
-      inventoryStats.expired = expiredDamageCount; // For display in overview card
-      
-      console.log('=== FINAL STATS ===');
-      console.log('Total Products:', inventoryStats.totalProducts);
-      console.log('In Stock:', inventoryStats.inStock);
-      console.log('Low Stock:', inventoryStats.lowStock);
-      console.log('Out of Stock:', inventoryStats.outOfStock);
-      console.log('Expired (in damage history):', inventoryStats.expired);
-      console.log('Expired (not recorded):', inventoryStats.expiredNotRecorded);
-      console.log('Damaged Products Excluded:', damagedProductIds.size);
-      
       setStats(inventoryStats);
+      setInventoryList(Object.values(productInventoryMap).sort((a, b) =>
+        b.total - a.total
+      ));
+      setReturnList(Object.values(returnItemsMap).filter(item =>
+        item.totalAvailable > 0 || item.damage > 0
+      ));
       setTopProducts(topProductsArray);
-      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching inventory data:', error);
       Alert.alert('Error', 'Failed to load inventory data');
@@ -340,6 +412,79 @@ export default function InventoryDashboardScreen() {
     }
   };
 
+  const resetData = () => {
+    setStats({
+      totalProducts: 0,
+      totalValue: 0,
+      inStock: 0,
+      lowStock: 0,
+      outOfStock: 0,
+      totalAvailable: 0,
+      totalUnavailable: 0,
+      totalInReturns: 0,
+      totalInLoans: 0,
+      expired: 0,
+      expiringSoon: 0,
+      recentlyUpdated: 0,
+      expiredNotRecorded: 0,
+    });
+    setInventoryList([]);
+    setReturnList([]);
+    setTopProducts([]);
+    setLoading(false);
+    setRefreshing(false);
+  };
+
+  const handleRestoreToInventory = async (item: ReturnItem) => {
+    Alert.alert(
+      'Restore to Inventory',
+      `Restore ${item.totalAvailable} units of "${item.productName}" to inventory?\n\nThis will add these items back to your available stock.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          onPress: async () => {
+            setRestoring(item.productId);
+            try {
+              const user = auth.currentUser;
+              if (!user) return;
+
+              // Get current product quantity
+              const productRef = ref(database, `products/${item.productId}`);
+              const productSnapshot = await get(productRef);
+
+              if (productSnapshot.exists()) {
+                const product = productSnapshot.val();
+                const currentQuantity = product.quantity || 0;
+                const newQuantity = currentQuantity + item.totalAvailable;
+
+                // Update product quantity
+                await update(productRef, {
+                  quantity: newQuantity,
+                  status: 'available',
+                  updatedAt: new Date().toISOString(),
+                });
+
+                Alert.alert(
+                  'Success',
+                  `${item.totalAvailable} units restored to inventory.\n\nNew total: ${newQuantity} units`,
+                  [{ text: 'OK', onPress: () => fetchInventoryData() }]
+                );
+              } else {
+                Alert.alert('Error', 'Product not found in inventory');
+              }
+            } catch (error) {
+              console.error('Error restoring to inventory:', error);
+              Alert.alert('Error', 'Failed to restore items to inventory');
+            } finally {
+              setRestoring(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchInventoryData();
@@ -347,26 +492,54 @@ export default function InventoryDashboardScreen() {
 
   const handleNavigate = (screen: string) => {
     switch (screen) {
+      case 'add-product':
+        router.push('/(main)/(store-owner)/inventory/add-product');
+        break;
+      case 'expired-products':
+        router.push('/(main)/(store-owner)/inventory/expired-products');
+        break;
+      case 'damage-history':
+        router.push('/(main)/(store-owner)/inventory/damage-history');
+        break;
       case 'products':
         router.push('/(main)/(store-owner)/inventory/store-product');
         break;
-      case 'expired':
-        router.push('/(main)/(store-owner)/inventory/damage-history');
-        break;
-      case 'low-stock':
-        router.push({
-          pathname: '/(main)/(store-owner)/inventory/store-product',
-          params: { filter: 'low-stock' }
-        });
-        break;
-      case 'out-of-stock':
-        router.push({
-          pathname: '/(main)/(store-owner)/inventory/store-product',
-          params: { filter: 'out-of-stock' }
-        });
+      default:
         break;
     }
   };
+
+  const getProductImage = (item: ProductInventory | ReturnItem) => {
+    // Check productImageUrl first
+    if (item.productImageUrl) {
+      // If it's already a data URL or http URL, use it directly
+      if (item.productImageUrl.startsWith('data:') || item.productImageUrl.startsWith('http')) {
+        return { uri: item.productImageUrl };
+      }
+      // Otherwise treat it as base64
+      return { uri: `data:image/jpeg;base64,${item.productImageUrl}` };
+    }
+    // Check productImage field
+    if (item.productImage) {
+      if (item.productImage.startsWith('data:') || item.productImage.startsWith('http')) {
+        return { uri: item.productImage };
+      }
+      return { uri: `data:image/jpeg;base64,${item.productImage}` };
+    }
+    // Return null for items without images - will show placeholder
+    return null;
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading inventory...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -375,7 +548,7 @@ export default function InventoryDashboardScreen() {
         <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Inventory Dashboard</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-          <Text style={styles.refreshIcon}>🔄</Text>
+          <Text style={styles.refreshButtonText}>🔄</Text>
         </TouchableOpacity>
       </View>
 
@@ -383,78 +556,47 @@ export default function InventoryDashboardScreen() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
         }
       >
-        {/* Last Updated */}
-        <View style={styles.lastUpdatedContainer}>
-          <Text style={styles.lastUpdatedText}>
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </Text>
-        </View>
+        {/* Insights Section */}
+        <View style={styles.insightsSection}>
+          <Text style={styles.sectionTitle}>💡 Insights</Text>
 
-        {/* Overview Cards */}
-        <View style={styles.overviewSection}>
-          <Text style={styles.sectionTitle}>📊 Overview</Text>
-          
-          <View style={styles.statsGrid}>
-            {/* Total Products */}
-            <TouchableOpacity 
-              style={[styles.statCard, styles.primaryCard]}
-              onPress={() => handleNavigate('products')}
-            >
-              <Text style={styles.statIcon}>📦</Text>
-              <Text style={styles.statNumber}>{stats.totalProducts}</Text>
-              <Text style={styles.statLabel}>Total Products</Text>
-            </TouchableOpacity>
+          <View style={styles.insightsGrid}>
+            <View style={styles.insightCard}>
+              <Text style={styles.insightValue}>{stats.totalProducts}</Text>
+              <Text style={styles.insightLabel}>Total Products</Text>
+            </View>
 
-            {/* Total Value */}
-            <View style={[styles.statCard, styles.valueCard]}>
-              <Text style={styles.statIcon}>💰</Text>
-              <Text style={styles.statNumber}>₱{stats.totalValue.toFixed(0)}</Text>
-              <Text style={styles.statLabel}>Total Value</Text>
+            <View style={styles.insightCard}>
+              <Text style={styles.insightValue}>₱{stats.totalValue.toFixed(0)}</Text>
+              <Text style={styles.insightLabel}>Total Value</Text>
             </View>
           </View>
 
-          <View style={styles.statsGrid}>
-            {/* In Stock */}
-            <TouchableOpacity style={[styles.statCard, styles.successCard]}>
-              <Text style={styles.statIcon}>✅</Text>
-              <Text style={[styles.statNumber, { color: '#3BB77E' }]}>{stats.inStock}</Text>
-              <Text style={styles.statLabel}>In Stock</Text>
-            </TouchableOpacity>
+          <View style={styles.insightsGrid}>
+            <View style={[styles.insightCard, styles.successCard]}>
+              <Text style={styles.insightValue}>{stats.inStock}</Text>
+              <Text style={styles.insightLabel}>In Stock</Text>
+            </View>
 
-            {/* Low Stock */}
-            <TouchableOpacity 
-              style={[styles.statCard, styles.warningCard]}
-              onPress={() => handleNavigate('low-stock')}
-            >
-              <Text style={styles.statIcon}>⚠️</Text>
-              <Text style={[styles.statNumber, { color: '#FF9800' }]}>{stats.lowStock}</Text>
-              <Text style={styles.statLabel}>Low Stock</Text>
-            </TouchableOpacity>
+            <View style={[styles.insightCard, styles.warningCard]}>
+              <Text style={styles.insightValue}>{stats.lowStock}</Text>
+              <Text style={styles.insightLabel}>Low Stock</Text>
+            </View>
           </View>
 
-          <View style={styles.statsGrid}>
-            {/* Out of Stock */}
-            <TouchableOpacity 
-              style={[styles.statCard, styles.dangerCard]}
-              onPress={() => handleNavigate('out-of-stock')}
-            >
-              <Text style={styles.statIcon}>❌</Text>
-              <Text style={[styles.statNumber, { color: '#E92B45' }]}>{stats.outOfStock}</Text>
-              <Text style={styles.statLabel}>Out of Stock</Text>
-            </TouchableOpacity>
+          <View style={styles.insightsGrid}>
+            <View style={[styles.insightCard, styles.dangerCard]}>
+              <Text style={styles.insightValue}>{stats.outOfStock}</Text>
+              <Text style={styles.insightLabel}>Out of Stock</Text>
+            </View>
 
-            {/* Expired */}
-            <TouchableOpacity 
-              style={[styles.statCard, styles.expiredCard]}
-              onPress={() => handleNavigate('expired')}
-            >
-              <Text style={styles.statIcon}>🚫</Text>
-              <Text style={[styles.statNumber, { color: '#E92B45' }]}>{stats.expired}</Text>
-              <Text style={styles.statLabel}>Expired</Text>
-            </TouchableOpacity>
+            <View style={styles.insightCard}>
+              <Text style={styles.insightValue}>{stats.totalInReturns}</Text>
+              <Text style={styles.insightLabel}>In Returns</Text>
+            </View>
           </View>
         </View>
 
@@ -462,11 +604,11 @@ export default function InventoryDashboardScreen() {
         {(stats.lowStock > 0 || stats.expiredNotRecorded > 0 || stats.expiringSoon > 0) && (
           <View style={styles.alertsSection}>
             <Text style={styles.sectionTitle}>🔔 Alerts</Text>
-            
+
             {stats.expiredNotRecorded > 0 && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.alertCard}
-                onPress={() => router.push('/(main)/(store-owner)/inventory/expired-products')}
+                onPress={() => handleNavigate('expired-products')}
               >
                 <View style={styles.alertIconContainer}>
                   <Text style={styles.alertIconText}>🚫</Text>
@@ -474,17 +616,16 @@ export default function InventoryDashboardScreen() {
                 <View style={styles.alertContent}>
                   <Text style={styles.alertTitle}>Expired Products</Text>
                   <Text style={styles.alertMessage}>
-                    {stats.expiredNotRecorded} product{stats.expiredNotRecorded > 1 ? 's have' : ' has'} expired and need attention
+                    {stats.expiredNotRecorded} expired product{stats.expiredNotRecorded !== 1 ? 's' : ''} need{stats.expiredNotRecorded === 1 ? 's' : ''} attention
                   </Text>
                 </View>
-                <Text style={styles.alertArrow}>›</Text>
               </TouchableOpacity>
             )}
 
             {stats.lowStock > 0 && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.alertCard}
-                onPress={() => handleNavigate('low-stock')}
+                onPress={() => handleNavigate('products')}
               >
                 <View style={styles.alertIconContainer}>
                   <Text style={styles.alertIconText}>⚠️</Text>
@@ -492,15 +633,14 @@ export default function InventoryDashboardScreen() {
                 <View style={styles.alertContent}>
                   <Text style={styles.alertTitle}>Low Stock Warning</Text>
                   <Text style={styles.alertMessage}>
-                    {stats.lowStock} product{stats.lowStock > 1 ? 's are' : ' is'} running low
+                    {stats.lowStock} product{stats.lowStock !== 1 ? 's' : ''} running low on stock
                   </Text>
                 </View>
-                <Text style={styles.alertArrow}>›</Text>
               </TouchableOpacity>
             )}
 
             {stats.expiringSoon > 0 && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.alertCard}
                 onPress={() => handleNavigate('products')}
               >
@@ -510,10 +650,9 @@ export default function InventoryDashboardScreen() {
                 <View style={styles.alertContent}>
                   <Text style={styles.alertTitle}>Expiring Soon</Text>
                   <Text style={styles.alertMessage}>
-                    {stats.expiringSoon} product{stats.expiringSoon > 1 ? 's' : ''} expiring within 30 days
+                    {stats.expiringSoon} product{stats.expiringSoon !== 1 ? 's' : ''} expiring within 30 days
                   </Text>
                 </View>
-                <Text style={styles.alertArrow}>›</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -521,25 +660,30 @@ export default function InventoryDashboardScreen() {
 
         {/* Top Products */}
         {topProducts.length > 0 && (
-          <View style={styles.categorySection}>
+          <View style={styles.topProductsSection}>
             <Text style={styles.sectionTitle}>🏆 Top Products</Text>
-            
+
             {topProducts.map((product, index) => (
-              <View key={product.productId} style={styles.productCard}>
-                <View style={styles.productRank}>
-                  <Text style={styles.productRankText}>#{index + 1}</Text>
+              <View key={product.productId} style={styles.topProductCard}>
+                <View style={styles.topProductRank}>
+                  <Text style={styles.topProductRankText}>#{index + 1}</Text>
                 </View>
-                {product.imageUrl && (
-                  <Image 
-                    source={{ uri: product.imageUrl }} 
-                    style={styles.productImage}
+                {product.imageUrl ? (
+                  <Image
+                    source={{ uri: product.imageUrl.startsWith('data:') ? product.imageUrl : `data:image/jpeg;base64,${product.imageUrl}` }}
+                    style={styles.topProductImage}
+                    resizeMode="cover"
                   />
+                ) : (
+                  <View style={[styles.topProductImage, styles.productImagePlaceholder]}>
+                    <Text style={styles.productImagePlaceholderText}>📦</Text>
+                  </View>
                 )}
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-                  <View style={styles.productOrderBadge}>
-                    <Text style={styles.productOrderCount}>🛒 {product.orderCount}</Text>
-                    <Text style={styles.productOrderLabel}> order{product.orderCount !== 1 ? 's' : ''}</Text>
+                <View style={styles.topProductInfo}>
+                  <Text style={styles.topProductName} numberOfLines={2}>{product.name}</Text>
+                  <View style={styles.topProductOrderBadge}>
+                    <Text style={styles.topProductOrderCount}>🛒 {product.orderCount}</Text>
+                    <Text style={styles.topProductOrderLabel}> order{product.orderCount !== 1 ? 's' : ''}</Text>
                   </View>
                 </View>
               </View>
@@ -548,78 +692,176 @@ export default function InventoryDashboardScreen() {
         )}
 
         {/* Quick Actions */}
-        <View style={styles.actionsSection}>
+        <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>⚡ Quick Actions</Text>
-          
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => router.push('/(main)/(store-owner)/inventory/store-product')}
+
+          <View style={styles.quickActionsGrid}>
+            <TouchableOpacity
+              style={styles.quickActionButton}
+              onPress={() => handleNavigate('add-product')}
             >
-              <Text style={styles.actionIcon}>📦</Text>
-              <Text style={styles.actionText}>Manage Products</Text>
+              <Text style={styles.quickActionIcon}>➕</Text>
+              <Text style={styles.quickActionText}>Add Product</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => router.push('/(main)/(store-owner)/inventory/expired-products')}
+            <TouchableOpacity
+              style={styles.quickActionButton}
+              onPress={() => handleNavigate('products')}
             >
-              <Text style={styles.actionIcon}>⚠️</Text>
-              <Text style={styles.actionText}>Expired Items</Text>
+              <Text style={styles.quickActionIcon}>📦</Text>
+              <Text style={styles.quickActionText}>View Products</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => router.push('/(main)/(store-owner)/inventory/record-walk-in-sale')}
+            <TouchableOpacity
+              style={styles.quickActionButton}
+              onPress={() => handleNavigate('expired-products')}
             >
-              <Text style={styles.actionIcon}>🛍️</Text>
-              <Text style={styles.actionText}>Walk-in Sale</Text>
+              <Text style={styles.quickActionIcon}>🚫</Text>
+              <Text style={styles.quickActionText}>Expired</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => router.push('/(main)/(store-owner)/inventory/record-damage')}
+            <TouchableOpacity
+              style={styles.quickActionButton}
+              onPress={() => handleNavigate('damage-history')}
             >
-              <Text style={styles.actionIcon}>💥</Text>
-              <Text style={styles.actionText}>Record Damage</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => router.push('/(main)/(store-owner)/inventory/damage-history')}
-            >
-              <Text style={styles.actionIcon}>📋</Text>
-              <Text style={styles.actionText}>Damage History</Text>
+              <Text style={styles.quickActionIcon}>📋</Text>
+              <Text style={styles.quickActionText}>Damage History</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Insights */}
-        <View style={styles.insightsSection}>
-          <Text style={styles.sectionTitle}>💡 Insights</Text>
-          
-          <View style={styles.insightCard}>
-            <Text style={styles.insightText}>
-              📈 {stats.recentlyUpdated} product{stats.recentlyUpdated !== 1 ? 's' : ''} updated in the last 7 days
+        {/* Inventory List Table */}
+        <View style={styles.tableSection}>
+          <Text style={styles.sectionTitle}>📦 Inventory List</Text>
+
+          {/* Table Header */}
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableHeaderText, styles.col1]}>Product</Text>
+            <Text style={[styles.tableHeaderText, styles.col2]}>Total</Text>
+            <Text style={[styles.tableHeaderText, styles.col3]}>Avail</Text>
+            <Text style={[styles.tableHeaderText, styles.col4]}>Unavail</Text>
+            <Text style={[styles.tableHeaderText, styles.col5]}>Return</Text>
+            <Text style={[styles.tableHeaderText, styles.col6]}>Loan</Text>
+          </View>
+
+          {/* Table Rows */}
+          {inventoryList.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No products in inventory</Text>
+            </View>
+          ) : (
+            inventoryList.map((item, index) => (
+              <View
+                key={item.productId}
+                style={[
+                  styles.tableRow,
+                  index % 2 === 0 && styles.tableRowEven
+                ]}
+              >
+                <View style={styles.col1}>
+                  {getProductImage(item) ? (
+                    <Image
+                      source={getProductImage(item)!}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.productImage, styles.productImagePlaceholder]}>
+                      <Text style={styles.productImagePlaceholderText}>📦</Text>
+                    </View>
+                  )}
+                  <Text style={styles.productName} numberOfLines={2}>
+                    {item.productName}
+                  </Text>
+                </View>
+                <Text style={[styles.tableCellText, styles.col2]}>{item.total}</Text>
+                <Text style={[styles.tableCellText, styles.col3, styles.successText]}>
+                  {item.available}
+                </Text>
+                <Text style={[styles.tableCellText, styles.col4, styles.dangerText]}>
+                  {item.unavailable}
+                </Text>
+                <Text style={[styles.tableCellText, styles.col5, styles.warningText]}>
+                  {item.returns}
+                </Text>
+                <Text style={[styles.tableCellText, styles.col6]}>
+                  {item.loans}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* Return List Table */}
+        {returnList.length > 0 && (
+          <View style={styles.tableSection}>
+            <Text style={styles.sectionTitle}>🔄 Return List</Text>
+            <Text style={styles.sectionSubtitle}>
+              Resolved returns that can be restored to inventory
             </Text>
+
+            {/* Table Header */}
+            <View style={styles.returnTableHeader}>
+              <Text style={[styles.tableHeaderText, styles.returnCol1]}>Product</Text>
+              <Text style={[styles.tableHeaderText, styles.returnCol2]}>Available</Text>
+              <Text style={[styles.tableHeaderText, styles.returnCol3]}>Damage</Text>
+              <Text style={[styles.tableHeaderText, styles.returnCol4]}>Action</Text>
+            </View>
+
+            {/* Table Rows */}
+            {returnList.map((item, index) => (
+              <View
+                key={item.productId}
+                style={[
+                  styles.returnTableRow,
+                  index % 2 === 0 && styles.tableRowEven
+                ]}
+              >
+                <View style={styles.returnCol1}>
+                  {getProductImage(item) ? (
+                    <Image
+                      source={getProductImage(item)!}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.productImage, styles.productImagePlaceholder]}>
+                      <Text style={styles.productImagePlaceholderText}>📦</Text>
+                    </View>
+                  )}
+                  <Text style={styles.productName} numberOfLines={2}>
+                    {item.productName}
+                  </Text>
+                </View>
+                <Text style={[styles.tableCellText, styles.returnCol2, styles.successText]}>
+                  {item.totalAvailable}
+                </Text>
+                <Text style={[styles.tableCellText, styles.returnCol3, styles.dangerText]}>
+                  {item.damage}
+                </Text>
+                <View style={styles.returnCol4}>
+                  <TouchableOpacity
+                    style={[
+                      styles.restoreButton,
+                      item.totalAvailable === 0 && styles.restoreButtonDisabled
+                    ]}
+                    onPress={() => handleRestoreToInventory(item)}
+                    disabled={item.totalAvailable === 0 || restoring === item.productId}
+                    activeOpacity={0.7}
+                  >
+                    {restoring === item.productId ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.restoreButtonText}>
+                        {item.totalAvailable === 0 ? 'No Stock' : 'Restore'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
           </View>
-
-          {stats.totalProducts > 0 && (
-            <View style={styles.insightCard}>
-              <Text style={styles.insightText}>
-                💵 Average product value: ₱{(stats.totalValue / stats.totalProducts).toFixed(2)}
-              </Text>
-            </View>
-          )}
-
-          {stats.inStock > 0 && (
-            <View style={styles.insightCard}>
-              <Text style={styles.insightText}>
-                ✅ {((stats.inStock / stats.totalProducts) * 100).toFixed(1)}% of products are well-stocked
-              </Text>
-            </View>
-          )}
-        </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -630,274 +872,495 @@ export default function InventoryDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.backgroundGray,
+    backgroundColor: '#F4F6F6',
   },
+
+  // Header
   header: {
+    height: vs(100),
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: s(20),
-    paddingTop: vs(60),
-    paddingBottom: vs(20),
-    backgroundColor: Colors.backgroundGray,
+    paddingTop: vs(40),
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    shadowColor: 'rgba(0, 0, 0, 0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: s(4),
+    elevation: 2,
   },
+
   headerSpacer: {
-    width: s(30),
+    width: s(40),
   },
+
   headerTitle: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(18),
-    lineHeight: ms(24),
-    color: Colors.darkGray,
-    includeFontPadding: false,
+    fontWeight: '700',
+    fontSize: ms(20),
+    color: '#1E1E1E',
   },
+
   refreshButton: {
-    width: s(30),
-    height: s(30),
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: Colors.lightGreen,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  refreshIcon: {
-    fontSize: ms(20),
+
+  refreshButtonText: {
+    fontSize: ms(18),
   },
+
+  // Loading
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+
+  // Scroll View
   scrollView: {
     flex: 1,
   },
-  lastUpdatedContainer: {
-    paddingHorizontal: s(20),
-    paddingVertical: vs(10),
+
+  // Insights Section
+  insightsSection: {
+    padding: s(20),
+    backgroundColor: '#FFFFFF',
+    marginBottom: vs(10),
   },
-  lastUpdatedText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
+
   sectionTitle: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(18),
-    color: Colors.darkGray,
-    marginBottom: vs(16),
+    color: '#1E1E1E',
+    marginBottom: vs(15),
   },
-  overviewSection: {
-    paddingHorizontal: s(20),
-    marginBottom: vs(24),
+
+  sectionSubtitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '400',
+    fontSize: ms(13),
+    color: 'rgba(30, 30, 30, 0.6)',
+    marginBottom: vs(15),
   },
-  statsGrid: {
+
+  insightsGrid: {
     flexDirection: 'row',
-    gap: s(12),
-    marginBottom: vs(12),
+    gap: s(10),
+    marginBottom: vs(10),
   },
-  statCard: {
+
+  insightCard: {
     flex: 1,
-    backgroundColor: Colors.white,
-    borderRadius: s(16),
-    padding: s(16),
+    backgroundColor: '#F9FAFB',
+    borderRadius: s(15),
+    padding: s(15),
     alignItems: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  primaryCard: {
-    backgroundColor: Colors.primary,
-  },
-  valueCard: {
-    backgroundColor: '#02545F',
-  },
+
   successCard: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#ECFDF5',
+    borderColor: Colors.primary,
   },
+
   warningCard: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#FEF3E2',
+    borderColor: '#FFA500',
   },
+
   dangerCard: {
     backgroundColor: '#FEE2E2',
+    borderColor: '#E92B45',
   },
-  expiredCard: {
-    backgroundColor: '#FEE2E2',
-  },
-  statIcon: {
-    fontSize: ms(32),
-    marginBottom: vs(8),
-  },
-  statNumber: {
+
+  insightValue: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(24),
-    color: Colors.white,
-    marginBottom: vs(4),
+    color: '#1E1E1E',
+    marginBottom: vs(5),
   },
-  statLabel: {
+
+  insightLabel: {
     fontFamily: Fonts.primary,
     fontWeight: '500',
-    fontSize: ms(11),
-    color: Colors.textSecondary,
+    fontSize: ms(12),
+    color: 'rgba(30, 30, 30, 0.6)',
     textAlign: 'center',
   },
-  alertsSection: {
-    paddingHorizontal: s(20),
-    marginBottom: vs(24),
+
+  // Table Section
+  tableSection: {
+    padding: s(20),
+    backgroundColor: '#FFFFFF',
+    marginBottom: vs(10),
   },
-  alertCard: {
+
+  // Inventory Table
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: Colors.primary,
+    paddingVertical: vs(12),
+    paddingHorizontal: s(10),
+    borderRadius: s(10),
+    marginBottom: vs(5),
+  },
+
+  tableHeaderText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(11),
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+
+  col1: {
+    width: '40%',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: s(12),
-    padding: s(16),
-    marginBottom: vs(12),
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingRight: s(5),
   },
-  alertIconContainer: {
+
+  col2: {
+    width: '10%',
+    textAlign: 'center',
+  },
+
+  col3: {
+    width: '12%',
+    textAlign: 'center',
+  },
+
+  col4: {
+    width: '13%',
+    textAlign: 'center',
+  },
+
+  col5: {
+    width: '13%',
+    textAlign: 'center',
+  },
+
+  col6: {
+    width: '12%',
+    textAlign: 'center',
+  },
+
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: vs(12),
+    paddingHorizontal: s(10),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+
+  tableRowEven: {
+    backgroundColor: '#F9FAFB',
+  },
+
+  tableCellText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(13),
+    color: '#1E1E1E',
+  },
+
+  successText: {
+    color: Colors.primary,
+  },
+
+  warningText: {
+    color: '#FFA500',
+  },
+
+  dangerText: {
+    color: '#E92B45',
+  },
+
+  productImage: {
     width: s(40),
     height: s(40),
+    borderRadius: s(8),
+    marginRight: s(10),
+    backgroundColor: '#F3F4F6',
+  },
+
+  productImagePlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: s(12),
+    backgroundColor: '#E5E7EB',
   },
+
+  productImagePlaceholderText: {
+    fontSize: ms(20),
+  },
+
+  productName: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(13),
+    color: '#1E1E1E',
+  },
+
+  // Return Table
+  returnTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#FFA500',
+    paddingVertical: vs(12),
+    paddingHorizontal: s(10),
+    borderRadius: s(10),
+    marginBottom: vs(5),
+  },
+
+  returnCol1: {
+    width: '45%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: s(5),
+  },
+
+  returnCol2: {
+    width: '15%',
+    textAlign: 'center',
+  },
+
+  returnCol3: {
+    width: '15%',
+    textAlign: 'center',
+  },
+
+  returnCol4: {
+    width: '25%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  returnTableRow: {
+    flexDirection: 'row',
+    paddingVertical: vs(12),
+    paddingHorizontal: s(10),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+
+  restoreButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: s(8),
+    paddingVertical: vs(8),
+    paddingHorizontal: s(12),
+    minWidth: s(70),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  restoreButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    opacity: 0.6,
+  },
+
+  restoreButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(12),
+    color: '#FFFFFF',
+  },
+
+  // Empty State
+  emptyState: {
+    paddingVertical: vs(40),
+    alignItems: 'center',
+  },
+
+  emptyText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(15),
+    color: 'rgba(30, 30, 30, 0.5)',
+  },
+
+  // Alerts Section
+  alertsSection: {
+    padding: s(20),
+    backgroundColor: '#FFFFFF',
+    marginBottom: vs(10),
+  },
+
+  alertCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FEF3E2',
+    borderRadius: s(15),
+    padding: s(15),
+    marginBottom: vs(10),
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA500',
+  },
+
+  alertIconContainer: {
+    width: s(50),
+    height: s(50),
+    borderRadius: s(25),
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(15),
+  },
+
   alertIconText: {
     fontSize: ms(24),
   },
+
   alertContent: {
     flex: 1,
+    justifyContent: 'center',
   },
+
   alertTitle: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(14),
-    color: Colors.darkGray,
-    marginBottom: vs(4),
+    fontWeight: '700',
+    fontSize: ms(15),
+    color: '#1E1E1E',
+    marginBottom: vs(5),
   },
+
   alertMessage: {
     fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: Colors.textSecondary,
+    fontWeight: '400',
+    fontSize: ms(13),
+    color: 'rgba(30, 30, 30, 0.7)',
   },
-  alertArrow: {
-    fontSize: ms(24),
-    color: Colors.textSecondary,
+
+  // Top Products Section
+  topProductsSection: {
+    padding: s(20),
+    backgroundColor: '#FFFFFF',
+    marginBottom: vs(10),
   },
-  categorySection: {
-    paddingHorizontal: s(20),
-    marginBottom: vs(24),
-  },
-  productCard: {
+
+  topProductCard: {
     flexDirection: 'row',
+    backgroundColor: '#F9FAFB',
+    borderRadius: s(15),
+    padding: s(15),
+    marginBottom: vs(10),
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: s(12),
-    padding: s(16),
-    marginBottom: vs(12),
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  productRank: {
-    width: s(32),
-    height: s(32),
-    borderRadius: s(16),
+
+  topProductRank: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: s(12),
   },
-  productRankText: {
+
+  topProductRankText: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(14),
-    color: Colors.white,
+    color: '#FFFFFF',
   },
-  productImage: {
+
+  topProductImage: {
     width: s(50),
     height: s(50),
-    borderRadius: s(8),
+    borderRadius: s(10),
     marginRight: s(12),
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#E5E7EB',
   },
-  productInfo: {
+
+  topProductInfo: {
     flex: 1,
   },
-  productName: {
+
+  topProductName: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(14),
-    color: Colors.darkGray,
-    marginBottom: vs(4),
+    color: '#1E1E1E',
+    marginBottom: vs(5),
   },
-  productOrderBadge: {
+
+  topProductOrderBadge: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  productOrderCount: {
+
+  topProductOrderCount: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(13),
     color: Colors.primary,
   },
-  productOrderLabel: {
+
+  topProductOrderLabel: {
     fontFamily: Fonts.primary,
+    fontWeight: '400',
     fontSize: ms(12),
-    color: Colors.textSecondary,
+    color: 'rgba(30, 30, 30, 0.6)',
   },
-  actionsSection: {
-    paddingHorizontal: s(20),
-    marginBottom: vs(24),
+
+  // Quick Actions Section
+  quickActionsSection: {
+    padding: s(20),
+    backgroundColor: '#FFFFFF',
+    marginBottom: vs(10),
   },
-  actionsGrid: {
+
+  quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: s(12),
+    gap: s(10),
   },
-  actionButton: {
-    width: (s(400) - s(40) - s(12)) / 2,
-    backgroundColor: Colors.white,
-    borderRadius: s(12),
-    padding: s(16),
+
+  quickActionButton: {
+    width: (s(400) - s(50)) / 2, // 2 buttons per row with gaps
+    backgroundColor: Colors.lightGreen,
+    borderRadius: s(15),
+    paddingVertical: vs(20),
     alignItems: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary,
   },
-  actionIcon: {
+
+  quickActionIcon: {
     fontSize: ms(32),
     marginBottom: vs(8),
   },
-  actionText: {
+
+  quickActionText: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(12),
-    color: Colors.darkGray,
-    textAlign: 'center',
-  },
-  insightsSection: {
-    paddingHorizontal: s(20),
-    marginBottom: vs(24),
-  },
-  insightCard: {
-    backgroundColor: '#F0F9FF',
-    borderRadius: s(12),
-    padding: s(16),
-    marginBottom: vs(12),
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  insightText: {
-    fontFamily: Fonts.primary,
     fontSize: ms(13),
-    color: Colors.darkGray,
-    lineHeight: vs(18),
+    color: '#1E1E1E',
   },
+
+  // Bottom Spacer
   bottomSpacer: {
     height: vs(40),
   },

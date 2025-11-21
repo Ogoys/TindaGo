@@ -1,13 +1,14 @@
 /**
- * CUSTOMER RETURN DETAILS SCREEN
+ * STORE OWNER RETURN DETAILS SCREEN
  *
  * Figma File: 8I1Nr3vQZllDDknSevstvH
- * Node: 1428-6206 (Return Details)
+ * Node: 1428-6701 (Store Return Details)
  * Baseline: 440x956
  *
- * Displays detailed information about a specific return request.
- * Shows all returned items, status, refund details, and photos if uploaded.
- * Allows customer to view full return request details and track status.
+ * Displays detailed information about a customer return request for store owner review.
+ * Shows all returned items, status, refund details, photos, and customer information.
+ * Allows store owner to approve or reject the return request.
+ * Status synchronizes with customer return details view in real-time via Firebase.
  */
 
 import React, { useState, useEffect } from "react";
@@ -25,20 +26,27 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useUser } from '../../../../src/contexts/UserContext';
 import type { Return } from '../../../../src/models/Return';
-import { getReturnById, cancelReturnRequest } from '../../../../src/api/returns/customerReturns';
+import { getReturnById } from '../../../../src/api/returns/customerReturns';
+import {
+  processReturnRequest,
+  rejectReturnRequest
+} from '../../../../src/api/returns/storeReturns';
 import { RETURN_REASONS, REFUND_METHODS } from '../../../../src/models/Return';
 import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 import { Colors } from "../../../../src/constants/Colors";
 import { Fonts } from "../../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../../src/constants/responsive";
 
-export default function ReturnDetailsScreen() {
+type ItemCondition = 'sellable' | 'damaged';
+
+export default function StoreReturnDetailsScreen() {
   const params = useLocalSearchParams();
   const returnId = params.returnId as string;
   const { user } = useUser();
   const [returnData, setReturnData] = useState<Return | null>(null);
   const [loading, setLoading] = useState(true);
-  const [cancelling, setCancelling] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [itemConditions, setItemConditions] = useState<Record<string, ItemCondition>>({});
 
   // Fetch return details from Firebase
   useEffect(() => {
@@ -54,6 +62,20 @@ export default function ReturnDetailsScreen() {
         const data = await getReturnById(returnId);
         if (data) {
           setReturnData(data);
+
+          // Initialize item conditions based on return reasons
+          const initialConditions: Record<string, ItemCondition> = {};
+          data.items.forEach((item, index) => {
+            const itemKey = `${item.productId}_${index}`;
+            // Automatically mark as damaged if reason is expired or defective
+            if (item.reason === 'expired' || item.reason === 'defective' || item.reason === 'damaged') {
+              initialConditions[itemKey] = 'damaged';
+            } else {
+              // Default to sellable for other reasons (wrong item, changed mind, etc.)
+              initialConditions[itemKey] = 'sellable';
+            }
+          });
+          setItemConditions(initialConditions);
         } else {
           Alert.alert("Error", "Return request not found");
           router.back();
@@ -74,35 +96,93 @@ export default function ReturnDetailsScreen() {
     router.back();
   };
 
-  const handleCancelReturn = async () => {
+  const handleToggleItemCondition = (itemKey: string) => {
+    setItemConditions(prev => ({
+      ...prev,
+      [itemKey]: prev[itemKey] === 'sellable' ? 'damaged' : 'sellable'
+    }));
+  };
+
+  const handleApproveReturn = async () => {
     if (!returnData || !user) return;
 
+    // Count sellable and damaged items
+    const sellableCount = Object.values(itemConditions).filter(c => c === 'sellable').length;
+    const damagedCount = Object.values(itemConditions).filter(c => c === 'damaged').length;
+
+    const message = `Confirm approval of return request ${returnData.returnNumber}?\n\n` +
+      `• Sellable items: ${sellableCount} (will be added to Return List for restocking)\n` +
+      `• Damaged items: ${damagedCount} (will be marked as damaged, not restockable)\n\n` +
+      `Total refund: ₱${formatCurrency(returnData.totalRefund)}`;
+
     Alert.alert(
-      "Cancel Return Request",
-      "Are you sure you want to cancel this return request?",
+      "Approve Return Request",
+      message,
       [
-        { text: "No", style: "cancel" },
+        { text: "Cancel", style: "cancel" },
         {
-          text: "Yes, Cancel",
-          style: "destructive",
+          text: "Approve",
+          style: "default",
           onPress: async () => {
-            setCancelling(true);
+            setProcessing(true);
             try {
-              const result = await cancelReturnRequest(returnId, user.id);
+              // Update items with their conditions
+              const updatedItems = returnData.items.map((item, index) => ({
+                ...item,
+                condition: itemConditions[`${item.productId}_${index}`] || 'damaged'
+              }));
+
+              const result = await processReturnRequest(returnId, user.id, updatedItems);
               if (result.success) {
                 Alert.alert(
                   "Success",
-                  "Your return request has been cancelled.",
+                  `Return approved!\n\n${sellableCount} sellable item(s) added to Return List.\n${damagedCount} damaged item(s) marked as unsellable.`,
                   [{ text: "OK", onPress: () => router.back() }]
                 );
               } else {
-                Alert.alert("Error", result.error || "Failed to cancel return request");
+                Alert.alert("Error", result.error || "Failed to process return request");
               }
             } catch (error) {
-              console.error("Error cancelling return:", error);
-              Alert.alert("Error", "Failed to cancel return request");
+              console.error("Error approving return:", error);
+              Alert.alert("Error", "Failed to approve return request");
             } finally {
-              setCancelling(false);
+              setProcessing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRejectReturn = async () => {
+    if (!returnData || !user) return;
+
+    Alert.alert(
+      "Reject Return Request",
+      `Are you sure you want to reject return request ${returnData.returnNumber}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reject",
+          style: "destructive",
+          onPress: async () => {
+            setProcessing(true);
+            try {
+              const result = await rejectReturnRequest(returnId, user.id, "Rejected by store owner");
+              if (result.success) {
+                Alert.alert(
+                  "Success",
+                  "Return request has been rejected.",
+                  [{ text: "OK", onPress: () => router.back() }]
+                );
+              } else {
+                Alert.alert("Error", result.error || "Failed to reject return request");
+              }
+            } catch (error) {
+              console.error("Error rejecting return:", error);
+              Alert.alert("Error", "Failed to reject return request");
+            } finally {
+              setProcessing(false);
             }
           },
         },
@@ -168,7 +248,7 @@ export default function ReturnDetailsScreen() {
       case 'pending':
         return 'Pending Review';
       case 'resolved':
-        return 'Resolved';
+        return 'Approved & Resolved';
       case 'rejected':
         return 'Rejected';
       default:
@@ -198,7 +278,7 @@ export default function ReturnDetailsScreen() {
   }
 
   const statusStyle = getStatusStyle(returnData.status);
-  const canCancel = returnData.status === 'pending';
+  const canProcess = returnData.status === 'pending';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -216,7 +296,7 @@ export default function ReturnDetailsScreen() {
         </TouchableOpacity>
 
         {/* Title - Figma: x:155, y:83 */}
-        <Text style={styles.title}>Return Details</Text>
+        <Text style={styles.title}>Return Request Details</Text>
       </View>
 
       <ScrollView
@@ -238,10 +318,10 @@ export default function ReturnDetailsScreen() {
             </View>
           </View>
 
-          {/* Store Info */}
+          {/* Customer Info */}
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Store</Text>
-            <Text style={styles.infoValue}>{returnData.storeName}</Text>
+            <Text style={styles.infoLabel}>Customer</Text>
+            <Text style={styles.infoValue}>{returnData.customerName}</Text>
           </View>
 
           {/* Order Number */}
@@ -255,7 +335,7 @@ export default function ReturnDetailsScreen() {
           {/* Loan Payment Date (if loan refund method) */}
           {returnData.refundMethod === 'loan' && returnData.loanPaymentDate && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Payment Date</Text>
+              <Text style={styles.infoLabel}>Payment Date (Loan)</Text>
               <Text style={styles.infoValue}>{formatDate(returnData.loanPaymentDate)}</Text>
             </View>
           )}
@@ -283,6 +363,10 @@ export default function ReturnDetailsScreen() {
             productImage: item.productImage
           }, 'small');
 
+          const itemKey = `${item.productId}_${index}`;
+          const condition = itemConditions[itemKey] || 'damaged';
+          const isPending = returnData.status === 'pending';
+
           return (
             <View key={index} style={styles.itemCard}>
               {/* Product Image */}
@@ -306,6 +390,37 @@ export default function ReturnDetailsScreen() {
                 <Text style={styles.productQuantity}>
                   Qty: {item.quantityReturned || item.quantity}
                 </Text>
+
+                {/* Condition Toggle (only for pending returns) */}
+                {isPending && (
+                  <TouchableOpacity
+                    style={[
+                      styles.conditionBadge,
+                      condition === 'sellable' ? styles.conditionSellable : styles.conditionDamaged
+                    ]}
+                    onPress={() => handleToggleItemCondition(itemKey)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.conditionText}>
+                      {condition === 'sellable' ? '✓ Sellable' : '✗ Damaged'}
+                    </Text>
+                    <Text style={styles.conditionHint}>Tap to change</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Show condition for non-pending returns */}
+                {!isPending && item.condition && (
+                  <View
+                    style={[
+                      styles.conditionBadgeReadonly,
+                      item.condition === 'sellable' ? styles.conditionSellable : styles.conditionDamaged
+                    ]}
+                  >
+                    <Text style={styles.conditionText}>
+                      {item.condition === 'sellable' ? '✓ Sellable' : '✗ Damaged'}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Price */}
@@ -318,10 +433,10 @@ export default function ReturnDetailsScreen() {
           );
         })}
 
-        {/* Additional Details */}
+        {/* Additional Details from Customer */}
         {returnData.additionalDetails && (
           <View style={styles.detailsCard}>
-            <Text style={styles.cardTitle}>Additional Details</Text>
+            <Text style={styles.cardTitle}>Customer Notes</Text>
             <Text style={styles.detailsText}>{returnData.additionalDetails}</Text>
           </View>
         )}
@@ -343,7 +458,7 @@ export default function ReturnDetailsScreen() {
           </View>
         )}
 
-        {/* Store Notes */}
+        {/* Store Notes (if any) */}
         {returnData.notes && (
           <View style={styles.detailsCard}>
             <Text style={styles.cardTitle}>Store Notes</Text>
@@ -357,20 +472,35 @@ export default function ReturnDetailsScreen() {
           <Text style={styles.totalValue}>₱{formatCurrency(returnData.totalRefund)}</Text>
         </View>
 
-        {/* Cancel Button (only for pending returns) */}
-        {canCancel && (
-          <TouchableOpacity
-            style={[styles.cancelButton, cancelling && styles.cancelButtonDisabled]}
-            onPress={handleCancelReturn}
-            disabled={cancelling}
-            activeOpacity={0.7}
-          >
-            {cancelling ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.cancelButtonText}>Cancel Return Request</Text>
-            )}
-          </TouchableOpacity>
+        {/* Action Buttons (only for pending returns) */}
+        {canProcess && (
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity
+              style={[styles.approveButton, processing && styles.buttonDisabled]}
+              onPress={handleApproveReturn}
+              disabled={processing}
+              activeOpacity={0.7}
+            >
+              {processing ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.approveButtonText}>Approve & Process</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.rejectButton, processing && styles.buttonDisabled]}
+              onPress={handleRejectReturn}
+              disabled={processing}
+              activeOpacity={0.7}
+            >
+              {processing ? (
+                <ActivityIndicator color="#E92B45" />
+              ) : (
+                <Text style={styles.rejectButtonText}>Reject Request</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Bottom Padding */}
@@ -549,6 +679,45 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(30, 30, 30, 0.6)',
   },
+  // Condition Badge
+  conditionBadge: {
+    marginTop: vs(10),
+    paddingVertical: vs(8),
+    paddingHorizontal: s(12),
+    borderRadius: s(10),
+    alignSelf: 'flex-start',
+  },
+  conditionBadgeReadonly: {
+    marginTop: vs(10),
+    paddingVertical: vs(8),
+    paddingHorizontal: s(12),
+    borderRadius: s(10),
+    alignSelf: 'flex-start',
+    opacity: 0.7,
+  },
+  conditionSellable: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  conditionDamaged: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#E92B45',
+  },
+  conditionText: {
+    fontSize: ms(12),
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    color: '#1E1E1E',
+  },
+  conditionHint: {
+    fontSize: ms(9),
+    fontFamily: Fonts.primary,
+    fontWeight: '400',
+    color: 'rgba(30, 30, 30, 0.5)',
+    marginTop: vs(2),
+  },
   priceSection: {
     justifyContent: 'center',
     alignItems: 'flex-end',
@@ -623,29 +792,46 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.white,
   },
-  // Cancel Button
-  cancelButton: {
-    backgroundColor: '#E92B45',
+  // Action Buttons
+  actionsContainer: {
+    marginTop: vs(10),
+    gap: vs(12),
+  },
+  approveButton: {
+    backgroundColor: Colors.primary,
     borderRadius: s(20),
     paddingVertical: vs(15),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(233, 43, 69, 0.3)',
+    shadowColor: 'rgba(59, 183, 126, 0.3)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: s(4),
     elevation: 4,
-    marginBottom: vs(20),
   },
-  cancelButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-    opacity: 0.6,
-  },
-  cancelButtonText: {
+  approveButtonText: {
     fontSize: ms(16),
     fontFamily: Fonts.primary,
     fontWeight: '600',
     color: Colors.white,
+  },
+  rejectButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#E92B45',
+    borderRadius: s(20),
+    paddingVertical: vs(15),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectButtonText: {
+    fontSize: ms(16),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: '#E92B45',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   // Loading & Error States
   loadingContainer: {

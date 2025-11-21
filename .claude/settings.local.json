@@ -26,7 +26,9 @@
       "Bash(node:*)",
       "Bash(dir:*)",
       "Bash(npm run dev:*)",
-      "Bash(firebase deploy:*)"
+      "Bash(firebase deploy:*)",
+      "Bash($null)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []
