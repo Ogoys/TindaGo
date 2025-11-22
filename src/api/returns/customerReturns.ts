@@ -28,7 +28,7 @@ export interface CustomerReturnRequest {
     unit?: string;
     returnReason: ReturnReason;
   }>;
-  refundMethod: 'gcash' | 'paymaya' | 'loan';
+  refundMethod: 'cash' | 'gcash' | 'paymaya' | 'loan';
   additionalDetails?: string;
   photoUrls?: string[];
   loanPaymentDate?: string; // ISO string - date customer will repurchase (for loan refund method)

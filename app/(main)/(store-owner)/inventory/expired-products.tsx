@@ -89,30 +89,12 @@ export default function ExpiredProductsScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
-      // Fetch all damage records to get product IDs that have been recorded
-      const damagesRef = ref(database, 'damages');
-      const damagesQuery = query(
-        damagesRef,
-        orderByChild('storeOwnerId'),
-        equalTo(user.uid)
-      );
-      
-      const damagesSnapshot = await get(damagesQuery);
-      const damagedProductIds = new Set<string>();
-      
-      if (damagesSnapshot.exists()) {
-        const damages = damagesSnapshot.val();
-        Object.values(damages).forEach((damage: any) => {
-          if (damage.items && Array.isArray(damage.items)) {
-            damage.items.forEach((item: any) => {
-              if (item.productId && item.reason === 'expired') {
-                damagedProductIds.add(item.productId);
-              }
-            });
-          }
-        });
-      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
+      const expired: ExpiredProduct[] = [];
+
+      // 1. Fetch products from store inventory that have expired dates
       const productsRef = ref(database, 'products');
       const userProductsQuery = query(
         productsRef,
@@ -121,43 +103,80 @@ export default function ExpiredProductsScreen() {
       );
 
       const snapshot = await get(userProductsQuery);
-      if (!snapshot.exists()) {
-        setExpiredProducts([]);
-        return;
-      }
+      if (snapshot.exists()) {
+        const products = snapshot.val();
 
-      const products = snapshot.val();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+        Object.keys(products).forEach(productId => {
+          const product = products[productId];
 
-      const expired: ExpiredProduct[] = [];
+          if (product.expiryDate) {
+            const expiryDate = parseExpiryDate(product.expiryDate);
 
-      Object.keys(products).forEach(productId => {
-        const product = products[productId];
-        
-        // Skip products that have already been recorded as damaged
-        if (damagedProductIds.has(productId)) {
-          return;
-        }
-        
-        if (product.expiryDate) {
-          const expiryDate = parseExpiryDate(product.expiryDate);
-          
-          if (expiryDate) {
-            expiryDate.setHours(0, 0, 0, 0); // Normalize to start of day
-            
-            if (expiryDate <= today) {
-              const daysExpired = Math.floor((today.getTime() - expiryDate.getTime()) / (1000 * 60 * 60 * 24));
-              expired.push({
-                id: productId,
-                ...product,
-                daysExpired,
-                totalValue: product.price * product.quantity,
-              });
+            if (expiryDate) {
+              expiryDate.setHours(0, 0, 0, 0);
+
+              if (expiryDate <= today) {
+                const daysExpired = Math.floor((today.getTime() - expiryDate.getTime()) / (1000 * 60 * 60 * 24));
+                expired.push({
+                  id: productId,
+                  ...product,
+                  daysExpired,
+                  totalValue: product.price * product.quantity,
+                });
+              }
             }
           }
-        }
-      });
+        });
+      }
+
+      // 2. Fetch customer return items with reason="expired" that are approved (status="resolved")
+      const returnGoodsRef = ref(database, 'return_goods');
+      const storeReturnsQuery = query(
+        returnGoodsRef,
+        orderByChild('storeOwnerId'),
+        equalTo(user.uid)
+      );
+
+      const returnsSnapshot = await get(storeReturnsQuery);
+      if (returnsSnapshot.exists()) {
+        const returns = returnsSnapshot.val();
+
+        Object.keys(returns).forEach(returnId => {
+          const returnData = returns[returnId];
+
+          // Only include resolved returns
+          if (returnData.status === 'resolved' && returnData.items && Array.isArray(returnData.items)) {
+            returnData.items.forEach((item: any, index: number) => {
+              // Check if item has expired reason and is marked as available in return list
+              if (item.reason === 'expired' && item.condition === 'sellable') {
+                // Create a unique ID for returned items
+                const uniqueId = `return_${returnId}_${index}`;
+
+                // Calculate days expired (use processedAt date as reference)
+                const processedDate = returnData.processedAt ? new Date(returnData.processedAt) : today;
+                processedDate.setHours(0, 0, 0, 0);
+                const daysExpired = Math.floor((today.getTime() - processedDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                expired.push({
+                  id: uniqueId,
+                  productName: item.productName,
+                  category: item.category || 'Returned Item',
+                  quantity: item.quantity,
+                  price: item.price || 0,
+                  expiryDate: processedDate.toISOString(),
+                  productSize: item.productSize || '',
+                  unit: item.unit || 'pcs',
+                  status: 'available',
+                  productImage: item.productImage,
+                  productImageUrl: item.productImageUrl,
+                  daysExpired,
+                  totalValue: (item.price || 0) * item.quantity,
+                });
+              }
+            });
+          }
+        });
+      }
 
       // Sort by days expired (most recently expired first)
       expired.sort((a, b) => a.daysExpired - b.daysExpired);
@@ -178,6 +197,12 @@ export default function ExpiredProductsScreen() {
   };
 
   const handleDisableProduct = async (productId: string, productName: string) => {
+    // Don't allow disabling returned items
+    if (productId.startsWith('return_')) {
+      Alert.alert('Cannot Disable', 'This is a returned item. Use "Record Damage" instead.');
+      return;
+    }
+
     Alert.alert(
       'Disable Product?',
       `Mark "${productName}" as out of stock?`,
@@ -207,25 +232,43 @@ export default function ExpiredProductsScreen() {
   };
 
   const handleRecordDamage = (product: ExpiredProduct) => {
+    // Check if this is a returned item (ID starts with "return_")
+    const isReturnedItem = product.id.startsWith('return_');
+
     Alert.alert(
       'Record as Damage?',
-      `This will remove ${product.quantity} units from inventory and record as expired loss.`,
+      isReturnedItem
+        ? `This will record ${product.quantity} units as expired loss from customer returns.`
+        : `This will remove ${product.quantity} units from inventory and record as expired loss.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Record Damage',
           style: 'destructive',
           onPress: () => {
-            // Navigate to record damage screen with pre-filled data
-            router.push({
-              pathname: '/(main)/(store-owner)/inventory/record-damage',
-              params: {
-                productId: product.id,
-                productName: product.productName,
-                quantity: product.quantity.toString(),
-                reason: 'expired',
-              },
-            });
+            if (isReturnedItem) {
+              // For returned items, navigate with special flag
+              router.push({
+                pathname: '/(main)/(store-owner)/inventory/record-damage',
+                params: {
+                  productName: product.productName,
+                  quantity: product.quantity.toString(),
+                  reason: 'expired',
+                  isFromReturn: 'true',
+                },
+              });
+            } else {
+              // For regular products, include productId
+              router.push({
+                pathname: '/(main)/(store-owner)/inventory/record-damage',
+                params: {
+                  productId: product.id,
+                  productName: product.productName,
+                  quantity: product.quantity.toString(),
+                  reason: 'expired',
+                },
+              });
+            }
           },
         },
       ]
@@ -398,7 +441,7 @@ export default function ExpiredProductsScreen() {
 
                 {/* Action Buttons */}
                 <View style={styles.cardActions}>
-                  {product.status === 'available' && (
+                  {product.status === 'available' && !product.id.startsWith('return_') && (
                     <TouchableOpacity
                       style={[styles.actionBtn, styles.disableBtn]}
                       onPress={() => handleDisableProduct(product.id, product.productName)}
@@ -413,7 +456,11 @@ export default function ExpiredProductsScreen() {
                   )}
 
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.damageBtn]}
+                    style={[
+                      styles.actionBtn,
+                      styles.damageBtn,
+                      product.id.startsWith('return_') && { flex: 1 }
+                    ]}
                     onPress={() => handleRecordDamage(product)}
                   >
                     <Text style={styles.actionBtnText}>Record Damage</Text>

@@ -91,6 +91,14 @@ export default function CustomerProfile() {
       },
     },
     {
+      id: 'debt-history',
+      label: 'Debt History',
+      icon: require('../../../../src/assets/images/customer-profile-nav/wallet-icon.png'),
+      onPress: () => {
+        router.push('/(main)/(customer)/profile/debt-history');
+      },
+    },
+    {
       id: 'help',
       label: 'Help',
       icon: require('../../../../src/assets/images/customer-profile-nav/support-icon.png'),

@@ -143,6 +143,8 @@ export default function OrderDetailsScreen() {
         return 'GCash';
       case 'paymaya':
         return 'PayMaya';
+      case 'debt':
+        return 'Debt (Pay Later)';
       default:
         return method;
     }
@@ -451,6 +453,20 @@ export default function OrderDetailsScreen() {
                   <Text style={styles.cashIconText}>₱</Text>
                 </View>
                 <Text style={styles.paymentText}>{getPaymentMethodName(order.paymentMethod)}</Text>
+              </>
+            ) : order.paymentMethod === 'debt' ? (
+              <>
+                <View style={styles.debtIconCircle}>
+                  <Text style={styles.debtIconText}>💳</Text>
+                </View>
+                <View style={styles.debtPaymentInfo}>
+                  <Text style={styles.paymentText}>Debt (Pay Later)</Text>
+                  {order.debtDueDate && (
+                    <Text style={styles.debtDueDateText}>
+                      Due: {new Date(order.debtDueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Text>
+                  )}
+                </View>
               </>
             ) : order.paymentMethod === 'gcash' ? (
               <>
@@ -1256,6 +1272,29 @@ const styles = StyleSheet.create({
     fontSize: ms(18),
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+
+  // Debt Payment Styles
+  debtIconCircle: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: "#FFF3E0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  debtIconText: {
+    fontSize: ms(16),
+  },
+  debtPaymentInfo: {
+    marginLeft: s(15),
+  },
+  debtDueDateText: {
+    fontFamily: "Clash Grotesk Variable",
+    fontWeight: "500",
+    fontSize: ms(12),
+    color: "#FF8D2F",
+    marginTop: vs(2),
   },
 
   // Bottom Padding

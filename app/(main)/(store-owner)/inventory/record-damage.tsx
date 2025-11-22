@@ -366,29 +366,25 @@ const RecordDamageScreen = () => {
       <ProfileScreenHeader title="Record Damage & Spoilage" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Add Product Card */}
+        {/* Section Header */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Damaged Items</Text>
+          <Text style={styles.itemCount}>
+            {selectedProducts.length} {selectedProducts.length === 1 ? 'item' : 'items'}
+          </Text>
+        </View>
+
+        {/* Add Product Card - Dashed border style */}
         <TouchableOpacity
           style={styles.addProductCard}
           onPress={() => setShowProductSelector(true)}
           activeOpacity={0.7}
         >
-          <View style={styles.addProductLeft}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('../../../../src/assets/images/store-product/add-new-icon.png')}
-                style={styles.addIcon}
-              />
-            </View>
-            <Text style={styles.addProductText}>Add Damaged Product</Text>
+          <View style={styles.addProductIconCircle}>
+            <Text style={styles.addProductIcon}>+</Text>
           </View>
-          <Image
-            source={require('../../../../src/assets/images/store-product/forward-arrow.png')}
-            style={styles.forwardArrow}
-          />
+          <Text style={styles.addProductText}>Add Damaged Product</Text>
         </TouchableOpacity>
-
-        {/* Selected Products Section */}
-        <Text style={styles.sectionLabel}>Damaged Items</Text>
         
         {selectedProducts.length === 0 ? (
           <View style={styles.emptyState}>
@@ -396,18 +392,23 @@ const RecordDamageScreen = () => {
             <Text style={styles.emptyStateSubtext}>Tap "Add Damaged Product" to get started</Text>
           </View>
         ) : (
-          selectedProducts.map((product) => {
+          selectedProducts.map((product, index) => {
             const reasonData = getReasonData(product.reason);
             return (
               <View key={product.id} style={styles.selectedProductCard}>
-                {/* Delete X Button */}
-                <TouchableOpacity
-                  onPress={() => handleRemoveProduct(product.id)}
-                  style={styles.removeButton}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.removeButtonText}>✕</Text>
-                </TouchableOpacity>
+                {/* Card Header with Index and Remove */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.productIndexBadge}>
+                    <Text style={styles.productIndexText}>#{index + 1}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveProduct(product.id)}
+                    style={styles.removeButton}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.removeButtonText}>✕ Remove</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {/* Product Image and Info */}
                 <View style={styles.productMainRow}>
@@ -632,51 +633,13 @@ const styles = StyleSheet.create({
     paddingBottom: vs(40),
   },
 
-  addProductCard: {
+  // Section Header
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: s(16),
-    paddingVertical: vs(15),
-    paddingHorizontal: s(15),
-    marginBottom: vs(20),
-    shadowColor: 'rgba(0, 0, 0, 0.25)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-
-  addProductLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(15),
-  },
-
-  logoContainer: {
-    width: s(50),
-    height: vs(50),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  addIcon: {
-    width: s(30),
-    height: vs(30),
-  },
-
-  addProductText: {
-    fontFamily: Fonts.primary,
-    fontWeight: '500',
-    fontSize: ms(18),
-    lineHeight: vs(22),
-    color: Colors.darkGray,
-  },
-
-  forwardArrow: {
-    width: s(30),
-    height: s(30),
+    marginBottom: vs(15),
+    marginTop: vs(10),
   },
 
   sectionLabel: {
@@ -685,7 +648,72 @@ const styles = StyleSheet.create({
     fontSize: ms(18),
     lineHeight: vs(22),
     color: Colors.darkGray,
+  },
+
+  itemCount: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: Colors.textSecondary,
+  },
+
+  // Add Product Card - Dashed style
+  addProductCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    paddingVertical: vs(18),
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    borderStyle: 'dashed',
+    marginBottom: vs(20),
+  },
+
+  addProductIconCircle: {
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(10),
+  },
+
+  addProductIcon: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(18),
+    color: Colors.white,
+  },
+
+  addProductText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: Colors.primary,
+  },
+
+  // Card Header styles
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: vs(12),
+  },
+
+  productIndexBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: s(12),
+    paddingVertical: vs(4),
+    borderRadius: s(12),
+  },
+
+  productIndexText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(12),
+    color: Colors.white,
   },
 
   emptyState: {
@@ -892,22 +920,15 @@ const styles = StyleSheet.create({
   },
 
   removeButton: {
-    position: 'absolute',
-    top: s(10),
-    right: s(10),
-    width: s(28),
-    height: s(28),
-    borderRadius: s(14),
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
+    paddingVertical: vs(4),
+    paddingHorizontal: s(8),
   },
 
   removeButtonText: {
-    fontSize: ms(18),
-    fontWeight: '600',
-    color: '#FF3B30',
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(13),
+    color: '#FF5252',
   },
 
   totalSection: {

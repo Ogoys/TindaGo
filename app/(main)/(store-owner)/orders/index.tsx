@@ -319,19 +319,62 @@ export default function StoreOrdersScreen() {
     return tab ? tab.label : 'Orders';
   };
 
-  // Format time ago
-  const getTimeAgo = (dateString: string) => {
-    const now = new Date();
-    const orderDate = new Date(dateString);
-    const diffMs = now.getTime() - orderDate.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
+  // Format time ago - ACCURATE calculation based on actual order date
+  const getTimeAgo = (dateString: string): string => {
+    if (!dateString) return 'Unknown';
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} min ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    try {
+      const now = new Date();
+      const orderDate = new Date(dateString);
+
+      // Validate the date
+      if (isNaN(orderDate.getTime())) {
+        return 'Unknown';
+      }
+
+      // Calculate difference in milliseconds
+      const diffMs = now.getTime() - orderDate.getTime();
+
+      // Handle future dates (shouldn't happen but just in case)
+      if (diffMs < 0) {
+        return 'Just now';
+      }
+
+      // Convert to different units
+      const diffSeconds = Math.floor(diffMs / 1000);
+      const diffMinutes = Math.floor(diffSeconds / 60);
+      const diffHours = Math.floor(diffMinutes / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      const diffWeeks = Math.floor(diffDays / 7);
+      const diffMonths = Math.floor(diffDays / 30);
+
+      // Return appropriate string based on time difference
+      if (diffSeconds < 60) {
+        return 'Just now';
+      } else if (diffMinutes < 60) {
+        return `${diffMinutes} min${diffMinutes !== 1 ? 's' : ''} ago`;
+      } else if (diffHours < 24) {
+        return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+      } else if (diffDays === 1) {
+        return 'Yesterday';
+      } else if (diffDays < 7) {
+        return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+      } else if (diffWeeks < 4) {
+        return `${diffWeeks} week${diffWeeks !== 1 ? 's' : ''} ago`;
+      } else if (diffMonths < 12) {
+        return `${diffMonths} month${diffMonths !== 1 ? 's' : ''} ago`;
+      } else {
+        // For very old orders, show the actual date
+        return orderDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return 'Unknown';
+    }
   };
 
   return (

@@ -54,7 +54,8 @@ interface Product {
   quantity: number;
   productSize: string;
   unit: string;
-  productImage: string;
+  productImage?: string;       // Legacy base64 field
+  productImageUrl?: string;    // New Cloudinary URL field
   storeOwnerId: string;
   storeId: string;
   storeName: string;

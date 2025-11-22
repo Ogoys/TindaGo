@@ -176,7 +176,7 @@ export async function fetchProductsByStore(storeId: string, includeOutOfStock: b
       
       // Filter to only show available products unless explicitly requested
       // Also filter out products with quantity <= 0
-      const filtered = includeOutOfStock ? allProducts : allProducts.filter(p => p.status === 'available' && (p.quantity > 0 || p.stock > 0));
+      const filtered = includeOutOfStock ? allProducts : allProducts.filter(p => p.status === 'available' && ((p.quantity && p.quantity > 0) || p.stock > 0));
       
       console.log(`📦 Fetched ${filtered.length} products for store ${storeId}`);
       return filtered;

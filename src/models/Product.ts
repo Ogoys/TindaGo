@@ -16,7 +16,8 @@ export interface Product {
   storeIsOpen?: boolean;      // Denormalized store open status - synced from store.isOpen
   imageUrl: string;
   images?: string[];          // Multiple product images
-  stock: number;
+  stock: number;              // Customer-facing field
+  quantity?: number;          // Store owner field (same as stock, kept for compatibility)
   weight?: string;            // "500g", "1kg", etc.
   unit?: string;              // "kg", "g", "pcs", "pack"
   rating?: number;            // 0-5 stars

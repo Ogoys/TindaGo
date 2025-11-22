@@ -38,6 +38,7 @@ import { s, vs, ms } from '../../../src/constants/responsive';
 import { OrderCompleteModal } from '../../../src/components/ui/OrderCompleteModal';
 import { OrderErrorModal } from '../../../src/components/ui/OrderErrorModal';
 import { PaymentMethodSelector, PaymentMethod } from '../../../src/components/ui/PaymentMethodSelector';
+import { CalendarDatePickerModal } from '../../../src/components/ui/CalendarDatePickerModal';
 import { createOrder } from '../../../src/api/orders';
 import { clearCart } from '../../../src/api/cart';
 import { xenditService } from '../../../src/services/payment/XenditService';
@@ -74,6 +75,14 @@ const PaymentScreen = () => {
   const [pendingOrderNumber, setPendingOrderNumber] = useState<string>('');
   const appState = useRef(AppState.currentState);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Debt payment state
+  const [debtDueDate, setDebtDueDate] = useState<Date>(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 7); // Default: 7 days from now
+    return date;
+  });
+  const [showDebtDatePicker, setShowDebtDatePicker] = useState(false);
 
   // Load order summary from cart or params
   useEffect(() => {
@@ -171,6 +180,106 @@ const PaymentScreen = () => {
     setSelectedPayment(method);
   };
 
+  // Check debt restrictions before allowing debt payment
+  const checkDebtRestrictions = async (
+    storeId: string,
+    customerId: string,
+    orderAmount: number
+  ): Promise<{ allowed: boolean; message: string }> => {
+    try {
+      // Get store's debt settings
+      const storeRef = ref(database, `stores/${storeId}`);
+      const storeSnapshot = await get(storeRef);
+
+      if (!storeSnapshot.exists()) {
+        return { allowed: true, message: '' }; // Allow if store not found
+      }
+
+      const storeData = storeSnapshot.val();
+      const debtSettings = storeData.debtSettings;
+
+      // If no debt settings, allow debt by default
+      if (!debtSettings) {
+        return { allowed: true, message: '' };
+      }
+
+      // Check if store allows debt
+      if (!debtSettings.allowDebt) {
+        return {
+          allowed: false,
+          message: `${storeData.name || 'This store'} does not accept "Pay Later" (debt) payments.\n\nPlease choose a different payment method.`,
+        };
+      }
+
+      // Check customer-specific debt settings
+      const customerDebtSettingRef = ref(database, `stores/${storeId}/customerDebtSettings/${customerId}`);
+      const customerDebtSnapshot = await get(customerDebtSettingRef);
+
+      if (customerDebtSnapshot.exists()) {
+        const customerDebtSetting = customerDebtSnapshot.val();
+        if (customerDebtSetting.debtEnabled === false) {
+          return {
+            allowed: false,
+            message: `${storeData.name || 'This store'} has disabled "Pay Later" (debt) payments for your account.\n\nPlease contact the store owner or choose a different payment method.`,
+          };
+        }
+      }
+
+      // Get customer's existing unpaid debts to this store
+      const ordersRef = ref(database, 'orders');
+      const customerOrdersQuery = query(
+        ordersRef,
+        orderByChild('customerId'),
+        equalTo(customerId)
+      );
+      const ordersSnapshot = await get(customerOrdersQuery);
+
+      let existingDebtAmount = 0;
+      let hasUnpaidDebt = false;
+
+      if (ordersSnapshot.exists()) {
+        const orders = ordersSnapshot.val();
+        Object.values(orders).forEach((order: any) => {
+          // Check orders to this specific store with debt payment that's unpaid
+          if (
+            order.storeId === storeId &&
+            order.paymentMethod === 'debt' &&
+            order.debtStatus !== 'paid'
+          ) {
+            existingDebtAmount += order.total || 0;
+            hasUnpaidDebt = true;
+          }
+        });
+      }
+
+      // Check if previous debt must be paid first
+      if (debtSettings.requirePreviousDebtPayment && hasUnpaidDebt) {
+        return {
+          allowed: false,
+          message: `You have an unpaid debt of ₱${existingDebtAmount.toFixed(2)} at ${storeData.name || 'this store'}.\n\nPlease pay your existing debt before making a new "Pay Later" purchase.\n\nYou can view your debts in Profile > Debt History.`,
+        };
+      }
+
+      // Check debt limit
+      if (debtSettings.debtLimit > 0) {
+        const newTotalDebt = existingDebtAmount + orderAmount;
+        if (newTotalDebt > debtSettings.debtLimit) {
+          const remainingLimit = Math.max(0, debtSettings.debtLimit - existingDebtAmount);
+          return {
+            allowed: false,
+            message: `This purchase would exceed your debt limit at ${storeData.name || 'this store'}.\n\nDebt Limit: ₱${debtSettings.debtLimit.toLocaleString()}\nCurrent Debt: ₱${existingDebtAmount.toFixed(2)}\nRemaining: ₱${remainingLimit.toFixed(2)}\nOrder Amount: ₱${orderAmount.toFixed(2)}\n\nPlease pay your existing debt or choose a different payment method.`,
+          };
+        }
+      }
+
+      return { allowed: true, message: '' };
+    } catch (error) {
+      console.error('Error checking debt restrictions:', error);
+      // Allow on error to not block legitimate purchases
+      return { allowed: true, message: '' };
+    }
+  };
+
   const handleProceedToCheckout = async () => {
     if (!selectedPayment) {
       Alert.alert('Select Payment Method', 'Please select a payment method to continue');
@@ -196,6 +305,17 @@ const PaymentScreen = () => {
       const firstItem = cartItems[0];
       const storeId = firstItem.storeId || 'unknown';
       const storeName = firstItem.storeName || 'Unknown Store';
+
+      // Check debt restrictions if debt payment is selected
+      if (selectedPayment === 'debt') {
+        const debtRestriction = await checkDebtRestrictions(storeId, user.id, orderSummary.grandTotal);
+        if (!debtRestriction.allowed) {
+          setProcessing(false);
+          setErrorMessage(debtRestriction.message);
+          setShowErrorModal(true);
+          return;
+        }
+      }
 
       // Generate order number
       const now = new Date();
@@ -227,7 +347,13 @@ const PaymentScreen = () => {
         status: 'pending' as const,
         notes: '',
         paymentMethod: selectedPayment,
-        paymentStatus: selectedPayment === 'cash' ? ('pending' as const) : ('pending' as const), // Will be updated after payment
+        paymentStatus: selectedPayment === 'debt' ? ('unpaid' as const) : ('pending' as const),
+        // Debt payment fields
+        ...(selectedPayment === 'debt' && {
+          isDebtPayment: true,
+          debtDueDate: debtDueDate.toISOString(),
+          debtStatus: 'pending' as const,
+        }),
       };
 
       // Check if online payment (GCash/PayMaya)
@@ -387,6 +513,76 @@ const PaymentScreen = () => {
           setShowErrorModal(true);
         }
 
+      } else if (selectedPayment === 'debt') {
+        // Debt Payment - validate stock before creating order
+        for (const item of cartItems) {
+          const productRef = ref(database, `products/${item.productId}`);
+          const productSnap = await get(productRef);
+
+          if (productSnap.exists()) {
+            const currentStock = productSnap.val().quantity || 0;
+            if (item.quantity > currentStock) {
+              setProcessing(false);
+              setErrorMessage(`Sorry, "${item.productName}" only has ${currentStock} left in stock.\nPlease update your cart.`);
+              setShowErrorModal(true);
+              return;
+            }
+          } else {
+            setProcessing(false);
+            setErrorMessage(`Product "${item.productName}" is no longer available.\nPlease update your cart.`);
+            setShowErrorModal(true);
+            return;
+          }
+        }
+
+        // Debt Payment - calculate commission and create order
+        const { platformCommission, storeAmount } = await CommissionService.calculateCommission(orderSummary.grandTotal);
+
+        const orderId = await createOrder({
+          ...orderData,
+          platformCommission,
+          storeAmount,
+        });
+
+        if (orderId) {
+          // Deduct stock for Debt orders
+          for (const item of cartItems) {
+            const productId = item.productId;
+            const orderedQty = item.quantity || 0;
+
+            if (!productId || orderedQty <= 0) continue;
+
+            try {
+              const productRef = ref(database, `products/${productId}`);
+              await runTransaction(productRef, (currentProduct) => {
+                if (!currentProduct) return currentProduct;
+
+                const currentStock = currentProduct.quantity || 0;
+                const newStock = Math.max(0, currentStock - orderedQty);
+
+                currentProduct.quantity = newStock;
+                currentProduct.status = newStock === 0 ? 'out_of_stock' : 'available';
+                currentProduct.updatedAt = new Date().toISOString();
+
+                console.log(`[📦 Stock] Product ${productId}: ${currentStock} → ${newStock}`);
+                return currentProduct;
+              });
+            } catch (err) {
+              console.error(`[📦 Stock] Error deducting stock for ${productId}:`, err);
+            }
+          }
+
+          // Clear cart after successful order
+          await clearCart(user.id);
+
+          // Show success modal
+          setCompletedOrderId(orderId);
+          setShowSuccessModal(true);
+          setCartItems([]);
+        } else {
+          setErrorMessage('Failed to create your order.\nPlease try again.');
+          setShowErrorModal(true);
+        }
       } else {
         // Cash on Pickup - validate stock before creating order
         for (const item of cartItems) {
@@ -585,6 +781,50 @@ const PaymentScreen = () => {
               />
             </View>
 
+            {/* Debt Payment Due Date Section */}
+            {selectedPayment === 'debt' && (
+              <View style={styles.debtDueDateSection}>
+                <View style={styles.debtDueDateHeader}>
+                  <Text style={styles.debtDueDateLabel}>💳 Payment Due Date</Text>
+                  <Text style={styles.debtDueDateHint}>When will you pay?</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.debtDueDatePicker}
+                  onPress={() => setShowDebtDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.debtDueDateContent}>
+                    <Image
+                      source={require('../../../src/assets/images/store-owner-order-supplies/calendar-icon.png')}
+                      style={styles.debtCalendarIcon}
+                    />
+                    <View>
+                      <Text style={styles.debtDueDateValue}>
+                        {debtDueDate.toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                      <Text style={styles.debtDaysFromNow}>
+                        {Math.ceil((debtDueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days from now
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.debtDueDateChangeText}>Change</Text>
+                </TouchableOpacity>
+
+                <View style={styles.debtWarningBox}>
+                  <Text style={styles.debtWarningIcon}>⚠️</Text>
+                  <Text style={styles.debtWarningText}>
+                    By selecting Debt payment, you agree to pay the full amount by the due date. The store owner will be notified of this arrangement.
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* Spacer for bottom button */}
             <View style={styles.bottomSpacer} />
           </>
@@ -622,6 +862,20 @@ const PaymentScreen = () => {
         onClose={() => setShowErrorModal(false)}
         onRetry={handleRetryPayment}
         errorMessage={errorMessage}
+      />
+
+      {/* Debt Due Date Picker Modal */}
+      <CalendarDatePickerModal
+        visible={showDebtDatePicker}
+        onClose={() => setShowDebtDatePicker(false)}
+        onConfirm={(date) => {
+          setDebtDueDate(date);
+          setShowDebtDatePicker(false);
+        }}
+        initialDate={debtDueDate}
+        title="Select Payment Due Date"
+        minDate={new Date()} // Can't select past dates
+        maxDate={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)} // Max 90 days
       />
     </SafeAreaView>
   );
@@ -875,6 +1129,90 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.primary,
     textAlign: 'center',
+  },
+
+  // Debt Payment Due Date Section
+  debtDueDateSection: {
+    marginHorizontal: s(20),
+    marginTop: vs(10),
+    marginBottom: vs(20),
+  },
+  debtDueDateHeader: {
+    marginBottom: vs(12),
+  },
+  debtDueDateLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: '#FF8D2F',
+    marginBottom: vs(4),
+  },
+  debtDueDateHint: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: Colors.textSecondary,
+  },
+  debtDueDatePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    paddingHorizontal: s(16),
+    paddingVertical: vs(14),
+    borderWidth: 2,
+    borderColor: '#FF8D2F',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  debtDueDateContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(12),
+  },
+  debtCalendarIcon: {
+    width: s(24),
+    height: s(24),
+    tintColor: '#FF8D2F',
+  },
+  debtDueDateValue: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(15),
+    fontWeight: '600',
+    color: Colors.darkGray,
+  },
+  debtDaysFromNow: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: '#FF8D2F',
+    marginTop: vs(2),
+  },
+  debtDueDateChangeText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    fontWeight: '600',
+    color: '#FF8D2F',
+  },
+  debtWarningBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF3E0',
+    borderRadius: s(12),
+    padding: s(14),
+    marginTop: vs(15),
+    gap: s(10),
+  },
+  debtWarningIcon: {
+    fontSize: ms(16),
+  },
+  debtWarningText: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: '#E65100',
+    lineHeight: vs(18),
   },
 });
 

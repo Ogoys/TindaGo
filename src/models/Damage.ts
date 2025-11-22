@@ -10,7 +10,8 @@ export type DamageReason = 'expired' | 'damaged' | 'spoiled' | 'broken' | 'other
 export interface DamageItem {
   productId: string;
   productName: string;
-  productImage: string;
+  productImage?: string;       // Legacy base64 field
+  productImageUrl?: string;    // New Cloudinary URL field
   quantity: number;
   price: number;
   totalLoss: number; // quantity * price

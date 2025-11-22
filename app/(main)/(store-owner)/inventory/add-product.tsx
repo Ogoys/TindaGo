@@ -1,3 +1,18 @@
+/**
+ * ADD PRODUCT SCREEN - Batch Add Multiple Products
+ *
+ * Figma File: 8I1Nr3vQZllDDmnSevstvH
+ * Node: 1571-711, 1571-780
+ * Baseline: 440x956
+ *
+ * Features:
+ * - Add multiple products at once with horizontal scroll cards
+ * - Each card has ALL product fields split into horizontal sections:
+ *   - Section 1 (scroll right): Upload image, product name, description
+ *   - Section 2 (scroll left): Category, price, quantity, size, unit, expiry
+ * - Batch save all products at once
+ */
+
 import { router } from 'expo-router';
 import React, { useState, useCallback, useMemo } from 'react';
 import {
@@ -11,11 +26,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { ref, push, set, query, orderByChild, equalTo, get, update } from 'firebase/database';
+import { ref, push, set, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
@@ -28,60 +42,50 @@ interface CategoryItem {
   name: string;
 }
 
+interface ProductCard {
+  id: string;
+  productName: string;
+  description: string;
+  selectedCategory: string;
+  price: string;
+  quantity: string;
+  productSize: string;
+  selectedUnit: string;
+  expiryDate: string;
+  selectedImage: string | null;
+}
+
 const AddProductScreen = () => {
-  const [productName, setProductName] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [price, setPrice] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [productSize, setProductSize] = useState('');
-  const [selectedUnit, setSelectedUnit] = useState('');
-  const [expiryDate, setExpiryDate] = useState(''); // New: Expiry date field
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  // Product cards state - multiple products
+  const [productCards, setProductCards] = useState<ProductCard[]>([
+    createEmptyProduct(),
+  ]);
+
+  // Modal states
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false); // Date picker modal state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [currentEditingCardId, setCurrentEditingCardId] = useState<string | null>(null);
+
+  // Saving state
   const [isSaving, setIsSaving] = useState(false);
+  const [savingProgress, setSavingProgress] = useState({ current: 0, total: 0 });
 
-  // Helper function: Format product name (Capitalize first letter of each word)
-  const formatProductName = (name: string): string => {
-    return name
-      .trim()
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  // Helper function: Format price to 2 decimal places
-  const formatPrice = (price: number): number => {
-    return Math.round(price * 100) / 100;
-  };
-
-  // Memoized handlers to prevent keyboard issues
-  const handleProductNameChange = useCallback((text: string) => {
-    setProductName(text);
-  }, []);
-
-  const handleDescriptionChange = useCallback((text: string) => {
-    setDescription(text);
-  }, []);
-
-  const handlePriceChange = useCallback((text: string) => {
-    setPrice(text);
-  }, []);
-
-  const handleQuantityChange = useCallback((text: string) => {
-    setQuantity(text);
-  }, []);
-
-  const handleProductSizeChange = useCallback((text: string) => {
-    setProductSize(text);
-  }, []);
-
-  const handleExpiryDateChange = useCallback((text: string) => {
-    setExpiryDate(text);
-  }, []);
+  // Create empty product
+  function createEmptyProduct(): ProductCard {
+    return {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      productName: '',
+      description: '',
+      selectedCategory: '',
+      price: '',
+      quantity: '',
+      productSize: '',
+      selectedUnit: '',
+      expiryDate: '',
+      selectedImage: null,
+    };
+  }
 
   // Product categories - Matching customer side (10 categories)
   const categories: CategoryItem[] = [
@@ -113,13 +117,62 @@ const AddProductScreen = () => {
     { id: '12', name: 'cm' },
   ];
 
-  const handleBack = () => {
-    router.back();
+  // Helper function: Format product name
+  const formatProductName = (name: string): string => {
+    return name
+      .trim()
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
-  const handleUploadImage = async () => {
+  // Helper function: Format price
+  const formatPrice = (price: number): number => {
+    return Math.round(price * 100) / 100;
+  };
+
+  const handleBack = () => {
+    if (productCards.some(p => p.productName || p.selectedImage)) {
+      Alert.alert(
+        'Discard Products?',
+        'You have unsaved products. Are you sure you want to go back?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Discard', style: 'destructive', onPress: () => router.back() }
+        ]
+      );
+    } else {
+      router.back();
+    }
+  };
+
+  // Update a specific product card field
+  const updateProductCard = (cardId: string, field: keyof ProductCard, value: string | null) => {
+    setProductCards(cards =>
+      cards.map(card =>
+        card.id === cardId ? { ...card, [field]: value } : card
+      )
+    );
+  };
+
+  // Add new product card
+  const handleAddNewProductCard = () => {
+    setProductCards([...productCards, createEmptyProduct()]);
+  };
+
+  // Remove product card
+  const handleRemoveProductCard = (cardId: string) => {
+    if (productCards.length === 1) {
+      Alert.alert('Cannot Remove', 'You need at least one product card.');
+      return;
+    }
+    setProductCards(cards => cards.filter(card => card.id !== cardId));
+  };
+
+  // Handle image upload for a specific card
+  const handleUploadImage = async (cardId: string) => {
     try {
-      // Request camera roll permissions
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (permissionResult.granted === false) {
@@ -127,20 +180,15 @@ const AddProductScreen = () => {
         return;
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'], // Modern syntax: array of strings (lowercase)
+        mediaTypes: ['images'],
         allowsEditing: true,
-        aspect: [1, 1], // Square aspect ratio for product images
-        quality: 0.8, // Good quality but optimized
+        aspect: [1, 1],
+        quality: 0.8,
       });
 
       if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        
-        // Store the local URI temporarily (will upload to Cloudinary when saving)
-        setSelectedImage(imageUri);
-        console.log('✅ Image selected:', imageUri);
+        updateProductCard(cardId, 'selectedImage', result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -148,22 +196,43 @@ const AddProductScreen = () => {
     }
   };
 
+  // Handle category selection
   const handleCategorySelect = (category: CategoryItem) => {
-    setSelectedCategory(category.name);
+    if (currentEditingCardId) {
+      updateProductCard(currentEditingCardId, 'selectedCategory', category.name);
+    }
     setShowCategoryDropdown(false);
+    setCurrentEditingCardId(null);
   };
 
-  const handleCategoryDropdownOpen = () => {
-    setShowCategoryDropdown(true);
-  };
-
+  // Handle unit selection
   const handleUnitSelect = (unit: CategoryItem) => {
-    setSelectedUnit(unit.name);
+    if (currentEditingCardId) {
+      updateProductCard(currentEditingCardId, 'selectedUnit', unit.name);
+    }
     setShowUnitDropdown(false);
+    setCurrentEditingCardId(null);
   };
 
-  const handleUnitDropdownOpen = () => {
-    setShowUnitDropdown(true);
+  // Handle date picker
+  const handleExpiryConfirm = (date: Date) => {
+    if (currentEditingCardId) {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
+      const formattedDate = `${month}/${day}/${year}`;
+      updateProductCard(currentEditingCardId, 'expiryDate', formattedDate);
+    }
+    setShowDatePicker(false);
+    setCurrentEditingCardId(null);
+  };
+
+  const handleExpiryClear = () => {
+    if (currentEditingCardId) {
+      updateProductCard(currentEditingCardId, 'expiryDate', '');
+    }
+    setShowDatePicker(false);
+    setCurrentEditingCardId(null);
   };
 
   const expiryMinDate = useMemo(() => {
@@ -172,169 +241,84 @@ const AddProductScreen = () => {
     return date;
   }, []);
 
-  const parsedExpiryDate = useMemo(() => {
-    if (!expiryDate.trim()) {
-      return null;
+  // Validate a single product
+  const validateProduct = (product: ProductCard): { valid: boolean; error?: string } => {
+    if (!product.productName.trim()) {
+      return { valid: false, error: 'Product name is required' };
     }
-    const parsed = new Date(expiryDate);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }, [expiryDate]);
+    if (product.productName.trim().length < 2) {
+      return { valid: false, error: 'Product name must be at least 2 characters' };
+    }
+    if (!product.description.trim()) {
+      return { valid: false, error: 'Description is required' };
+    }
+    if (!product.selectedCategory) {
+      return { valid: false, error: 'Category is required' };
+    }
 
-  const handleDatePickerOpen = () => {
-    setShowDatePicker(true);
+    const priceNum = Number(product.price);
+    if (!product.price.trim() || isNaN(priceNum) || priceNum <= 0) {
+      return { valid: false, error: 'Valid price is required' };
+    }
+
+    const quantityNum = Number(product.quantity);
+    if (!product.quantity.trim() || isNaN(quantityNum) || quantityNum <= 0 || !Number.isInteger(quantityNum)) {
+      return { valid: false, error: 'Valid quantity (whole number) is required' };
+    }
+
+    if (!product.productSize.trim()) {
+      return { valid: false, error: 'Size is required' };
+    }
+    if (!product.selectedUnit) {
+      return { valid: false, error: 'Unit is required' };
+    }
+    if (!product.selectedImage) {
+      return { valid: false, error: 'Product image is required' };
+    }
+
+    return { valid: true };
   };
 
-  const handleDatePickerClose = () => {
-    setShowDatePicker(false);
-  };
-
-  const handleExpiryConfirm = (date: Date) => {
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
-    const formattedDate = `${month}/${day}/${year}`;
-    setExpiryDate(formattedDate);
-    setShowDatePicker(false);
-  };
-
-  const handleExpiryClear = () => {
-    setExpiryDate('');
-    setShowDatePicker(false);
-  };
-
-  const handleAddProduct = async () => {
-    // Prevent double-click
+  // Save all products
+  const handleSaveAllProducts = async () => {
     if (isSaving) return;
 
+    // Filter out empty cards
+    const productsToSave = productCards.filter(p =>
+      p.productName.trim() || p.selectedImage || p.description.trim()
+    );
+
+    if (productsToSave.length === 0) {
+      Alert.alert('No Products', 'Please add at least one product with details.');
+      return;
+    }
+
+    // Validate all products
+    for (let i = 0; i < productsToSave.length; i++) {
+      const validation = validateProduct(productsToSave[i]);
+      if (!validation.valid) {
+        Alert.alert(
+          `Product #${i + 1} Error`,
+          `${productsToSave[i].productName || 'Unnamed product'}: ${validation.error}`
+        );
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    setSavingProgress({ current: 0, total: productsToSave.length });
+
     try {
-      setIsSaving(true);
-
-      // ========================================
-      // 1. PRODUCT NAME VALIDATION
-      // ========================================
-      if (!productName.trim()) {
-        Alert.alert('Error', 'Please enter a product name');
-        return;
-      }
-      if (productName.trim().length < 2) {
-        Alert.alert('Error', 'Product name must be at least 2 characters');
-        return;
-      }
-      if (productName.trim().length > 100) {
-        Alert.alert('Error', 'Product name cannot exceed 100 characters');
-        return;
-      }
-
-      // ========================================
-      // 2. DESCRIPTION VALIDATION
-      // ========================================
-      if (!description.trim()) {
-        Alert.alert('Error', 'Please enter a product description');
-        return;
-      }
-
-      // ========================================
-      // 3. CATEGORY VALIDATION
-      // ========================================
-      if (!selectedCategory) {
-        Alert.alert('Error', 'Please select a product category');
-        return;
-      }
-
-      // ========================================
-      // 4. PRICE VALIDATION
-      // ========================================
-      const priceNum = Number(price);
-      if (!price.trim() || isNaN(priceNum)) {
-        Alert.alert('Error', 'Please enter a valid price');
-        return;
-      }
-      if (priceNum <= 0) {
-        Alert.alert('Error', 'Price must be greater than ₱0');
-        return;
-      }
-      if (priceNum > 999999) {
-        Alert.alert('Error', 'Price cannot exceed ₱999,999');
-        return;
-      }
-      // Check decimal places
-      if (price.includes('.') && price.split('.')[1].length > 2) {
-        Alert.alert('Error', 'Price can only have up to 2 decimal places (e.g., ₱12.50)');
-        return;
-      }
-
-      // ========================================
-      // 5. QUANTITY VALIDATION
-      // ========================================
-      const quantityNum = Number(quantity);
-      if (!quantity.trim() || isNaN(quantityNum)) {
-        Alert.alert('Error', 'Please enter a valid quantity');
-        return;
-      }
-      if (quantityNum <= 0) {
-        Alert.alert('Error', 'Quantity must be greater than 0');
-        return;
-      }
-      if (!Number.isInteger(quantityNum)) {
-        Alert.alert('Error', 'Quantity must be a whole number (no decimals like 10.5)');
-        return;
-      }
-      if (quantityNum > 99999) {
-        Alert.alert('Error', 'Quantity cannot exceed 99,999');
-        return;
-      }
-
-      // ========================================
-      // 6. SIZE & UNIT VALIDATION
-      // ========================================
-      if (!productSize.trim()) {
-        Alert.alert('Error', 'Please enter a product size');
-        return;
-      }
-      if (!selectedUnit) {
-        Alert.alert('Error', 'Please select a unit');
-        return;
-      }
-
-      // ========================================
-      // 7. EXPIRY DATE VALIDATION (OPTIONAL)
-      // ========================================
-      // Expiry date is optional, but if provided, validate format
-      if (expiryDate.trim()) {
-        // Validate MM/DD/YYYY or MM/YYYY format
-        const fullDatePattern = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
-        const monthYearPattern = /^(0[1-9]|1[0-2])\/\d{4}$/;
-        
-        if (!fullDatePattern.test(expiryDate.trim()) && !monthYearPattern.test(expiryDate.trim())) {
-          Alert.alert('Error', 'Please enter a valid expiry date (MM/DD/YYYY or MM/YYYY format)');
-          return;
-        }
-      }
-
-      // ========================================
-      // 8. IMAGE VALIDATION
-      // ========================================
-      if (!selectedImage) {
-        Alert.alert('Error', 'Please select a product image');
-        return;
-      }
-
-      // ========================================
-      // 9. USER AUTHENTICATION CHECK
-      // ========================================
       const currentUser = auth.currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'User not authenticated');
+        setIsSaving(false);
         return;
       }
 
-      // ========================================
-      // 10. FETCH STORE INFO
-      // ========================================
-      console.log('📍 Fetching store information...');
+      // Fetch store info
       const storeRef = ref(database, `stores/${currentUser.uid}`);
       const storeSnapshot = await get(storeRef);
-
       let storeName = 'My Store';
       let storeOwnerName = 'Store Owner';
 
@@ -342,321 +326,369 @@ const AddProductScreen = () => {
         const storeData = storeSnapshot.val();
         storeName = storeData.storeName || storeData.businessInfo?.storeName || 'My Store';
         storeOwnerName = storeData.ownerName || storeData.personalInfo?.fullName || 'Store Owner';
-        console.log('✅ Store info fetched:', storeName, '-', storeOwnerName);
-      } else {
-        console.log('⚠️ Store not found, using defaults');
       }
 
-      // ========================================
-      // 11. DUPLICATE PRODUCT CHECK
-      // ========================================
-      console.log('🔍 Checking for duplicate products...');
+      // Get existing products for duplicate check
       const productsRef = ref(database, 'products');
       const storeProductsQuery = query(
         productsRef,
         orderByChild('storeOwnerId'),
         equalTo(currentUser.uid)
       );
+      const existingSnapshot = await get(storeProductsQuery);
+      const existingProducts = existingSnapshot.exists() ? Object.values(existingSnapshot.val()) : [];
 
-      const snapshot = await get(storeProductsQuery);
-      if (snapshot.exists()) {
-        const existingProducts = snapshot.val();
-        const isDuplicate = Object.values(existingProducts).some((product: any) => {
-          const sameName = product.productName.toLowerCase().trim() === productName.toLowerCase().trim();
-          const sameSize = product.productSize.toLowerCase().trim() === productSize.toLowerCase().trim();
-          const sameUnit = product.unit.toLowerCase() === selectedUnit.toLowerCase();
+      let savedCount = 0;
+      const errors: string[] = [];
 
-          return sameName && sameSize && sameUnit;
-        });
+      for (let i = 0; i < productsToSave.length; i++) {
+        const product = productsToSave[i];
+        setSavingProgress({ current: i + 1, total: productsToSave.length });
 
-        if (isDuplicate) {
-          const formattedName = formatProductName(productName);
-          Alert.alert(
-            'Duplicate Product',
-            `${formattedName} (${productSize}${selectedUnit}) already exists in your inventory.\n\nTo add more stock, go to Store Product and update the existing product.`,
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-      }
-      console.log('✅ No duplicate found - proceeding with save');
-
-      // ========================================
-      // 12. UPLOAD IMAGE TO CLOUDINARY
-      // ========================================
-      console.log('☁️ Uploading image to Cloudinary...');
-      let productImageUrl: string;
-      
-      try {
-        productImageUrl = await uploadImageToCloudinary(selectedImage, 'products');
-        console.log('✅ Image uploaded successfully:', productImageUrl);
-      } catch (uploadError) {
-        console.error('❌ Cloudinary upload failed:', uploadError);
-        Alert.alert('Upload Error', 'Failed to upload image. Please check your internet connection and try again.');
-        return;
-      }
-
-      // ========================================
-      // 13. FORMAT DATA
-      // ========================================
-      const formattedProductName = formatProductName(productName);
-      const formattedPrice = formatPrice(priceNum);
-      const formattedQuantity = Math.floor(quantityNum);
-
-      console.log('📝 Formatted data:');
-      console.log('  - Name:', formattedProductName);
-      console.log('  - Price: ₱', formattedPrice);
-      console.log('  - Quantity:', formattedQuantity);
-
-      // ========================================
-      // 14. PREPARE PRODUCT DATA
-      // ========================================
-      // Convert expiry date from MM/DD/YYYY to ISO string for consistent storage
-      let expiryDateISO = null;
-      if (expiryDate.trim()) {
         try {
-          // Parse MM/DD/YYYY format
-          const parts = expiryDate.trim().split('/');
-          if (parts.length === 3) {
-            const month = parseInt(parts[0], 10) - 1; // Month is 0-indexed
-            const day = parseInt(parts[1], 10);
-            const year = parseInt(parts[2], 10);
-            const dateObj = new Date(year, month, day);
-            expiryDateISO = dateObj.toISOString();
-            console.log(`📅 Expiry date converted: ${expiryDate} -> ${expiryDateISO}`);
+          // Check for duplicate
+          const isDuplicate = (existingProducts as any[]).some((existing: any) => {
+            const sameName = existing.productName?.toLowerCase().trim() === product.productName.toLowerCase().trim();
+            const sameSize = existing.productSize?.toLowerCase().trim() === product.productSize.toLowerCase().trim();
+            const sameUnit = existing.unit?.toLowerCase() === product.selectedUnit.toLowerCase();
+            return sameName && sameSize && sameUnit;
+          });
+
+          if (isDuplicate) {
+            errors.push(`${product.productName} (${product.productSize}${product.selectedUnit}) already exists`);
+            continue;
           }
+
+          // Upload image
+          const productImageUrl = await uploadImageToCloudinary(product.selectedImage!, 'products');
+
+          // Prepare expiry date
+          let expiryDateISO = null;
+          if (product.expiryDate.trim()) {
+            const parts = product.expiryDate.trim().split('/');
+            if (parts.length === 3) {
+              const month = parseInt(parts[0], 10) - 1;
+              const day = parseInt(parts[1], 10);
+              const year = parseInt(parts[2], 10);
+              const dateObj = new Date(year, month, day);
+              expiryDateISO = dateObj.toISOString();
+            }
+          }
+
+          // Prepare product data
+          const productData = {
+            productName: formatProductName(product.productName),
+            description: product.description.trim(),
+            category: product.selectedCategory,
+            price: formatPrice(Number(product.price)),
+            quantity: Math.floor(Number(product.quantity)),
+            productSize: product.productSize.trim(),
+            unit: product.selectedUnit,
+            expiryDate: expiryDateISO,
+            productImageUrl,
+            storeOwnerId: currentUser.uid,
+            storeId: currentUser.uid,
+            storeName,
+            storeOwnerName,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'available',
+          };
+
+          // Save to Firebase
+          const newProductRef = push(productsRef);
+          await set(newProductRef, productData);
+          savedCount++;
+
+          // Add to existing products list to prevent duplicates in same batch
+          existingProducts.push(productData);
+
         } catch (error) {
-          console.error('❌ Error parsing expiry date:', error);
+          console.error(`Error saving product ${product.productName}:`, error);
+          errors.push(`Failed to save ${product.productName}`);
         }
       }
 
-      const productData = {
-        productName: formattedProductName,
-        description: description.trim(),
-        category: selectedCategory,
-        price: formattedPrice,
-        quantity: formattedQuantity,
-        productSize: productSize.trim(),
-        unit: selectedUnit,
-        expiryDate: expiryDateISO, // Store as ISO string for consistent parsing
-        productImageUrl: productImageUrl, // Cloudinary URL (NEW - Phase 2)
-        storeOwnerId: currentUser.uid,
-        storeId: currentUser.uid,
-        storeName: storeName,
-        storeOwnerName: storeOwnerName,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: 'available'
-      };
-
-      console.log('🏪 Store Info:', storeName, 'by', storeOwnerName);
-
-      // ========================================
-      // 15. SAVE TO FIREBASE
-      // ========================================
-      console.log('💾 Saving product data to Firebase...');
-      const newProductRef = push(productsRef);
-      await set(newProductRef, productData);
-
-      console.log('✅ Product saved successfully:', productData.productName);
-
-      // ========================================
-      // 16. SUCCESS FEEDBACK
-      // ========================================
-      Alert.alert('Success', 'Product added successfully!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      // Show results
+      if (savedCount > 0 && errors.length === 0) {
+        Alert.alert(
+          'Success',
+          `${savedCount} product${savedCount > 1 ? 's' : ''} added successfully!`,
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } else if (savedCount > 0 && errors.length > 0) {
+        Alert.alert(
+          'Partial Success',
+          `${savedCount} product${savedCount > 1 ? 's' : ''} added.\n\nErrors:\n${errors.join('\n')}`,
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } else {
+        Alert.alert('Error', `Failed to add products:\n${errors.join('\n')}`);
+      }
 
     } catch (error) {
-      console.error('❌ Error adding product:', error);
-      Alert.alert('Error', 'Failed to add product. Please try again.');
+      console.error('Error saving products:', error);
+      Alert.alert('Error', 'Failed to save products. Please try again.');
     } finally {
       setIsSaving(false);
+      setSavingProgress({ current: 0, total: 0 });
     }
+  };
+
+  // Render a single product card with horizontal scroll sections
+  const renderProductCard = (product: ProductCard, index: number) => {
+    return (
+      <View key={product.id} style={styles.productCard}>
+        {/* Card Header */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardIndexBadge}>
+            <Text style={styles.cardIndexText}>#{index + 1}</Text>
+          </View>
+          <Text style={styles.cardTitle}>Product Details</Text>
+          {productCards.length > 1 && (
+            <TouchableOpacity
+              style={styles.removeCardButton}
+              onPress={() => handleRemoveProductCard(product.id)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.removeCardIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Horizontal Scroll Sections */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          pagingEnabled={false}
+          contentContainerStyle={styles.horizontalSectionsContent}
+          style={styles.horizontalSections}
+        >
+          {/* SECTION 1: Image, Name, Description */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Basic Info</Text>
+
+            {/* Upload Image */}
+            <TouchableOpacity
+              style={styles.uploadContainer}
+              onPress={() => handleUploadImage(product.id)}
+              activeOpacity={0.7}
+            >
+              {product.selectedImage ? (
+                <Image source={{ uri: product.selectedImage }} style={styles.selectedImagePreview} />
+              ) : (
+                <>
+                  <Image
+                    source={require('../../../../src/assets/images/add-product/upload-icon.png')}
+                    style={styles.uploadIcon}
+                  />
+                  <Text style={styles.uploadText}>Upload Image</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Product Name */}
+            <Text style={styles.fieldLabel}>Product Name</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter product name"
+                placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                value={product.productName}
+                onChangeText={(text) => updateProductCard(product.id, 'productName', text)}
+              />
+            </View>
+
+            {/* Description */}
+            <Text style={styles.fieldLabel}>Description</Text>
+            <View style={[styles.inputContainer, styles.descriptionContainer]}>
+              <TextInput
+                style={[styles.textInput, styles.descriptionInput]}
+                placeholder="Enter description"
+                placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                value={product.description}
+                onChangeText={(text) => updateProductCard(product.id, 'description', text)}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+          </View>
+
+          {/* SECTION 2: Category, Price, Quantity */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pricing & Stock</Text>
+
+            {/* Category */}
+            <Text style={styles.fieldLabel}>Category</Text>
+            <TouchableOpacity
+              style={styles.dropdownContainer}
+              onPress={() => {
+                setCurrentEditingCardId(product.id);
+                setShowCategoryDropdown(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dropdownText, product.selectedCategory && styles.dropdownTextSelected]}>
+                {product.selectedCategory || 'Select category'}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </TouchableOpacity>
+
+            {/* Price & Quantity Row */}
+            <View style={styles.rowFields}>
+              <View style={styles.halfField}>
+                <Text style={styles.fieldLabel}>Price</Text>
+                <View style={styles.priceInputContainer}>
+                  <Text style={styles.pesoSign}>₱</Text>
+                  <TextInput
+                    style={styles.priceInput}
+                    placeholder="0.00"
+                    placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                    value={product.price}
+                    onChangeText={(text) => updateProductCard(product.id, 'price', text)}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.halfField}>
+                <Text style={styles.fieldLabel}>Quantity</Text>
+                <View style={styles.inputContainerSmall}>
+                  <TextInput
+                    style={styles.textInputSmall}
+                    placeholder="0"
+                    placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                    value={product.quantity}
+                    onChangeText={(text) => updateProductCard(product.id, 'quantity', text)}
+                    keyboardType="number-pad"
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Size & Unit Row */}
+            <View style={styles.rowFields}>
+              <View style={styles.halfField}>
+                <Text style={styles.fieldLabel}>Size</Text>
+                <View style={styles.inputContainerSmall}>
+                  <TextInput
+                    style={styles.textInputSmall}
+                    placeholder="e.g. 500"
+                    placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                    value={product.productSize}
+                    onChangeText={(text) => updateProductCard(product.id, 'productSize', text)}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.halfField}>
+                <Text style={styles.fieldLabel}>Unit</Text>
+                <TouchableOpacity
+                  style={styles.dropdownContainerSmall}
+                  onPress={() => {
+                    setCurrentEditingCardId(product.id);
+                    setShowUnitDropdown(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.dropdownTextSmall, product.selectedUnit && styles.dropdownTextSelected]}>
+                    {product.selectedUnit || 'Unit'}
+                  </Text>
+                  <Text style={styles.dropdownArrowSmall}>▼</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Expiry Date */}
+            <Text style={styles.fieldLabel}>Expiry Date (Optional)</Text>
+            <TouchableOpacity
+              style={styles.dropdownContainer}
+              onPress={() => {
+                setCurrentEditingCardId(product.id);
+                setShowDatePicker(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dropdownText, product.expiryDate && styles.dropdownTextSelected]}>
+                {product.expiryDate || 'MM/DD/YYYY'}
+              </Text>
+              <Text style={styles.dropdownArrow}>📅</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        {/* Scroll Indicator */}
+        <View style={styles.scrollIndicator}>
+          <Text style={styles.scrollIndicatorText}>← Swipe for more fields →</Text>
+        </View>
+      </View>
+    );
   };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        style={{ flex: 1 }}
-      >
-        {/* Back Button - Figma: x: 20, y: 79, width: 30, height: 30 */}
+      {/* Header */}
+      <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <Image
             source={require('../../../../src/assets/images/add-product/chevron-left.png')}
             style={styles.backIcon}
           />
         </TouchableOpacity>
-
-        {/* Title - Figma: x: 161, y: 83, font: Clash Grotesk 600, size: 20 */}
-        <Text style={styles.title}>Add Product</Text>
-
-        {/* Upload Image Section - Figma: x: 22, y: 145, width: 398, height: 177 */}
-        <View style={styles.uploadSection}>
-          {/* Upload Image Label - Figma: x: 24, y: 145, font: Clash Grotesk 500, size: 16 */}
-          <Text style={styles.uploadLabel}>Upload Image</Text>
-
-          {/* Upload Container - Figma: x: 22, y: 172, width: 398, height: 150 */}
-          <TouchableOpacity style={styles.uploadContainer} onPress={handleUploadImage} activeOpacity={0.7}>
-            {selectedImage ? (
-              /* Selected Image Preview */
-              <Image source={{ uri: selectedImage }} style={styles.selectedImagePreview} />
-            ) : (
-              /* Upload Placeholder */
-              <>
-                {/* Upload Icon - Figma: x: 207, y: 223, width: 25, height: 25 */}
-                <Image
-                  source={require('../../../../src/assets/images/add-product/upload-icon.png')}
-                  style={styles.uploadIcon}
-                />
-                {/* Upload Text - Figma: x: 172, y: 248, font: Clash Grotesk 400, size: 12 */}
-                <Text style={styles.uploadText}>Upload your photo</Text>
-              </>
-            )}
-          </TouchableOpacity>
+        <Text style={styles.title}>Add Products</Text>
+        <View style={styles.productCountBadge}>
+          <Text style={styles.productCountText}>{productCards.length}</Text>
         </View>
+      </View>
 
-        {/* Product Name Section - Figma: x: 20, y: 342, width: 400 */}
-        <View style={[styles.inputSection, { top: vs(342) }]}>
-          <Text style={styles.inputLabel}>Product Name</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter product name"
-              placeholderTextColor="rgba(30, 30, 30, 0.5)"
-              value={productName}
-              onChangeText={handleProductNameChange}
-            />
-          </View>
-        </View>
+      {/* Product Cards */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        style={styles.scrollView}
+      >
+        {productCards.map((product, index) => renderProductCard(product, index))}
 
-        {/* Description Section - Figma: x: 20, y: 439, width: 400 */}
-        <View style={[styles.inputSection, { top: vs(460) }]}>
-          <Text style={styles.inputLabel}>Description</Text>
-          <View style={[styles.inputContainer, styles.descriptionContainer]}>
-            <TextInput
-              style={[styles.textInput, styles.descriptionInput]}
-              placeholder="Enter product description"
-              placeholderTextColor="rgba(30, 30, 30, 0.5)"
-              value={description}
-              onChangeText={handleDescriptionChange}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
-        </View>
-
-        {/* Product Category Section - Figma: x: 20, y: 636, width: 400 */}
-        <View style={[styles.inputSection, { top: vs(650) }]}>
-          <Text style={styles.inputLabel}>Product Category</Text>
-          <TouchableOpacity style={styles.categoryContainer} onPress={handleCategoryDropdownOpen} activeOpacity={0.7}>
-            <Text style={[styles.categoryText, selectedCategory && { color: Colors.darkGray }]}>
-              {selectedCategory || 'Select product category'}
-            </Text>
-            {/* Forward Arrow - Figma: width: 30, height: 30 */}
-            <Image
-              source={require('../../../../src/assets/images/add-product/forward-arrow.png')}
-              style={styles.forwardArrow}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Price and Quantity Row - Figma: y: 733 */}
-        <View style={styles.rowContainer}>
-          {/* Price Section - Figma: x: 20, width: 192 */}
-          <View style={styles.halfInputSection}>
-            <Text style={styles.inputLabel}>Price</Text>
-            <View style={styles.halfInputContainer}>
-              <TextInput
-                style={[styles.textInput, styles.halfTextInput]}
-                placeholder="₱0.00"
-                placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                value={price}
-                onChangeText={handlePriceChange}
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
-
-          {/* Quantity Section - Figma: x: 228, width: 192 */}
-          <View style={styles.halfInputSection}>
-            <Text style={styles.inputLabel}>Quantity</Text>
-            <View style={styles.halfInputContainer}>
-              <TextInput
-                style={[styles.textInput, styles.halfTextInput]}
-                placeholder="0"
-                placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                value={quantity}
-                onChangeText={handleQuantityChange}
-                keyboardType="number-pad"
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Size and Unit Row */}
-        <View style={styles.sizeRowContainer}>
-          {/* Size Section */}
-          <View style={styles.halfInputSection}>
-            <Text style={styles.inputLabel}>Size</Text>
-            <View style={styles.halfInputContainer}>
-              <TextInput
-                style={[styles.textInput, styles.halfTextInput]}
-                placeholder="Enter size"
-                placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                value={productSize}
-                onChangeText={handleProductSizeChange}
-                keyboardType="default"
-              />
-            </View>
-          </View>
-
-          {/* Unit Section */}
-          <View style={styles.halfInputSection}>
-            <Text style={styles.inputLabel}>Unit</Text>
-            <TouchableOpacity style={styles.unitContainer} onPress={handleUnitDropdownOpen} activeOpacity={0.7}>
-              <Text style={[styles.unitText, selectedUnit && { color: Colors.darkGray }]}>
-                {selectedUnit || 'Select unit'}
-              </Text>
-              <Image
-                source={require('../../../../src/assets/images/add-product/forward-arrow.png')}
-                style={styles.unitArrow}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Expiry Date Section - Full width like Product Category */}
-        <View style={[styles.inputSection, { top: vs(941) }]}>
-          <Text style={styles.inputLabel}>Expiry Date (Optional)</Text>
-          <TouchableOpacity style={styles.datePickerContainer} onPress={handleDatePickerOpen} activeOpacity={0.7}>
-            <Text style={[styles.dateText, expiryDate && { color: Colors.darkGray }]}>
-              {expiryDate || 'Select expiry MM/DD/YYYY'}
-            </Text>
-            {/* Calendar Icon */}
-            <Image
-              source={require('../../../../src/assets/images/add-product/forward-arrow.png')}
-              style={styles.forwardArrow}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Add Product Button - Adjusted position for expiry date field */}
+        {/* Add Another Product Button */}
         <TouchableOpacity
-          style={[styles.addButton, isSaving && styles.addButtonDisabled]}
-          onPress={handleAddProduct}
+          style={styles.addAnotherButton}
+          onPress={handleAddNewProductCard}
+          activeOpacity={0.7}
+        >
+          <View style={styles.addAnotherIcon}>
+            <Text style={styles.addAnotherIconText}>+</Text>
+          </View>
+          <Text style={styles.addAnotherText}>Add Another Product</Text>
+        </TouchableOpacity>
+
+        {/* Bottom Padding */}
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      {/* Save All Button */}
+      <View style={styles.saveButtonContainer}>
+        <TouchableOpacity
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSaveAllProducts}
           activeOpacity={0.7}
           disabled={isSaving}
         >
-          <Text style={styles.addButtonText}>
-            {isSaving ? 'Adding Product...' : 'Add Product'}
-          </Text>
+          {isSaving ? (
+            <View style={styles.savingContainer}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.saveButtonText}>
+                Saving {savingProgress.current}/{savingProgress.total}...
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.saveButtonText}>
+              Save {productCards.filter(p => p.productName.trim()).length} Product{productCards.filter(p => p.productName.trim()).length !== 1 ? 's' : ''}
+            </Text>
+          )}
         </TouchableOpacity>
-      </ScrollView>
+      </View>
 
       {/* Category Dropdown Modal */}
       <Modal
@@ -671,7 +703,6 @@ const AddProductScreen = () => {
           onPress={() => setShowCategoryDropdown(false)}
         >
           <View style={styles.dropdownModal}>
-            {/* Close Button */}
             <TouchableOpacity
               style={styles.closeModalButton}
               onPress={() => setShowCategoryDropdown(false)}
@@ -681,10 +712,7 @@ const AddProductScreen = () => {
             </TouchableOpacity>
 
             <Text style={styles.dropdownTitle}>Select Category</Text>
-            <ScrollView
-              style={styles.categoryScrollView}
-              showsVerticalScrollIndicator={true}
-            >
+            <ScrollView style={styles.categoryScrollView} showsVerticalScrollIndicator={true}>
               {categories.map((category) => (
                 <TouchableOpacity
                   key={category.id}
@@ -713,7 +741,6 @@ const AddProductScreen = () => {
           onPress={() => setShowUnitDropdown(false)}
         >
           <View style={styles.dropdownModal}>
-            {/* Close Button */}
             <TouchableOpacity
               style={styles.closeModalButton}
               onPress={() => setShowUnitDropdown(false)}
@@ -723,10 +750,7 @@ const AddProductScreen = () => {
             </TouchableOpacity>
 
             <Text style={styles.dropdownTitle}>Select Unit</Text>
-            <ScrollView
-              style={styles.categoryScrollView}
-              showsVerticalScrollIndicator={true}
-            >
+            <ScrollView style={styles.categoryScrollView} showsVerticalScrollIndicator={true}>
               {units.map((unit) => (
                 <TouchableOpacity
                   key={unit.id}
@@ -742,16 +766,20 @@ const AddProductScreen = () => {
         </TouchableOpacity>
       </Modal>
 
+      {/* Date Picker Modal */}
       <CalendarDatePickerModal
         visible={showDatePicker}
-        onClose={handleDatePickerClose}
+        onClose={() => {
+          setShowDatePicker(false);
+          setCurrentEditingCardId(null);
+        }}
         onConfirm={handleExpiryConfirm}
         onClear={handleExpiryClear}
-        initialDate={parsedExpiryDate}
+        initialDate={null}
         minDate={expiryMinDate}
         title="Select Expiry Date"
-        description="Choose the expiry date for this product to stay on top of inventory."
-        infoText="You can select any future date. We use this to surface products that are nearing expiry."
+        description="Choose the expiry date for this product"
+        infoText="Select any future date for the product expiry"
       />
     </View>
   );
@@ -760,22 +788,23 @@ const AddProductScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.backgroundGray, // Figma: #F4F6F6
+    backgroundColor: Colors.backgroundGray,
   },
 
-  scrollContent: {
-    height: vs(1190), // Increased height for expiry date field + padding
-    paddingBottom: vs(50),
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s(20),
+    paddingTop: vs(50),
+    paddingBottom: vs(15),
+    backgroundColor: Colors.backgroundGray,
   },
 
-  // Back Button - Figma: x: 20, y: 79, width: 30, height: 30
   backButton: {
-    position: 'absolute',
-    left: s(20),
-    top: vs(79),
     width: s(30),
-    height: vs(30),
-    borderRadius: s(20),
+    height: s(30),
+    borderRadius: s(15),
     backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
@@ -784,7 +813,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 4,
     elevation: 4,
-    zIndex: 10,
   },
 
   backIcon: {
@@ -792,289 +820,403 @@ const styles = StyleSheet.create({
     height: vs(15),
   },
 
-  // Title - Figma: x: 161, y: 83, font: Clash Grotesk 600, size: 20
   title: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: vs(80),
-    fontFamily: 'Clash Grotesk Variable',
-    fontWeight: '700', // Bold weight for Add Product title
-    fontSize: ms(18), // Reduced for better visibility
-    lineHeight: ms(24),
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(20),
     color: Colors.darkGray,
     textAlign: 'center',
-    includeFontPadding: false,
+    marginHorizontal: s(10),
   },
 
-  // Upload Section - Figma: x: 22, y: 145, width: 398, height: 177
-  uploadSection: {
-    position: 'absolute',
-    left: s(22),
-    top: vs(145),
-    width: s(398),
-    height: vs(177),
-  },
-
-  // Upload Label - Figma: x: 24, y: 145, font: Clash Grotesk 500, size: 16
-  uploadLabel: {
-    fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-    fontSize: ms(16),
-    lineHeight: vs(22), // 1.375em line height
-    color: Colors.black,
-    marginBottom: vs(5),
-  },
-
-  // Upload Container - Figma: x: 22, y: 172, width: 398, height: 150
-  uploadContainer: {
-    width: s(398),
-    height: vs(150),
-    backgroundColor: Colors.white,
-    borderRadius: s(20),
+  productCountBadge: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 5,
-    elevation: 5,
   },
 
-  // Upload Icon - Figma: x: 207, y: 223, width: 25, height: 25
+  productCountText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(14),
+    color: Colors.white,
+  },
+
+  // Scroll View
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    paddingHorizontal: s(20),
+    paddingBottom: vs(100),
+  },
+
+  // Product Card
+  productCard: {
+    backgroundColor: Colors.white,
+    borderRadius: s(20),
+    marginBottom: vs(20),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    overflow: 'hidden',
+  },
+
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s(15),
+    paddingVertical: vs(12),
+    backgroundColor: Colors.primary,
+  },
+
+  cardIndexBadge: {
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(10),
+  },
+
+  cardIndexText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(12),
+    color: Colors.white,
+  },
+
+  cardTitle: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: Colors.white,
+  },
+
+  removeCardButton: {
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  removeCardIcon: {
+    fontSize: ms(14),
+    color: Colors.white,
+    fontWeight: '700',
+  },
+
+  // Horizontal Sections
+  horizontalSections: {
+    flexGrow: 0,
+  },
+
+  horizontalSectionsContent: {
+    paddingHorizontal: s(5),
+  },
+
+  section: {
+    width: s(340),
+    padding: s(15),
+  },
+
+  sectionTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: Colors.primary,
+    marginBottom: vs(15),
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
+    paddingBottom: vs(5),
+  },
+
+  // Scroll Indicator
+  scrollIndicator: {
+    paddingVertical: vs(8),
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    backgroundColor: '#FAFAFA',
+  },
+
+  scrollIndicatorText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(11),
+    color: 'rgba(30, 30, 30, 0.4)',
+  },
+
+  // Upload Container
+  uploadContainer: {
+    width: '100%',
+    height: vs(120),
+    backgroundColor: '#F9FAFB',
+    borderRadius: s(15),
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: vs(15),
+  },
+
   uploadIcon: {
     width: s(25),
     height: vs(25),
     marginBottom: vs(8),
+    tintColor: Colors.primary,
   },
 
-  // Upload Text - Figma: x: 172, y: 248, font: Clash Grotesk 400, size: 12
   uploadText: {
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.normal,
     fontSize: ms(12),
-    lineHeight: vs(22), // 1.833em line height
     color: 'rgba(30, 30, 30, 0.5)',
-    textAlign: 'center',
   },
 
-  // Selected Image Preview - Full container size with rounded corners
   selectedImagePreview: {
     width: '100%',
     height: '100%',
-    borderRadius: s(20),
+    borderRadius: s(13),
     resizeMode: 'cover',
   },
 
-  // Input Section - Figma: x: 20, y: 342/439/636, width: 400
-  inputSection: {
-    position: 'absolute',
-    left: s(20),
-    width: s(400),
-  },
-
-  // Input Label - Font: Clash Grotesk 500, size: 16
-  inputLabel: {
+  // Field Labels
+  fieldLabel: {
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-    fontSize: ms(16),
-    lineHeight: vs(22),
+    fontWeight: '500',
+    fontSize: ms(13),
     color: Colors.darkGray,
-    marginBottom: vs(8), // Proper spacing between label and input for better alignment
+    marginBottom: vs(6),
   },
 
-  // Input Container - Figma: borderRadius: 20, stroke: #02545F 2px
+  // Input Container
   inputContainer: {
-    borderWidth: 2,
-    borderColor: '#02545F',
-    borderRadius: s(20),
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: s(12),
     backgroundColor: Colors.white,
-    paddingHorizontal: s(20),
-    paddingVertical: vs(14),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
+    paddingHorizontal: s(12),
+    paddingVertical: vs(10),
+    marginBottom: vs(12),
   },
 
-  // Text Input - Font: Clash Grotesk 500, size: 14
   textInput: {
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
     fontSize: ms(14),
-    lineHeight: vs(22), // 1.571em line height
-    color: '#1E1E1E', // Ensure text is visible when typing
-    textAlignVertical: 'top',
+    color: '#1E1E1E',
   },
 
-  // Description specific container
   descriptionContainer: {
-    height: vs(146), // Expanded to reach Product Category label (vs(636) - vs(460) - label height)
+    minHeight: vs(80),
   },
 
-  // Description specific input
   descriptionInput: {
-    minHeight: vs(130), // Expanded to fill the larger container
+    minHeight: vs(60),
     textAlignVertical: 'top',
-    paddingTop: vs(5),
   },
 
-  // Category Container - Different styling for dropdown
-  categoryContainer: {
+  // Dropdown Container
+  dropdownContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 2,
-    borderColor: '#02545F',
-    borderRadius: s(20),
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: s(12),
     backgroundColor: Colors.white,
-    paddingHorizontal: s(20),
-    paddingVertical: vs(14),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
+    paddingHorizontal: s(12),
+    paddingVertical: vs(12),
+    marginBottom: vs(12),
   },
 
-  categoryText: {
+  dropdownText: {
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
     fontSize: ms(14),
-    lineHeight: vs(22),
-    color: 'rgba(30, 30, 30, 0.5)',
+    color: 'rgba(30, 30, 30, 0.4)',
     flex: 1,
   },
 
-  forwardArrow: {
-    width: s(30),
-    height: vs(30),
+  dropdownTextSelected: {
+    color: '#1E1E1E',
   },
 
-  // Row Container for Price and Quantity
-  rowContainer: {
-    position: 'absolute',
-    left: s(20),
-    top: vs(747), // Adjusted for Product Category spacing
+  dropdownArrow: {
+    fontSize: ms(12),
+    color: Colors.darkGray,
+  },
+
+  // Row Fields
+  rowFields: {
     flexDirection: 'row',
+    gap: s(10),
+  },
+
+  halfField: {
+    flex: 1,
+  },
+
+  inputContainerSmall: {
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: s(12),
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(10),
+    paddingVertical: vs(10),
+    marginBottom: vs(12),
+  },
+
+  textInputSmall: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: '#1E1E1E',
+    textAlign: 'center',
+  },
+
+  priceInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: s(12),
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(10),
+    paddingVertical: vs(10),
+    marginBottom: vs(12),
+  },
+
+  pesoSign: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: Colors.primary,
+    marginRight: s(5),
+  },
+
+  priceInput: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: '#1E1E1E',
+  },
+
+  dropdownContainerSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    width: s(400),
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: s(12),
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(10),
+    paddingVertical: vs(12),
+    marginBottom: vs(12),
   },
 
-  // Half Input Section - Figma: width: 192
-  halfInputSection: {
-    width: s(192),
+  dropdownTextSmall: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: 'rgba(30, 30, 30, 0.4)',
+    flex: 1,
   },
 
-  // Half Input Container - Figma: width: 180, height: 50
-  halfInputContainer: {
-    width: s(180),
-    height: vs(50),
-    borderWidth: 2,
-    borderColor: '#02545F',
-    borderRadius: s(20),
-    backgroundColor: '#FFFFFF', // Explicit white background
-    paddingHorizontal: s(0), // Remove container padding since input has its own
-    paddingVertical: vs(0), // Remove vertical padding to avoid text clipping
+  dropdownArrowSmall: {
+    fontSize: ms(10),
+    color: Colors.darkGray,
+  },
+
+  // Add Another Button
+  addAnotherButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-
-  // Half Text Input - Specific styling for Price and Quantity inputs
-  halfTextInput: {
-    textAlign: 'left', // Left align for better UX when typing/editing
-    textAlignVertical: 'center', // Center align vertically
-    color: '#000000', // Strong black color for maximum visibility
-    fontWeight: '600', // Slightly bolder for better visibility
-    backgroundColor: 'transparent', // Ensure background doesn't interfere
-    fontSize: ms(16), // Slightly larger font for better visibility
-    height: vs(50), // Match container height exactly
-    width: '100%', // Take full width of container
-    paddingHorizontal: s(15), // Add horizontal padding for better text positioning
-    paddingVertical: 0, // Remove any vertical padding
-    margin: 0, // Remove any margins
-  },
-
-  // Size Row Container for Size and Unit
-  sizeRowContainer: {
-    position: 'absolute',
-    left: s(20),
-    top: vs(844), // Positioned after price/quantity row
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: s(400),
-  },
-
-  // Unit Container - Similar to category dropdown
-  unitContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: s(180),
-    height: vs(50),
-    borderWidth: 2,
-    borderColor: '#02545F',
-    borderRadius: s(20),
     backgroundColor: Colors.white,
-    paddingHorizontal: s(15),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
+    borderRadius: s(15),
+    paddingVertical: vs(20),
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    borderStyle: 'dashed',
   },
 
-  unitText: {
+  addAnotherIcon: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(10),
+  },
+
+  addAnotherIconText: {
+    fontSize: ms(20),
+    color: Colors.white,
+    fontWeight: '700',
+  },
+
+  addAnotherText: {
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-    fontSize: ms(14),
-    lineHeight: vs(22),
-    color: 'rgba(30, 30, 30, 0.5)',
-    flex: 1,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: Colors.primary,
   },
 
-  unitArrow: {
-    width: s(20),
+  // Bottom Padding
+  bottomPadding: {
     height: vs(20),
   },
 
-  // Add Button - Adjusted position for expiry date field with extra padding
-  addButton: {
+  // Save Button
+  saveButtonContainer: {
     position: 'absolute',
-    left: s(20),
-    top: vs(1088), // Added 30px padding between expiry date and button
-    width: s(400),
-    height: vs(50),
-    backgroundColor: Colors.primary, // #3BB77E
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(20),
+    paddingVertical: vs(15),
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+
+  saveButton: {
+    backgroundColor: Colors.primary,
     borderRadius: s(20),
-    justifyContent: 'center',
+    paddingVertical: vs(15),
     alignItems: 'center',
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
+    justifyContent: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 4,
     elevation: 4,
   },
 
-  // Add Button Text - Font: Clash Grotesk 500, size: 20
-  addButtonText: {
-    fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-    fontSize: ms(20),
-    lineHeight: vs(22), // 1.1em line height
-    color: Colors.white,
-    textAlign: 'center',
+  saveButtonDisabled: {
+    backgroundColor: 'rgba(59, 183, 126, 0.6)',
   },
 
-  // Disabled button style
-  addButtonDisabled: {
-    backgroundColor: 'rgba(59, 183, 126, 0.5)', // Faded green
-    opacity: 0.7,
+  saveButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(18),
+    color: Colors.white,
+  },
+
+  savingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(10),
   },
 
   // Modal Styles
@@ -1088,51 +1230,16 @@ const styles = StyleSheet.create({
   dropdownModal: {
     backgroundColor: Colors.white,
     borderRadius: s(20),
-    width: s(380),
-    maxHeight: '70%', // Use percentage-based height for better responsiveness
+    width: s(340),
+    maxHeight: '70%',
     padding: s(20),
-    paddingBottom: s(20),
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 15,
     elevation: 15,
-    marginHorizontal: s(20),
   },
 
-  categoryScrollView: {
-    maxHeight: vs(500), // Set max height to enable scrolling
-  },
-
-  dropdownTitle: {
-    fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.semiBold,
-    fontSize: ms(20),
-    lineHeight: vs(24),
-    color: Colors.darkGray,
-    textAlign: 'center',
-    marginBottom: vs(25),
-  },
-
-  categoryOption: {
-    paddingVertical: vs(18),
-    paddingHorizontal: s(15),
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(30, 30, 30, 0.08)',
-    borderRadius: s(8),
-    marginBottom: vs(2),
-  },
-
-  categoryOptionText: {
-    fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-    fontSize: ms(16),
-    lineHeight: vs(22),
-    color: Colors.darkGray,
-    textAlign: 'left',
-  },
-
-  // Close Modal Button - Top right corner X button
   closeModalButton: {
     position: 'absolute',
     top: s(15),
@@ -1152,34 +1259,31 @@ const styles = StyleSheet.create({
     color: Colors.darkGray,
   },
 
-  // Date Picker Container - Similar to category dropdown
-  datePickerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 2,
-    borderColor: '#02545F',
-    borderRadius: s(20),
-    backgroundColor: Colors.white,
-    paddingHorizontal: s(20),
-    paddingVertical: vs(14),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-
-  dateText: {
+  dropdownTitle: {
     fontFamily: Fonts.primary,
-    fontWeight: Fonts.weights.medium,
-    fontSize: ms(14),
-    lineHeight: vs(22),
-    color: 'rgba(30, 30, 30, 0.5)',
-    flex: 1,
+    fontWeight: '600',
+    fontSize: ms(18),
+    color: Colors.darkGray,
+    textAlign: 'center',
+    marginBottom: vs(20),
   },
 
-});
+  categoryScrollView: {
+    maxHeight: vs(400),
+  },
 
+  categoryOption: {
+    paddingVertical: vs(15),
+    paddingHorizontal: s(15),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+
+  categoryOptionText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(15),
+    color: Colors.darkGray,
+  },
+});
 
 export default AddProductScreen;

@@ -297,30 +297,6 @@ const StoreProductScreen = () => {
     }
 
     try {
-      // Fetch damage records to exclude products that have been recorded as damaged
-      const damagesRef = ref(database, 'damages');
-      const damagesQuery = query(
-        damagesRef,
-        orderByChild('storeOwnerId'),
-        equalTo(currentUser.uid)
-      );
-      
-      const damagesSnapshot = await get(damagesQuery);
-      const damagedProductIds = new Set<string>();
-      
-      if (damagesSnapshot.exists()) {
-        const damages = damagesSnapshot.val();
-        Object.values(damages).forEach((damage: any) => {
-          if (damage.items && Array.isArray(damage.items)) {
-            damage.items.forEach((item: any) => {
-              if (item.productId) {
-                damagedProductIds.add(item.productId);
-              }
-            });
-          }
-        });
-      }
-
       const productsRef = ref(database, 'products');
       const userProductsQuery = query(
         productsRef,
@@ -330,16 +306,15 @@ const StoreProductScreen = () => {
 
       const snapshot = await get(userProductsQuery);
       const data = snapshot.val();
-      
+
       if (data) {
         const productsList: Product[] = Object.keys(data)
-          .filter(key => !damagedProductIds.has(key)) // Exclude damaged products
           .map(key => ({
             id: key,
             ...data[key],
             status: data[key].status || 'available',
           }));
-        
+
         // Debug logging for products with expiry dates
         const productsWithExpiry = productsList.filter(p => p.expiryDate);
         if (productsWithExpiry.length > 0) {
@@ -349,7 +324,7 @@ const StoreProductScreen = () => {
             console.log(`  - ${p.productName}: ${p.expiryDate} -> ${parsed ? parsed.toLocaleDateString() : 'FAILED TO PARSE'}`);
           });
         }
-        
+
         setProducts(productsList);
       } else {
         setProducts([]);

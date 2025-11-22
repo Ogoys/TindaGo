@@ -28,7 +28,17 @@
       "Bash(npm run dev:*)",
       "Bash(firebase deploy:*)",
       "Bash($null)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(then grep -i \"FIGMA\" .env)",
+      "Bash(.gitignore)",
+      "Bash(npx:*)",
+      "Bash(nul)",
+      "Bash(Get-ChildItem -Path \"C:\\CapsProj\\TindaGo\\src\\assets\\images\\store-owner-supplier-details\" -Recurse)",
+      "Bash(Select-Object FullName)",
+      "Bash(git checkout:*)",
+      "Bash(cat:*)",
+      "WebFetch(domain:www.figma.com)",
+      "Bash(copy \"C:\\CapsProj\\TindaGo\\src\\assets\\images\\store-product\\chevron-left.png\" \"C:\\CapsProj\\TindaGo\\src\\assets\\images\\store-owner-debt-records\\chevron-left.png\")"
     ],
     "deny": [],
     "ask": []

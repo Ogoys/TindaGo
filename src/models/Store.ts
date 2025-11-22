@@ -37,6 +37,14 @@ export interface Store {
     email?: string;
     facebook?: string;
   };
+  // Debt Settings - Store owner can configure debt/loan rules
+  debtSettings?: {
+    allowDebt: boolean;              // Whether store allows debt payments
+    debtLimit: number;               // Maximum debt amount per customer (0 = no limit)
+    requirePreviousDebtPayment: boolean; // Must pay previous debt before new one
+    maxDaysUntilDue: number;         // Maximum days allowed for debt due date
+    reminderDaysBefore: number;      // Days before due date to send reminder
+  };
   createdAt: Date;
   updatedAt: Date;
 }

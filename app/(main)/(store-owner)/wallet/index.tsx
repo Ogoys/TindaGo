@@ -41,7 +41,7 @@ export default function WalletScreen() {
     }
 
     console.log('🔑 Wallet useEffect - Using storeId:', sid);
-    console.log('🔑 user object:', { storeId: user?.storeId, id: user?.id, uid: user?.uid });
+    console.log('🔑 user object:', { storeId: user?.storeId, id: user?.id });
 
     const walletRef = ref(database, `wallets/${sid}`);
     const payoutsRef = ref(database, 'payouts');

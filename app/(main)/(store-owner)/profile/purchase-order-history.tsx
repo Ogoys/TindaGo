@@ -26,7 +26,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
@@ -43,11 +43,14 @@ import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 type FilterStatus = 'all' | 'pending' | 'received' | 'cancelled';
 
 const PurchaseOrderHistoryScreen = () => {
+  const params = useLocalSearchParams();
+  const supplierParam = params.supplier as string | undefined;
+
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(supplierParam || '');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
@@ -56,6 +59,13 @@ const PurchaseOrderHistoryScreen = () => {
   useEffect(() => {
     fetchPurchaseOrders();
   }, []);
+
+  // Update search query when supplier param changes
+  useEffect(() => {
+    if (supplierParam) {
+      setSearchQuery(supplierParam);
+    }
+  }, [supplierParam]);
 
   useEffect(() => {
     applyFilters();
@@ -334,10 +344,10 @@ const PurchaseOrderHistoryScreen = () => {
               {/* Items */}
               <Text style={styles.sectionTitle}>Items</Text>
               {selectedOrder.items.map((item, index) => {
-                const imageSource = getProductImageSource(
-                  item.productImageUrl,
-                  item.productImage
-                );
+                const imageSource = getProductImageSource({
+                  productImageUrl: item.productImageUrl,
+                  productImage: item.productImage
+                });
                 
                 return (
                   <View key={index} style={styles.itemCard}>

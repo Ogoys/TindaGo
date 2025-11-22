@@ -296,21 +296,52 @@ const CartScreen = () => {
                 {/* Quantity Controls */}
                 <View style={styles.quantityControls}>
                   <TouchableOpacity
-                    style={styles.quantityButton}
+                    style={[
+                      styles.quantityButton,
+                      (updatingItem === item.productId || item.quantity <= 1) && styles.quantityButtonDisabled
+                    ]}
                     onPress={() => updateQuantity(item.productId, item.quantity - 1, item.stock)}
                     disabled={updatingItem === item.productId || item.quantity <= 1}
                   >
-                    <Text style={styles.quantityButtonText}>-</Text>
+                    <Text style={[
+                      styles.quantityButtonText,
+                      (updatingItem === item.productId || item.quantity <= 1) && styles.quantityButtonTextDisabled
+                    ]}>-</Text>
                   </TouchableOpacity>
 
-                  <Text style={styles.quantityText}>{item.quantity}</Text>
+                  <TextInput
+                    style={styles.quantityInput}
+                    value={String(item.quantity)}
+                    onChangeText={(text) => {
+                      const num = parseInt(text.replace(/[^0-9]/g, ''), 10);
+                      if (!isNaN(num) && num >= 1 && num <= item.stock) {
+                        updateQuantity(item.productId, num, item.stock);
+                      } else if (text === '' || num < 1) {
+                        // Keep minimum of 1
+                        updateQuantity(item.productId, 1, item.stock);
+                      } else if (num > item.stock) {
+                        // Cap at max stock
+                        updateQuantity(item.productId, item.stock, item.stock);
+                      }
+                    }}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                    selectTextOnFocus
+                    editable={updatingItem !== item.productId}
+                  />
 
                   <TouchableOpacity
-                    style={styles.quantityButton}
+                    style={[
+                      styles.quantityButton,
+                      (updatingItem === item.productId || item.quantity >= item.stock) && styles.quantityButtonDisabled
+                    ]}
                     onPress={() => updateQuantity(item.productId, item.quantity + 1, item.stock)}
                     disabled={updatingItem === item.productId || item.quantity >= item.stock}
                   >
-                    <Text style={styles.quantityButtonText}>+</Text>
+                    <Text style={[
+                      styles.quantityButtonText,
+                      (updatingItem === item.productId || item.quantity >= item.stock) && styles.quantityButtonTextDisabled
+                    ]}>+</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -708,6 +739,27 @@ const styles = StyleSheet.create({
     fontSize: s(16),
     fontWeight: '600',
     color: Colors.primary,
+  },
+  quantityButtonDisabled: {
+    backgroundColor: '#E5E7EB',
+    opacity: 0.6,
+  },
+  quantityButtonTextDisabled: {
+    color: '#9CA3AF',
+  },
+  quantityInput: {
+    fontSize: s(14),
+    fontWeight: '600',
+    color: Colors.darkGray,
+    marginHorizontal: s(8),
+    minWidth: s(40),
+    textAlign: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: s(6),
+    paddingVertical: vs(4),
+    paddingHorizontal: s(8),
   },
   quantityText: {
     fontSize: s(14),

@@ -22,8 +22,13 @@ export interface Order {
   status: OrderStatus;
   pickupTime?: string;        // ISO string or Date string
   notes?: string;
-  paymentMethod: 'cash' | 'online' | 'gcash' | 'paymaya';
-  paymentStatus: 'pending' | 'paid' | 'refunded';
+  paymentMethod: 'cash' | 'online' | 'gcash' | 'paymaya' | 'debt';
+  paymentStatus: 'pending' | 'paid' | 'refunded' | 'unpaid';
+  // Debt/Loan payment fields
+  isDebtPayment?: boolean;       // Flag for debt-based payment
+  debtDueDate?: string;          // ISO string - when payment is due
+  debtPaidDate?: string;         // ISO string - when debt was paid
+  debtStatus?: 'pending' | 'paid' | 'overdue'; // Current debt status
   createdAt: string;          // ISO string
   updatedAt: string;          // ISO string
   completedAt?: string;       // ISO string

@@ -320,9 +320,9 @@ export const CalendarDatePickerModal: React.FC<CalendarDatePickerModalProps> = (
                     key={`${day || 'empty'}-${index}`}
                     style={[
                       styles.calendarDay,
-                      !day && styles.calendarDayEmpty,
-                      isSelected && styles.calendarDaySelected,
-                      disabled && styles.calendarDayDisabled,
+                      !day ? styles.calendarDayEmpty : undefined,
+                      isSelected ? styles.calendarDaySelected : undefined,
+                      disabled ? styles.calendarDayDisabled : undefined,
                     ]}
                     onPress={() => handleDaySelect(day)}
                     disabled={disabled}
@@ -332,8 +332,8 @@ export const CalendarDatePickerModal: React.FC<CalendarDatePickerModalProps> = (
                       <Text
                         style={[
                           styles.calendarDayText,
-                          isSelected && styles.calendarDayTextSelected,
-                          disabled && styles.calendarDayTextDisabled,
+                          isSelected ? styles.calendarDayTextSelected : undefined,
+                          disabled ? styles.calendarDayTextDisabled : undefined,
                         ]}
                       >
                         {day}

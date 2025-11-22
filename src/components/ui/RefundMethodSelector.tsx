@@ -18,7 +18,7 @@ import { Colors } from '../../constants/Colors';
 import { Fonts } from '../../constants/Fonts';
 import { s, vs, ms } from '../../constants/responsive';
 
-export type RefundMethodType = 'gcash' | 'paymaya' | 'loan';
+export type RefundMethodType = 'cash' | 'gcash' | 'paymaya' | 'loan';
 
 interface RefundMethodSelectorProps {
   selectedMethod: RefundMethodType;
@@ -36,6 +36,36 @@ export const RefundMethodSelector: React.FC<RefundMethodSelectorProps> = ({
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
+
+      {/* Cash Option */}
+      <TouchableOpacity
+        style={[
+          styles.methodCard,
+          selectedMethod === 'cash' && styles.methodCardSelected,
+        ]}
+        onPress={() => onMethodSelect('cash')}
+        disabled={disabled}
+        activeOpacity={0.7}
+      >
+        <View style={styles.methodContent}>
+          {/* Cash Icon - Peso sign in green circle */}
+          <View style={styles.cashIconCircle}>
+            <Text style={styles.cashIconText}>₱</Text>
+          </View>
+          <View>
+            <Text style={styles.methodText}>Cash</Text>
+            <Text style={styles.methodSubtext}>Receive cash refund at store</Text>
+          </View>
+        </View>
+        <View
+          style={[
+            styles.radioCircle,
+            selectedMethod === 'cash' && styles.radioCircleSelected,
+          ]}
+        >
+          {selectedMethod === 'cash' && <View style={styles.radioCircleInner} />}
+        </View>
+      </TouchableOpacity>
 
       {/* GCash Option */}
       <TouchableOpacity
@@ -176,6 +206,22 @@ const styles = StyleSheet.create({
   methodIcon: {
     width: s(40),
     height: s(40),
+  },
+
+  // Cash icon
+  cashIconCircle: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  cashIconText: {
+    fontSize: ms(22),
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 
   loanIconCircle: {

@@ -481,18 +481,18 @@ export default function TrackStoreScreen() {
               <Text style={styles.orderDetailLabel}>Payment:</Text>
               <View style={[
                 styles.paymentBadge,
-                (order?.paymentStatus === 'PAID' || order?.paymentStatus === 'paid' || order?.paymentStatus === 'SETTLED') 
-                  ? styles.paymentBadgePaid 
+                order?.paymentStatus === 'paid'
+                  ? styles.paymentBadgePaid
                   : styles.paymentBadgePending
               ]}>
                 <Text style={[
                   styles.paymentBadgeText,
-                  (order?.paymentStatus === 'PAID' || order?.paymentStatus === 'paid' || order?.paymentStatus === 'SETTLED')
-                    ? styles.paymentBadgeTextPaid 
+                  order?.paymentStatus === 'paid'
+                    ? styles.paymentBadgeTextPaid
                     : styles.paymentBadgeTextPending
                 ]}>
-                  {(order?.paymentStatus === 'PAID' || order?.paymentStatus === 'paid' || order?.paymentStatus === 'SETTLED') 
-                    ? 'Paid' 
+                  {order?.paymentStatus === 'paid'
+                    ? 'Paid'
                     : 'Pending'}
                 </Text>
               </View>

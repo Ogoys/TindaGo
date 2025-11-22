@@ -165,13 +165,24 @@ export default function ReviewsScreen() {
       setLoadingOrder(true);
       const orderRef = ref(database, `orders/${orderId}`);
       const snapshot = await get(orderRef);
-      
+
       if (snapshot.exists()) {
         const order = snapshot.val();
+        const items = order.items || [];
+
+        // Calculate total from items if totalAmount is missing or 0
+        let calculatedTotal = order.totalAmount || 0;
+        if (calculatedTotal === 0 && items.length > 0) {
+          calculatedTotal = items.reduce((sum: number, item: any) => {
+            const itemTotal = (item.price || 0) * (item.quantity || 0);
+            return sum + itemTotal;
+          }, 0);
+        }
+
         setOrderDetails({
           id: orderId,
-          items: order.items || [],
-          totalAmount: order.totalAmount || 0,
+          items: items,
+          totalAmount: calculatedTotal,
           orderDate: order.createdAt,
           status: order.status,
         });

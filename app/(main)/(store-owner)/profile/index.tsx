@@ -178,12 +178,24 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/purchase-order-history');
   };
 
+  const handleSupplierDashboard = () => {
+    router.push('/(main)/(store-owner)/profile/supplier-dashboard');
+  };
+
   const handleRecordReturn = () => {
     router.push('/(main)/(store-owner)/profile/record-return');
   };
 
   const handleReturnHistory = () => {
     router.push('/(main)/(store-owner)/profile/return-history');
+  };
+
+  const handleDebtRecords = () => {
+    router.push('/(main)/(store-owner)/profile/debt-records' as any);
+  };
+
+  const handleDebtSettings = () => {
+    router.push('/(main)/(store-owner)/profile/debt-settings' as any);
   };
 
   const handleHelp = () => {
@@ -312,6 +324,11 @@ export default function ProfileScreen() {
             onPress={handleSalesHistory}
           />
           <SettingItem
+            title="Supplier Dashboard"
+            iconName="people"
+            onPress={handleSupplierDashboard}
+          />
+          <SettingItem
             title="Record Customer Return"
             iconName="return-down-back"
             onPress={handleRecordReturn}
@@ -320,6 +337,16 @@ export default function ProfileScreen() {
             title="Return History"
             iconName="list"
             onPress={handleReturnHistory}
+          />
+          <SettingItem
+            title="Customer Debt Records"
+            iconName="card"
+            onPress={handleDebtRecords}
+          />
+          <SettingItem
+            title="Debt Settings"
+            iconName="settings"
+            onPress={handleDebtSettings}
             isLast={true}
           />
         </View>

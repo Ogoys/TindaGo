@@ -460,7 +460,7 @@ const RecordReturnScreen = () => {
                 >
                   <Text style={styles.reasonLabel}>Reason:</Text>
                   <View style={styles.reasonDisplay}>
-                    <Text style={styles.reasonText}>{reasonData.icon} {reasonData.label}</Text>
+                    <Text style={styles.reasonText}>{reasonData.label}</Text>
                     <Text style={styles.reasonArrow}>▼</Text>
                   </View>
                 </TouchableOpacity>
@@ -682,7 +682,7 @@ const RecordReturnScreen = () => {
                 activeOpacity={0.7}
               >
                 <Text style={styles.reasonOptionText}>
-                  {reason.icon} {reason.label}
+                  {reason.label}
                 </Text>
               </TouchableOpacity>
             ))}

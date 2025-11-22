@@ -114,7 +114,7 @@ export default function AccountSettings() {
         const name = profile.name || auth.currentUser?.displayName || user.email?.split('@')[0] || '';
         const userEmail = profile.email || user.email || '';
         const phone = profile.phoneNumber || '';
-        const avatarUrl = profile.avatarUrl || profile.avatar || null;
+        const avatarUrl = profile.avatar || null;
 
         setFullName(name);
         setEmail(userEmail);
@@ -231,8 +231,7 @@ export default function AccountSettings() {
 
       // Update Firebase with Cloudinary URL
       const success = await updateUserProfileData(user.id, {
-        avatar: cloudinaryUrl,      // Legacy field
-        avatarUrl: cloudinaryUrl,   // NEW: Explicit Cloudinary URL field
+        avatar: cloudinaryUrl,      // Profile avatar URL
       });
 
       if (success) {

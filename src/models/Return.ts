@@ -15,7 +15,7 @@ export type ReturnReason =
 
 export type ReturnCondition = 'sellable' | 'unsellable';
 
-export type RefundMethod = 'gcash' | 'paymaya' | 'loan';
+export type RefundMethod = 'cash' | 'gcash' | 'paymaya' | 'loan';
 
 export type ReturnStatus = 'pending' | 'resolved' | 'rejected';
 
@@ -101,6 +101,7 @@ export const RETURN_REASONS: { value: ReturnReason; label: string }[] = [
  * Refund methods with labels for UI
  */
 export const REFUND_METHODS: { value: RefundMethod; label: string }[] = [
+  { value: 'cash', label: 'Cash' },
   { value: 'gcash', label: 'GCash' },
   { value: 'paymaya', label: 'PayMaya' },
   { value: 'loan', label: 'Loan (Pay Later)' },

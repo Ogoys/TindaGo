@@ -95,6 +95,8 @@ export default function OrderDetailsHistoryScreen() {
         return 'PayMaya';
       case 'online':
         return 'Online Payment';
+      case 'debt':
+        return 'Debt (Pay Later)';
       default:
         return method || 'Cash on Pickup';
     }
@@ -446,6 +448,10 @@ export default function OrderDetailsHistoryScreen() {
               <View style={styles.cashIconCircle}>
                 <Text style={styles.cashIconText}>₱</Text>
               </View>
+            ) : safeOrder.paymentMethod === 'debt' ? (
+              <View style={styles.debtIconCircle}>
+                <Text style={styles.debtIconText}>💳</Text>
+              </View>
             ) : safeOrder.paymentMethod === 'gcash' ? (
               <Image
                 source={require("../../../../src/assets/images/payment/gcash-icon.png")}
@@ -465,9 +471,16 @@ export default function OrderDetailsHistoryScreen() {
                 resizeMode="contain"
               />
             )}
-            <Text style={styles.paymentText}>
-              {getPaymentMethodName(safeOrder.paymentMethod)}
-            </Text>
+            <View style={safeOrder.paymentMethod === 'debt' ? styles.debtPaymentInfo : undefined}>
+              <Text style={styles.paymentText}>
+                {getPaymentMethodName(safeOrder.paymentMethod)}
+              </Text>
+              {safeOrder.paymentMethod === 'debt' && order?.debtDueDate && (
+                <Text style={styles.debtDueDateText}>
+                  Due: {new Date(order.debtDueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 
@@ -1080,5 +1093,34 @@ const styles = StyleSheet.create({
   paymentIcon: {
     width: s(30),
     height: s(30),
+  },
+
+  // Debt Icon Circle - Orange circle for debt payment
+  debtIconCircle: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: "#FFF3E0", // Light orange background
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Debt Icon Text
+  debtIconText: {
+    fontSize: ms(16),
+  },
+
+  // Debt Payment Info Container
+  debtPaymentInfo: {
+    flexDirection: "column",
+  },
+
+  // Debt Due Date Text
+  debtDueDateText: {
+    fontFamily: Fonts.primary,
+    fontWeight: "400",
+    fontSize: ms(12),
+    color: "#FF8D2F", // Orange text for due date
+    marginTop: vs(2),
   },
 });

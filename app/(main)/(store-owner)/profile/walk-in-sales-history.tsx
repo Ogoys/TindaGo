@@ -171,10 +171,10 @@ const WalkInSalesHistoryScreen = () => {
                 <Text style={styles.itemsTitle}>Items:</Text>
 
                 {selectedSale.items.map((item, index) => {
-                  const imageSource = getProductImageSource(
-                    item.productImageUrl,
-                    item.productImage
-                  );
+                  const imageSource = getProductImageSource({
+                    productImageUrl: item.productImageUrl,
+                    productImage: item.productImage
+                  });
                   
                   return (
                     <View key={index} style={styles.itemCard}>

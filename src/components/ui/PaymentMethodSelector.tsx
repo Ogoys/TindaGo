@@ -12,7 +12,7 @@ import { Colors } from '../../constants/Colors';
 import { Fonts } from '../../constants/Fonts';
 import { s, vs, ms } from '../../constants/responsive';
 
-export type PaymentMethod = 'gcash' | 'paymaya' | 'cash' | null;
+export type PaymentMethod = 'gcash' | 'paymaya' | 'cash' | 'debt' | null;
 
 interface PaymentMethodSelectorProps {
   selectedPayment: PaymentMethod;
@@ -76,6 +76,35 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           selectedPayment === 'gcash' && styles.radioCircleSelected
         ]}>
           {selectedPayment === 'gcash' && <View style={styles.radioCircleInner} />}
+        </View>
+      </TouchableOpacity>
+
+      {/* Debt/Loan - Third option */}
+      <TouchableOpacity
+        style={[
+          styles.paymentOption,
+          styles.debtPaymentOption,
+          selectedPayment === 'debt' && styles.paymentOptionSelected,
+          selectedPayment === 'debt' && styles.debtPaymentOptionSelected,
+        ]}
+        onPress={() => onPaymentSelect('debt')}
+        disabled={disabled}
+        activeOpacity={0.7}
+      >
+        <View style={styles.paymentOptionContent}>
+          <View style={styles.debtIconCircle}>
+            <Text style={styles.debtIconText}>💳</Text>
+          </View>
+          <View>
+            <Text style={styles.paymentMethodText}>Debt (Pay Later)</Text>
+            <Text style={styles.debtSubtext}>Set repayment date</Text>
+          </View>
+        </View>
+        <View style={[
+          styles.radioCircle,
+          selectedPayment === 'debt' && styles.radioCircleSelected
+        ]}>
+          {selectedPayment === 'debt' && <View style={styles.radioCircleInner} />}
         </View>
       </TouchableOpacity>
     </View>
@@ -167,5 +196,32 @@ const styles = StyleSheet.create({
     fontSize: ms(20),
     fontWeight: '700',
     color: Colors.white,
+  },
+
+  // Debt Payment Option
+  debtPaymentOption: {
+    height: 'auto',
+    paddingVertical: vs(12),
+  },
+  debtPaymentOptionSelected: {
+    borderColor: '#FF8D2F', // Orange for debt
+  },
+  debtIconCircle: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: '#FFF3E0', // Light orange background
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  debtIconText: {
+    fontSize: ms(20),
+  },
+  debtSubtext: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    fontWeight: '400',
+    color: '#FF8D2F', // Orange text
+    marginTop: vs(2),
   },
 });

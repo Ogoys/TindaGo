@@ -41,3 +41,6 @@ app.json
 *.tsbuildinfo
 
 app-example
+
+# Claude Code MCP settings (contains API keys)
+.claude/mcp-settings.json

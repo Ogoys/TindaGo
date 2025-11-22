@@ -11,28 +11,67 @@
       ".write": true
     },
     "products": {
-      ".indexOn": ["storeOwnerId", "status"]
+      ".indexOn": ["storeOwnerId", "status", "expiryDate"]
     },
     "damages_spoilage": {
       ".indexOn": ["storeOwnerId", "createdAt"]
     },
     "damages": {
-      ".indexOn": ["storeOwnerId", "createdAt"]
+      ".indexOn": ["storeOwnerId", "createdAt", "reason"]
     },
     "return_goods": {
-      ".indexOn": ["customerId", "storeId", "storeOwnerId", "status"]
+      ".indexOn": ["customerId", "storeId", "storeOwnerId", "status", "reason", "orderNumber"]
     },
     "returns": {
       ".indexOn": ["storeOwnerId", "status"]
     },
     "orders": {
-      ".indexOn": ["customerId", "storeId", "status"]
+      ".indexOn": ["customerId", "storeId", "storeOwnerId", "status", "paymentStatus"]
     },
     "purchase_orders": {
       ".indexOn": ["storeOwnerId", "createdAt"]
     },
+    "purchaseOrders": {
+      ".indexOn": ["storeOwnerId", "createdAt"]
+    },
     "walk_in_sales": {
       ".indexOn": ["storeOwnerId", "createdAt"]
+    },
+    "walkInSales": {
+      ".indexOn": ["storeOwnerId", "createdAt"]
+    },
+    "suppliers": {
+      ".indexOn": ["storeOwnerId", "createdAt", "name"]
+    },
+    "users": {
+      ".indexOn": ["role", "email", "phoneNumber"]
+    },
+    "stores": {
+      ".indexOn": ["ownerId", "status", "isOpen"]
+    },
+    "reviews": {
+      ".indexOn": ["storeId", "customerId", "orderId", "productId"]
+    },
+    "cart": {
+      ".indexOn": ["userId", "storeId"]
+    },
+    "carts": {
+      ".indexOn": ["userId", "storeId"]
+    },
+    "wallets": {
+      ".indexOn": ["storeId"]
+    },
+    "payouts": {
+      ".indexOn": ["storeId", "status"]
+    },
+    "ledgers": {
+      "stores": {
+        "$storeId": {
+          "transactions": {
+            ".indexOn": ["createdAt", "type"]
+          }
+        }
+      }
     },
     ".write": "auth != null"
   }

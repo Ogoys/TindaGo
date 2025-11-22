@@ -65,7 +65,7 @@ export default function ReturnRequestScreen() {
   const [selectedItems, setSelectedItems] = useState<Map<string, SelectedReturnItem>>(new Map());
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [photoUris, setPhotoUris] = useState<string[]>([]);
-  const [refundMethod, setRefundMethod] = useState<RefundMethodType>('gcash');
+  const [refundMethod, setRefundMethod] = useState<RefundMethodType>('cash');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -345,7 +345,7 @@ export default function ReturnRequestScreen() {
         storeId: order.storeId,
         storeName: order.storeName,
         items: returnItems,
-        refundMethod: refundMethod as 'gcash' | 'paymaya' | 'loan',
+        refundMethod: refundMethod as 'cash' | 'gcash' | 'paymaya' | 'loan',
         additionalDetails: additionalDetails.trim(),
         photoUrls: uploadedPhotoUrls,
       };
