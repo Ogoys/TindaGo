@@ -18,6 +18,7 @@ import { updateOrderStatus, cancelOrder } from "../../../../src/api/orders";
 import type { Order } from "../../../../src/models/Order";
 import { s, vs, ms } from "../../../../src/constants/responsive";
 import { Colors } from "../../../../src/constants/Colors";
+import { getProductImageSource } from "../../../../src/lib/helpers/imageHelper";
 
 /**
  * STORE OWNER - ORDER DETAILS (DYNAMIC)
@@ -513,11 +514,26 @@ export default function OrderDetailsScreen() {
                 <View key={item.productId} style={styles.modernItemRow}>
                   {/* Item Info Section */}
                   <View style={styles.itemInfoSection}>
-                    {/* Product Icon/Image Placeholder */}
+                    {/* Product Image */}
                     <View style={styles.productIconContainer}>
-                      <View style={styles.productIcon}>
-                        <Text style={styles.productIconText}>📦</Text>
-                      </View>
+                      {(() => {
+                        const imageSource = getProductImageSource({
+                          productImageUrl: (item as any).productImageUrl,
+                          productImage: item.productImage
+                        }, 'small');
+
+                        return imageSource ? (
+                          <Image
+                            source={imageSource}
+                            style={styles.productImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.productIcon}>
+                            <Text style={styles.productIconText}>📦</Text>
+                          </View>
+                        );
+                      })()}
                     </View>
 
                     {/* Product Details */}
@@ -945,6 +961,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  productImage: {
+    width: s(48),
+    height: s(48),
+    borderRadius: s(12),
   },
 
   productIconText: {

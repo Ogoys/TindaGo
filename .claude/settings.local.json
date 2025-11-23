@@ -38,7 +38,8 @@
       "Bash(git checkout:*)",
       "Bash(cat:*)",
       "WebFetch(domain:www.figma.com)",
-      "Bash(copy \"C:\\CapsProj\\TindaGo\\src\\assets\\images\\store-product\\chevron-left.png\" \"C:\\CapsProj\\TindaGo\\src\\assets\\images\\store-owner-debt-records\\chevron-left.png\")"
+      "Bash(copy \"C:\\CapsProj\\TindaGo\\src\\assets\\images\\store-product\\chevron-left.png\" \"C:\\CapsProj\\TindaGo\\src\\assets\\images\\store-owner-debt-records\\chevron-left.png\")",
+      "Bash(timeout /t 5)"
     ],
     "deny": [],
     "ask": []

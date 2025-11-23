@@ -612,7 +612,7 @@ const AddProductScreen = () => {
               <Text style={[styles.dropdownText, product.expiryDate && styles.dropdownTextSelected]}>
                 {product.expiryDate || 'MM/DD/YYYY'}
               </Text>
-              <Text style={styles.dropdownArrow}>📅</Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

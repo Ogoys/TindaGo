@@ -1,84 +1,60 @@
 /**
- * ORDER SUPPLIES SCREEN - Same structure as Add Product
+ * ORDER SUPPLIES SCREEN - Purchase Order Module
  *
- * Create orders from suppliers with horizontal scroll product cards
- * Each card has ALL fields split into horizontal sections:
- * - Section 1 (Product Info): Image, Product name, Size, Unit
- * - Section 2 (Order Details): Quantity, Cost per unit, Subtotal
+ * Allows store owners to record and manage items procured for sale.
+ * Acts as a digital log for tracking inventory replenishments, supplier details,
+ * and purchasing dates, helping store owners efficiently plan stock levels.
  *
- * Figma File: 8I1Nr3vQZllDDknSevstvH
+ * EXACT same structure as add-product.tsx with ALL fields:
+ * - Section 1: Upload image, product name, description
+ * - Section 2: Category, supplier price, quantity, size, unit, expiry
+ *
+ * Figma File: 8I1Nr3vQZllDDmnSevstvH
  * Node: 1571-711, 1571-780
  * Baseline: 440x956
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StatusBar,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import React, { useState, useCallback, useMemo } from 'react';
+import {
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ref, push, set, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
-import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
-import { PurchaseOrderItem } from '../../../../src/models/PurchaseOrder';
+import { s, vs, ms } from '../../../../src/constants/responsive';
 import { CalendarDatePickerModal } from '../../../../src/components/ui/CalendarDatePickerModal';
-import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
+import { uploadImageToCloudinary } from '../../../../src/lib/upload/cloudinary';
 
-interface Product {
+interface CategoryItem {
+  id: string;
+  name: string;
+}
+
+interface PurchaseOrderCard {
   id: string;
   productName: string;
   description: string;
-  category: string;
-  price: number;
-  quantity: number;
-  productSize: string;
-  unit: string;
-  productImage?: string;
-  productImageUrl?: string;
-  status: 'available' | 'out_of_stock';
-}
-
-interface OrderItemCard {
-  id: string;
-  productName: string;
-  productId?: string;
-  productImage?: string;
-  productImageUrl?: string;
-  productSize: string;
-  unit: string;
+  selectedCategory: string;
+  supplierPrice: string;
   quantity: string;
-  costPerUnit: string;
-  notes: string;
+  productSize: string;
+  selectedUnit: string;
+  expiryDate: string;
+  selectedImage: string | null;
 }
-
-// Common units for products
-const UNITS = [
-  { id: '1', name: 'pcs' },
-  { id: '2', name: 'pack' },
-  { id: '3', name: 'box' },
-  { id: '4', name: 'bottle' },
-  { id: '5', name: 'can' },
-  { id: '6', name: 'sachet' },
-  { id: '7', name: 'g' },
-  { id: '8', name: 'kg' },
-  { id: '9', name: 'ml' },
-  { id: '10', name: 'L' },
-  { id: '11', name: 'dozen' },
-  { id: '12', name: 'case' },
-];
 
 const OrderSuppliesScreen = () => {
   const params = useLocalSearchParams();
@@ -86,138 +62,96 @@ const OrderSuppliesScreen = () => {
   // Supplier info from navigation params
   const supplierNameParam = typeof params.supplierName === 'string' ? params.supplierName : '';
   const supplierContactParam = typeof params.supplierContact === 'string' ? params.supplierContact : '';
-  const preSelectedProductId = typeof params.preSelectedProductId === 'string' ? params.preSelectedProductId : '';
 
-  // Form state
+  // Supplier state
   const [supplierName, setSupplierName] = useState(supplierNameParam);
-  const [orderDate, setOrderDate] = useState(new Date());
   const [deliveryDate, setDeliveryDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() + 3);
     return date;
   });
 
-  // Order item cards - multiple products
-  const [orderCards, setOrderCards] = useState<OrderItemCard[]>([createEmptyOrderItem()]);
+  // Purchase order cards state - multiple items
+  const [purchaseCards, setPurchaseCards] = useState<PurchaseOrderCard[]>([
+    createEmptyPurchaseItem(),
+  ]);
 
   // Modal states
-  const [showOrderDatePicker, setShowOrderDatePicker] = useState(false);
-  const [showDeliveryDatePicker, setShowDeliveryDatePicker] = useState(false);
-  const [showProductSelector, setShowProductSelector] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDeliveryDatePicker, setShowDeliveryDatePicker] = useState(false);
   const [currentEditingCardId, setCurrentEditingCardId] = useState<string | null>(null);
 
-  // Products from inventory
-  const [products, setProducts] = useState<Product[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  // Saving state
+  const [isSaving, setIsSaving] = useState(false);
+  const [savingProgress, setSavingProgress] = useState({ current: 0, total: 0 });
 
-  // Loading states
-  const [loading, setLoading] = useState(false);
-  const [placing, setPlacing] = useState(false);
-  const [storeName, setStoreName] = useState('My Store');
-
-  // Create empty order item
-  function createEmptyOrderItem(): OrderItemCard {
+  // Create empty purchase item
+  function createEmptyPurchaseItem(): PurchaseOrderCard {
     return {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       productName: '',
+      description: '',
+      selectedCategory: '',
+      supplierPrice: '',
+      quantity: '',
       productSize: '',
-      unit: 'pcs',
-      quantity: '1',
-      costPerUnit: '',
-      notes: '',
+      selectedUnit: '',
+      expiryDate: '',
+      selectedImage: null,
     };
   }
 
-  // Fetch store info and products on mount
-  useEffect(() => {
-    fetchStoreInfo();
-    fetchProducts();
-  }, []);
+  // Product categories - Matching add-product.tsx (10 categories)
+  const categories: CategoryItem[] = [
+    { id: '1', name: 'Fruits & Vegetables' },
+    { id: '2', name: 'Dairy & Bakery' },
+    { id: '3', name: 'Snacks & Sweets' },
+    { id: '4', name: 'Beverages' },
+    { id: '5', name: 'Personal & Baby Care' },
+    { id: '6', name: 'Home & Kitchen' },
+    { id: '7', name: 'Staple Foods' },
+    { id: '8', name: 'Condiments & Cooking' },
+    { id: '9', name: 'Frozen Goods' },
+    { id: '10', name: 'Miscellaneous & Others' },
+  ];
 
-  // Pre-select product if passed from supplier details
-  useEffect(() => {
-    if (preSelectedProductId && products.length > 0) {
-      const product = products.find(p => p.id === preSelectedProductId);
-      if (product && orderCards.length > 0) {
-        updateOrderCard(orderCards[0].id, 'productName', product.productName);
-        updateOrderCard(orderCards[0].id, 'productId', product.id);
-        updateOrderCard(orderCards[0].id, 'productImage', product.productImage);
-        updateOrderCard(orderCards[0].id, 'productImageUrl', product.productImageUrl);
-        updateOrderCard(orderCards[0].id, 'productSize', product.productSize);
-        updateOrderCard(orderCards[0].id, 'unit', product.unit);
-        // Set suggested cost (80% of retail price)
-        const suggestedCost = Math.round(product.price * 0.8);
-        updateOrderCard(orderCards[0].id, 'costPerUnit', suggestedCost.toString());
-      }
-    }
-  }, [preSelectedProductId, products]);
+  // Common units for sari-sari store products - Matching add-product.tsx
+  const units: CategoryItem[] = [
+    { id: '1', name: 'pcs' },
+    { id: '2', name: 'pack' },
+    { id: '3', name: 'box' },
+    { id: '4', name: 'bottle' },
+    { id: '5', name: 'can' },
+    { id: '6', name: 'sachet' },
+    { id: '7', name: 'g' },
+    { id: '8', name: 'kg' },
+    { id: '9', name: 'ml' },
+    { id: '10', name: 'L' },
+    { id: '11', name: 'meter' },
+    { id: '12', name: 'cm' },
+  ];
 
-  const fetchStoreInfo = async () => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      const storeRef = ref(database, `stores/${currentUser.uid}`);
-      const storeSnapshot = await get(storeRef);
-
-      if (storeSnapshot.exists()) {
-        const storeData = storeSnapshot.val();
-        setStoreName(storeData.storeName || storeData.businessInfo?.storeName || 'My Store');
-      }
-    } catch (error) {
-      console.error('Error fetching store info:', error);
-    }
+  // Helper function: Format product name
+  const formatProductName = (name: string): string => {
+    return name
+      .trim()
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
-  const fetchProducts = () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
-    const productsRef = ref(database, 'products');
-    const userProductsQuery = query(
-      productsRef,
-      orderByChild('storeOwnerId'),
-      equalTo(currentUser.uid)
-    );
-
-    const unsubscribe = onValue(userProductsQuery, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const productsList: Product[] = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key],
-          status: data[key].status || 'available',
-        }));
-        setProducts(productsList);
-      } else {
-        setProducts([]);
-      }
-    });
-
-    return unsubscribe;
+  // Helper function: Format price
+  const formatPrice = (price: number): number => {
+    return Math.round(price * 100) / 100;
   };
-
-  const filteredProducts = products.filter(p =>
-    p.productName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Calculate totals
-  const totalItems = orderCards.filter(c => c.productName.trim()).length;
-  const totalQuantity = orderCards.reduce((sum, card) => {
-    const qty = parseInt(card.quantity) || 0;
-    return sum + qty;
-  }, 0);
-  const totalCost = orderCards.reduce((sum, card) => {
-    const qty = parseInt(card.quantity) || 0;
-    const cost = parseFloat(card.costPerUnit) || 0;
-    return sum + (qty * cost);
-  }, 0);
 
   const handleBack = () => {
-    if (orderCards.some(c => c.productName.trim())) {
+    if (purchaseCards.some(p => p.productName || p.selectedImage)) {
       Alert.alert(
-        'Discard Order?',
+        'Discard Purchase Order?',
         'You have unsaved items. Are you sure you want to go back?',
         [
           { text: 'Cancel', style: 'cancel' },
@@ -229,155 +163,316 @@ const OrderSuppliesScreen = () => {
     }
   };
 
-  // Update a specific order card field
-  const updateOrderCard = (cardId: string, field: keyof OrderItemCard, value: string | undefined) => {
-    setOrderCards(cards =>
+  // Update a specific purchase card field
+  const updatePurchaseCard = (cardId: string, field: keyof PurchaseOrderCard, value: string | null) => {
+    setPurchaseCards(cards =>
       cards.map(card =>
         card.id === cardId ? { ...card, [field]: value } : card
       )
     );
   };
 
-  // Add new order card
-  const handleAddNewOrderCard = () => {
-    setOrderCards([...orderCards, createEmptyOrderItem()]);
+  // Add new purchase card
+  const handleAddNewPurchaseCard = () => {
+    setPurchaseCards([...purchaseCards, createEmptyPurchaseItem()]);
   };
 
-  // Remove order card
-  const handleRemoveOrderCard = (cardId: string) => {
-    if (orderCards.length === 1) {
+  // Remove purchase card
+  const handleRemovePurchaseCard = (cardId: string) => {
+    if (purchaseCards.length === 1) {
       Alert.alert('Cannot Remove', 'You need at least one product card.');
       return;
     }
-    setOrderCards(cards => cards.filter(card => card.id !== cardId));
+    setPurchaseCards(cards => cards.filter(card => card.id !== cardId));
   };
 
-  // Handle product selection from inventory
-  const handleSelectProduct = (product: Product) => {
-    if (currentEditingCardId) {
-      updateOrderCard(currentEditingCardId, 'productName', product.productName);
-      updateOrderCard(currentEditingCardId, 'productId', product.id);
-      updateOrderCard(currentEditingCardId, 'productImage', product.productImage);
-      updateOrderCard(currentEditingCardId, 'productImageUrl', product.productImageUrl);
-      updateOrderCard(currentEditingCardId, 'productSize', product.productSize);
-      updateOrderCard(currentEditingCardId, 'unit', product.unit);
-      // Set suggested cost (80% of retail price)
-      const suggestedCost = Math.round(product.price * 0.8);
-      updateOrderCard(currentEditingCardId, 'costPerUnit', suggestedCost.toString());
+  // Handle image upload for a specific card
+  const handleUploadImage = async (cardId: string) => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        updatePurchaseCard(cardId, 'selectedImage', result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
-    setShowProductSelector(false);
+  };
+
+  // Handle category selection
+  const handleCategorySelect = (category: CategoryItem) => {
+    if (currentEditingCardId) {
+      updatePurchaseCard(currentEditingCardId, 'selectedCategory', category.name);
+    }
+    setShowCategoryDropdown(false);
     setCurrentEditingCardId(null);
-    setSearchQuery('');
   };
 
   // Handle unit selection
-  const handleUnitSelect = (unit: { id: string; name: string }) => {
+  const handleUnitSelect = (unit: CategoryItem) => {
     if (currentEditingCardId) {
-      updateOrderCard(currentEditingCardId, 'unit', unit.name);
+      updatePurchaseCard(currentEditingCardId, 'selectedUnit', unit.name);
     }
     setShowUnitDropdown(false);
     setCurrentEditingCardId(null);
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-    });
+  // Handle date picker
+  const handleExpiryConfirm = (date: Date) => {
+    if (currentEditingCardId) {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
+      const formattedDate = `${month}/${day}/${year}`;
+      updatePurchaseCard(currentEditingCardId, 'expiryDate', formattedDate);
+    }
+    setShowDatePicker(false);
+    setCurrentEditingCardId(null);
   };
 
-  // Validate order
-  const validateOrder = (): { valid: boolean; error?: string } => {
-    if (!supplierName.trim()) {
-      return { valid: false, error: 'Supplier name is required' };
+  const handleExpiryClear = () => {
+    if (currentEditingCardId) {
+      updatePurchaseCard(currentEditingCardId, 'expiryDate', '');
+    }
+    setShowDatePicker(false);
+    setCurrentEditingCardId(null);
+  };
+
+  const expiryMinDate = useMemo(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, []);
+
+  const formatDate = (date: Date) => {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
+
+  // Validate a single purchase item - Matching add-product.tsx
+  const validatePurchaseItem = (item: PurchaseOrderCard): { valid: boolean; error?: string } => {
+    if (!item.productName.trim()) {
+      return { valid: false, error: 'Product name is required' };
+    }
+    if (item.productName.trim().length < 2) {
+      return { valid: false, error: 'Product name must be at least 2 characters' };
+    }
+    if (!item.description.trim()) {
+      return { valid: false, error: 'Description is required' };
+    }
+    if (!item.selectedCategory) {
+      return { valid: false, error: 'Category is required' };
     }
 
-    const validCards = orderCards.filter(c => c.productName.trim());
-    if (validCards.length === 0) {
-      return { valid: false, error: 'Please add at least one product' };
+    const priceNum = Number(item.supplierPrice);
+    if (!item.supplierPrice.trim() || isNaN(priceNum) || priceNum <= 0) {
+      return { valid: false, error: 'Valid supplier price is required' };
     }
 
-    for (let i = 0; i < validCards.length; i++) {
-      const card = validCards[i];
-      const qty = parseInt(card.quantity);
-      const cost = parseFloat(card.costPerUnit);
+    const quantityNum = Number(item.quantity);
+    if (!item.quantity.trim() || isNaN(quantityNum) || quantityNum <= 0 || !Number.isInteger(quantityNum)) {
+      return { valid: false, error: 'Valid quantity (whole number) is required' };
+    }
 
-      if (!card.productName.trim()) {
-        return { valid: false, error: `Product #${i + 1}: Name is required` };
-      }
-      if (isNaN(qty) || qty <= 0) {
-        return { valid: false, error: `${card.productName}: Invalid quantity` };
-      }
-      if (isNaN(cost) || cost <= 0) {
-        return { valid: false, error: `${card.productName}: Invalid cost per unit` };
-      }
+    if (!item.productSize.trim()) {
+      return { valid: false, error: 'Size is required' };
+    }
+    if (!item.selectedUnit) {
+      return { valid: false, error: 'Unit is required' };
     }
 
     return { valid: true };
   };
 
-  // Place order
-  const handlePlaceOrder = async () => {
-    const validation = validateOrder();
-    if (!validation.valid) {
-      Alert.alert('Validation Error', validation.error);
+  // Save all purchase order items
+  const handleSaveAllItems = async () => {
+    if (isSaving) return;
+
+    // Validate supplier name
+    if (!supplierName.trim()) {
+      Alert.alert('Validation Error', 'Supplier name is required');
       return;
     }
 
-    // Prepare items for purchase order
-    const validCards = orderCards.filter(c => c.productName.trim());
-    const items: PurchaseOrderItem[] = validCards.map(card => ({
-      productId: card.productId || card.id,
-      productName: card.productName,
-      productImage: card.productImage,
-      productImageUrl: card.productImageUrl,
-      quantity: parseInt(card.quantity) || 0,
-      costPerUnit: parseFloat(card.costPerUnit) || 0,
-      subtotal: (parseInt(card.quantity) || 0) * (parseFloat(card.costPerUnit) || 0),
-      productSize: card.productSize || '',
-      unit: card.unit || 'pcs',
-    }));
+    // Filter out empty cards
+    const itemsToSave = purchaseCards.filter(p =>
+      p.productName.trim() || p.selectedImage || p.description.trim()
+    );
 
-    // Navigate to payment screen with order data
-    router.push({
-      pathname: '/(main)/(store-owner)/profile/purchase-payment' as any,
-      params: {
-        supplierName: supplierName.trim(),
-        supplierContact: supplierContactParam || '',
-        purchaseDate: orderDate.toISOString().split('T')[0],
-        notes: `Expected delivery: ${formatDate(deliveryDate)}`,
-        items: JSON.stringify(items),
-      },
-    });
+    if (itemsToSave.length === 0) {
+      Alert.alert('No Items', 'Please add at least one product with details.');
+      return;
+    }
+
+    // Validate all items
+    for (let i = 0; i < itemsToSave.length; i++) {
+      const validation = validatePurchaseItem(itemsToSave[i]);
+      if (!validation.valid) {
+        Alert.alert(
+          `Product #${i + 1} Error`,
+          `${itemsToSave[i].productName || 'Unnamed product'}: ${validation.error}`
+        );
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    setSavingProgress({ current: 0, total: itemsToSave.length });
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'User not authenticated');
+        setIsSaving(false);
+        return;
+      }
+
+      // Fetch store info
+      const storeRef = ref(database, `stores/${currentUser.uid}`);
+      const storeSnapshot = await get(storeRef);
+      let storeName = 'My Store';
+      let storeOwnerName = 'Store Owner';
+
+      if (storeSnapshot.exists()) {
+        const storeData = storeSnapshot.val();
+        storeName = storeData.storeName || storeData.businessInfo?.storeName || 'My Store';
+        storeOwnerName = storeData.ownerName || storeData.personalInfo?.fullName || 'Store Owner';
+      }
+
+      let savedCount = 0;
+      const errors: string[] = [];
+      const purchaseOrderItems: any[] = [];
+
+      for (let i = 0; i < itemsToSave.length; i++) {
+        const item = itemsToSave[i];
+        setSavingProgress({ current: i + 1, total: itemsToSave.length });
+
+        try {
+          // Upload image if provided
+          let productImageUrl = null;
+          if (item.selectedImage) {
+            productImageUrl = await uploadImageToCloudinary(item.selectedImage, 'purchase-orders');
+          }
+
+          // Prepare expiry date
+          let expiryDateISO = null;
+          if (item.expiryDate.trim()) {
+            const parts = item.expiryDate.trim().split('/');
+            if (parts.length === 3) {
+              const month = parseInt(parts[0], 10) - 1;
+              const day = parseInt(parts[1], 10);
+              const year = parseInt(parts[2], 10);
+              const dateObj = new Date(year, month, day);
+              expiryDateISO = dateObj.toISOString();
+            }
+          }
+
+          // Prepare purchase order item data
+          const purchaseItem = {
+            productName: formatProductName(item.productName),
+            description: item.description.trim(),
+            category: item.selectedCategory,
+            supplierPrice: formatPrice(Number(item.supplierPrice)),
+            quantity: Math.floor(Number(item.quantity)),
+            productSize: item.productSize.trim(),
+            unit: item.selectedUnit,
+            expiryDate: expiryDateISO,
+            productImageUrl,
+            subtotal: formatPrice(Number(item.supplierPrice)) * Math.floor(Number(item.quantity)),
+          };
+
+          purchaseOrderItems.push(purchaseItem);
+          savedCount++;
+
+        } catch (error) {
+          console.error(`Error processing item ${item.productName}:`, error);
+          errors.push(`Failed to process ${item.productName}`);
+        }
+      }
+
+      // Create purchase order in database
+      if (purchaseOrderItems.length > 0) {
+        const purchaseOrdersRef = ref(database, 'purchase_orders');
+        const newPurchaseOrderRef = push(purchaseOrdersRef);
+
+        const totalCost = purchaseOrderItems.reduce((sum, item) => sum + item.subtotal, 0);
+
+        const purchaseOrderData = {
+          storeOwnerId: currentUser.uid,
+          storeId: currentUser.uid,
+          storeName,
+          storeOwnerName,
+          supplierName: supplierName.trim(),
+          supplierContact: supplierContactParam || '',
+          purchaseDate: new Date().toISOString(),
+          expectedDeliveryDate: deliveryDate.toISOString(),
+          items: purchaseOrderItems,
+          totalItems: purchaseOrderItems.length,
+          totalQuantity: purchaseOrderItems.reduce((sum, item) => sum + item.quantity, 0),
+          totalCost: formatPrice(totalCost),
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        await set(newPurchaseOrderRef, purchaseOrderData);
+      }
+
+      // Show results
+      if (savedCount > 0 && errors.length === 0) {
+        Alert.alert(
+          'Success',
+          `Purchase order created with ${savedCount} item${savedCount > 1 ? 's' : ''}!`,
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } else if (savedCount > 0 && errors.length > 0) {
+        Alert.alert(
+          'Partial Success',
+          `${savedCount} item${savedCount > 1 ? 's' : ''} saved.\n\nErrors:\n${errors.join('\n')}`,
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } else {
+        Alert.alert('Error', `Failed to create purchase order:\n${errors.join('\n')}`);
+      }
+
+    } catch (error) {
+      console.error('Error creating purchase order:', error);
+      Alert.alert('Error', 'Failed to create purchase order. Please try again.');
+    } finally {
+      setIsSaving(false);
+      setSavingProgress({ current: 0, total: 0 });
+    }
   };
 
-  // Calculate subtotal for a card
-  const getCardSubtotal = (card: OrderItemCard): number => {
-    const qty = parseInt(card.quantity) || 0;
-    const cost = parseFloat(card.costPerUnit) || 0;
-    return qty * cost;
-  };
-
-  // Render a single order card with horizontal scroll sections
-  const renderOrderCard = (card: OrderItemCard, index: number) => {
-    const imageSource = card.productImageUrl || card.productImage
-      ? getProductImageSource(card)
-      : null;
-    const subtotal = getCardSubtotal(card);
-
+  // Render a single purchase card with horizontal scroll sections - MATCHING add-product.tsx EXACTLY
+  const renderPurchaseCard = (item: PurchaseOrderCard, index: number) => {
     return (
-      <View key={card.id} style={styles.productCard}>
+      <View key={item.id} style={styles.productCard}>
         {/* Card Header */}
         <View style={styles.cardHeader}>
           <View style={styles.cardIndexBadge}>
             <Text style={styles.cardIndexText}>#{index + 1}</Text>
           </View>
           <Text style={styles.cardTitle}>Product Details</Text>
-          {orderCards.length > 1 && (
+          {purchaseCards.length > 1 && (
             <TouchableOpacity
               style={styles.removeCardButton}
-              onPress={() => handleRemoveOrderCard(card.id)}
+              onPress={() => handleRemovePurchaseCard(item.id)}
               activeOpacity={0.7}
             >
               <Text style={styles.removeCardIcon}>✕</Text>
@@ -393,49 +488,114 @@ const OrderSuppliesScreen = () => {
           contentContainerStyle={styles.horizontalSectionsContent}
           style={styles.horizontalSections}
         >
-          {/* SECTION 1: Product Info */}
+          {/* SECTION 1: Image, Name, Description - EXACT match with add-product.tsx */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Product Info</Text>
+            <Text style={styles.sectionTitle}>Basic Info</Text>
 
-            {/* Product Image - Tap to select from inventory */}
+            {/* Upload Image */}
             <TouchableOpacity
               style={styles.uploadContainer}
-              onPress={() => {
-                setCurrentEditingCardId(card.id);
-                setShowProductSelector(true);
-              }}
+              onPress={() => handleUploadImage(item.id)}
               activeOpacity={0.7}
             >
-              {imageSource ? (
-                <Image source={imageSource} style={styles.selectedImagePreview} />
+              {item.selectedImage ? (
+                <Image source={{ uri: item.selectedImage }} style={styles.selectedImagePreview} />
               ) : (
                 <>
-                  <Text style={styles.uploadIcon}>📦</Text>
-                  <Text style={styles.uploadText}>Tap to select product</Text>
+                  <Image
+                    source={require('../../../../src/assets/images/add-product/upload-icon.png')}
+                    style={styles.uploadIcon}
+                  />
+                  <Text style={styles.uploadText}>Upload Image (Optional)</Text>
                 </>
               )}
             </TouchableOpacity>
 
-            {/* Product Name with Select Button */}
+            {/* Product Name */}
             <Text style={styles.fieldLabel}>Product Name</Text>
-            <View style={styles.inputWithButton}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={styles.textInputFlex}
-                placeholder="Enter or select product"
+                style={styles.textInput}
+                placeholder="Enter product name"
                 placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                value={card.productName}
-                onChangeText={(text) => updateOrderCard(card.id, 'productName', text)}
+                value={item.productName}
+                onChangeText={(text) => updatePurchaseCard(item.id, 'productName', text)}
               />
+            </View>
+
+            {/* Description */}
+            <Text style={styles.fieldLabel}>Description</Text>
+            <View style={[styles.inputContainer, styles.descriptionContainer]}>
+              <TextInput
+                style={[styles.textInput, styles.descriptionInput]}
+                placeholder="Enter description"
+                placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                value={item.description}
+                onChangeText={(text) => updatePurchaseCard(item.id, 'description', text)}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+          </View>
+
+          {/* SECTION 2: Category, Price, Quantity, Size, Unit, Expiry - EXACT match with add-product.tsx */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pricing & Stock</Text>
+
+            {/* Category - Dynamic with Dropdown Helper */}
+            <Text style={styles.fieldLabel}>Category</Text>
+            <View style={styles.categoryInputRow}>
+              <View style={styles.categoryTextInputContainer}>
+                <TextInput
+                  style={styles.categoryTextInput}
+                  placeholder="Type or select category"
+                  placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                  value={item.selectedCategory}
+                  onChangeText={(text) => updatePurchaseCard(item.id, 'selectedCategory', text)}
+                />
+              </View>
               <TouchableOpacity
-                style={styles.selectButton}
+                style={styles.categoryDropdownButton}
                 onPress={() => {
-                  setCurrentEditingCardId(card.id);
-                  setShowProductSelector(true);
+                  setCurrentEditingCardId(item.id);
+                  setShowCategoryDropdown(true);
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.selectButtonText}>▼</Text>
+                <Text style={styles.categoryDropdownIcon}>▼</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Supplier Price & Quantity Row */}
+            <View style={styles.rowFields}>
+              <View style={styles.halfField}>
+                <Text style={styles.fieldLabel}>Supplier Price</Text>
+                <View style={styles.priceInputContainer}>
+                  <Text style={styles.pesoSign}>₱</Text>
+                  <TextInput
+                    style={styles.priceInput}
+                    placeholder="0.00"
+                    placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                    value={item.supplierPrice}
+                    onChangeText={(text) => updatePurchaseCard(item.id, 'supplierPrice', text)}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.halfField}>
+                <Text style={styles.fieldLabel}>Quantity</Text>
+                <View style={styles.inputContainerSmall}>
+                  <TextInput
+                    style={styles.textInputSmall}
+                    placeholder="0"
+                    placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                    value={item.quantity}
+                    onChangeText={(text) => updatePurchaseCard(item.id, 'quantity', text)}
+                    keyboardType="number-pad"
+                  />
+                </View>
+              </View>
             </View>
 
             {/* Size & Unit Row */}
@@ -447,8 +607,8 @@ const OrderSuppliesScreen = () => {
                     style={styles.textInputSmall}
                     placeholder="e.g. 500"
                     placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                    value={card.productSize}
-                    onChangeText={(text) => updateOrderCard(card.id, 'productSize', text)}
+                    value={item.productSize}
+                    onChangeText={(text) => updatePurchaseCard(item.id, 'productSize', text)}
                   />
                 </View>
               </View>
@@ -458,102 +618,34 @@ const OrderSuppliesScreen = () => {
                 <TouchableOpacity
                   style={styles.dropdownContainerSmall}
                   onPress={() => {
-                    setCurrentEditingCardId(card.id);
+                    setCurrentEditingCardId(item.id);
                     setShowUnitDropdown(true);
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.dropdownTextSmall, card.unit && styles.dropdownTextSelected]}>
-                    {card.unit || 'Unit'}
+                  <Text style={[styles.dropdownTextSmall, item.selectedUnit && styles.dropdownTextSelected]}>
+                    {item.selectedUnit || 'Unit'}
                   </Text>
                   <Text style={styles.dropdownArrowSmall}>▼</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Notes (Optional) */}
-            <Text style={styles.fieldLabel}>Notes (Optional)</Text>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Any special instructions..."
-                placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                value={card.notes}
-                onChangeText={(text) => updateOrderCard(card.id, 'notes', text)}
-              />
-            </View>
-          </View>
-
-          {/* SECTION 2: Order Details */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Order Details</Text>
-
-            {/* Quantity */}
-            <Text style={styles.fieldLabel}>Quantity to Order</Text>
-            <View style={styles.quantityContainer}>
-              <TouchableOpacity
-                style={styles.qtyButton}
-                onPress={() => {
-                  const current = parseInt(card.quantity) || 1;
-                  if (current > 1) {
-                    updateOrderCard(card.id, 'quantity', String(current - 1));
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.qtyButtonText}>−</Text>
-              </TouchableOpacity>
-              <TextInput
-                style={styles.qtyInput}
-                value={card.quantity}
-                onChangeText={(text) => updateOrderCard(card.id, 'quantity', text.replace(/[^0-9]/g, ''))}
-                keyboardType="number-pad"
-                textAlign="center"
-              />
-              <TouchableOpacity
-                style={styles.qtyButton}
-                onPress={() => {
-                  const current = parseInt(card.quantity) || 0;
-                  updateOrderCard(card.id, 'quantity', String(current + 1));
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.qtyButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Cost Per Unit */}
-            <Text style={styles.fieldLabel}>Cost Per Unit (Supplier Price)</Text>
-            <View style={styles.priceInputContainer}>
-              <Text style={styles.pesoSign}>₱</Text>
-              <TextInput
-                style={styles.priceInput}
-                placeholder="0.00"
-                placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                value={card.costPerUnit}
-                onChangeText={(text) => updateOrderCard(card.id, 'costPerUnit', text)}
-                keyboardType="decimal-pad"
-              />
-            </View>
-
-            {/* Subtotal Display */}
-            <View style={styles.subtotalContainer}>
-              <Text style={styles.subtotalLabel}>Subtotal</Text>
-              <Text style={styles.subtotalValue}>₱{subtotal.toFixed(2)}</Text>
-            </View>
-
-            {/* Quick Info */}
-            {card.productName && (
-              <View style={styles.quickInfoBox}>
-                <Text style={styles.quickInfoTitle}>Order Summary</Text>
-                <Text style={styles.quickInfoText}>
-                  {card.quantity || 0} × {card.productSize || '?'}{card.unit} {card.productName}
-                </Text>
-                <Text style={styles.quickInfoText}>
-                  @ ₱{parseFloat(card.costPerUnit || '0').toFixed(2)} each
-                </Text>
-              </View>
-            )}
+            {/* Expiry Date */}
+            <Text style={styles.fieldLabel}>Expiry Date (Optional)</Text>
+            <TouchableOpacity
+              style={styles.dropdownContainer}
+              onPress={() => {
+                setCurrentEditingCardId(item.id);
+                setShowDatePicker(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dropdownText, item.expiryDate && styles.dropdownTextSelected]}>
+                {item.expiryDate || 'MM/DD/YYYY'}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
 
@@ -573,195 +665,113 @@ const OrderSuppliesScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <Image
-            source={require('../../../../src/assets/images/store-owner-order-supplies/chevron-left.png')}
+            source={require('../../../../src/assets/images/add-product/chevron-left.png')}
             style={styles.backIcon}
           />
         </TouchableOpacity>
         <Text style={styles.title}>Order Supplies</Text>
         <View style={styles.productCountBadge}>
-          <Text style={styles.productCountText}>{totalItems}</Text>
+          <Text style={styles.productCountText}>{purchaseCards.length}</Text>
         </View>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Order Info Card */}
-          <View style={styles.orderInfoCard}>
-            <Text style={styles.orderInfoTitle}>Order Information</Text>
-
-            {/* Supplier Name */}
-            <Text style={styles.fieldLabel}>Supplier Name</Text>
-            <View style={styles.supplierBox}>
-              <Text style={styles.supplierName}>{supplierName || 'Unknown Supplier'}</Text>
-            </View>
-
-            {/* Date Fields Row */}
-            <View style={styles.rowFields}>
-              <View style={styles.halfField}>
-                <Text style={styles.fieldLabel}>Order Date</Text>
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => setShowOrderDatePicker(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.dateText}>{formatDate(orderDate)}</Text>
-                  <Text style={styles.dateIcon}>📅</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.halfField}>
-                <Text style={styles.fieldLabel}>Delivery Date</Text>
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => setShowDeliveryDatePicker(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.dateText}>{formatDate(deliveryDate)}</Text>
-                  <Text style={styles.dateIcon}>📅</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Products Section Header */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderTitle}>Products to Order</Text>
-            <Text style={styles.sectionHeaderCount}>
-              {totalItems} {totalItems === 1 ? 'item' : 'items'} • {totalQuantity} units
-            </Text>
-          </View>
-
-          {/* Product Cards */}
-          {orderCards.map((card, index) => renderOrderCard(card, index))}
-
-          {/* Add Another Product Button */}
+      {/* Supplier Info Card - Compact */}
+      <View style={styles.supplierInfoCard}>
+        <Text style={styles.supplierLabel}>Supplier</Text>
+        <Text style={styles.supplierName}>{supplierName || 'Unknown Supplier'}</Text>
+        <View style={styles.deliveryRow}>
+          <Text style={styles.deliveryLabel}>Expected Delivery:</Text>
           <TouchableOpacity
-            style={styles.addAnotherButton}
-            onPress={handleAddNewOrderCard}
+            style={styles.dateButton}
+            onPress={() => setShowDeliveryDatePicker(true)}
             activeOpacity={0.7}
           >
-            <View style={styles.addAnotherIcon}>
-              <Text style={styles.addAnotherIconText}>+</Text>
-            </View>
-            <Text style={styles.addAnotherText}>Add Another Product</Text>
+            <Text style={styles.dateText}>{formatDate(deliveryDate)}</Text>
+            <Text style={styles.dateIcon}>▼</Text>
           </TouchableOpacity>
+        </View>
+      </View>
 
-          {/* Order Summary */}
-          {totalItems > 0 && (
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Order Summary</Text>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Total Products</Text>
-                <Text style={styles.summaryValue}>{totalItems}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Total Units</Text>
-                <Text style={styles.summaryValue}>{totalQuantity}</Text>
-              </View>
-              <View style={[styles.summaryRow, styles.summaryRowTotal]}>
-                <Text style={styles.summaryLabelTotal}>Total Cost</Text>
-                <Text style={styles.summaryValueTotal}>₱{totalCost.toFixed(2)}</Text>
-              </View>
-            </View>
-          )}
+      {/* Purchase Order Cards */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        style={styles.scrollView}
+      >
+        {purchaseCards.map((item, index) => renderPurchaseCard(item, index))}
 
-          {/* Bottom Padding */}
-          <View style={styles.bottomPadding} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* Place Order Button */}
-      <View style={styles.placeOrderContainer}>
+        {/* Add Another Product Button */}
         <TouchableOpacity
-          style={[styles.placeOrderButton, (totalItems === 0 || placing) && styles.placeOrderButtonDisabled]}
-          onPress={handlePlaceOrder}
+          style={styles.addAnotherButton}
+          onPress={handleAddNewPurchaseCard}
           activeOpacity={0.7}
-          disabled={totalItems === 0 || placing}
         >
-          {placing ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+          <View style={styles.addAnotherIcon}>
+            <Text style={styles.addAnotherIconText}>+</Text>
+          </View>
+          <Text style={styles.addAnotherText}>Add Another Product</Text>
+        </TouchableOpacity>
+
+        {/* Bottom Padding */}
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      {/* Save Button */}
+      <View style={styles.saveButtonContainer}>
+        <TouchableOpacity
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSaveAllItems}
+          activeOpacity={0.7}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <View style={styles.savingContainer}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.saveButtonText}>
+                Saving {savingProgress.current}/{savingProgress.total}...
+              </Text>
+            </View>
           ) : (
-            <Text style={styles.placeOrderButtonText}>
-              Place Order • ₱{totalCost.toFixed(2)}
+            <Text style={styles.saveButtonText}>
+              Save Purchase Order ({purchaseCards.filter(p => p.productName.trim()).length} {purchaseCards.filter(p => p.productName.trim()).length !== 1 ? 'items' : 'item'})
             </Text>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* Product Selector Modal */}
+      {/* Category Dropdown Modal */}
       <Modal
-        visible={showProductSelector}
+        visible={showCategoryDropdown}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowProductSelector(false)}
+        onRequestClose={() => setShowCategoryDropdown(false)}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setShowProductSelector(false)}
+          onPress={() => setShowCategoryDropdown(false)}
         >
-          <View style={styles.productSelectorModal}>
+          <View style={styles.dropdownModal}>
             <TouchableOpacity
               style={styles.closeModalButton}
-              onPress={() => setShowProductSelector(false)}
+              onPress={() => setShowCategoryDropdown(false)}
               activeOpacity={0.7}
             >
               <Text style={styles.closeModalButtonText}>✕</Text>
             </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>Select Product</Text>
-
-            {/* Search Input */}
-            <View style={styles.searchContainer}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search products..."
-                placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-
-            {/* Products List */}
-            <ScrollView style={styles.productsList} showsVerticalScrollIndicator={true}>
-              {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => {
-                  const imgSource = getProductImageSource(product);
-                  return (
-                    <TouchableOpacity
-                      key={product.id}
-                      style={styles.productOption}
-                      onPress={() => handleSelectProduct(product)}
-                      activeOpacity={0.7}
-                    >
-                      <Image source={imgSource} style={styles.productOptionImage} />
-                      <View style={styles.productOptionInfo}>
-                        <Text style={styles.productOptionName}>{product.productName}</Text>
-                        <Text style={styles.productOptionDetails}>
-                          {product.productSize}{product.unit} • ₱{product.price.toFixed(2)}
-                        </Text>
-                        <Text style={styles.productOptionStock}>
-                          Stock: {product.quantity} {product.unit}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              ) : (
-                <View style={styles.emptyProducts}>
-                  <Text style={styles.emptyProductsText}>No products found</Text>
-                  <Text style={styles.emptyProductsHint}>
-                    You can still type a custom product name
-                  </Text>
-                </View>
-              )}
+            <Text style={styles.dropdownTitle}>Select Category</Text>
+            <ScrollView style={styles.categoryScrollView} showsVerticalScrollIndicator={true}>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={styles.categoryOption}
+                  onPress={() => handleCategorySelect(category)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.categoryOptionText}>{category.name}</Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -788,16 +798,16 @@ const OrderSuppliesScreen = () => {
               <Text style={styles.closeModalButtonText}>✕</Text>
             </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>Select Unit</Text>
-            <ScrollView style={styles.unitsList} showsVerticalScrollIndicator={true}>
-              {UNITS.map((unit) => (
+            <Text style={styles.dropdownTitle}>Select Unit</Text>
+            <ScrollView style={styles.categoryScrollView} showsVerticalScrollIndicator={true}>
+              {units.map((unit) => (
                 <TouchableOpacity
                   key={unit.id}
-                  style={styles.unitOption}
+                  style={styles.categoryOption}
                   onPress={() => handleUnitSelect(unit)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.unitOptionText}>{unit.name}</Text>
+                  <Text style={styles.categoryOptionText}>{unit.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -805,20 +815,23 @@ const OrderSuppliesScreen = () => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Order Date Picker */}
+      {/* Expiry Date Picker Modal */}
       <CalendarDatePickerModal
-        visible={showOrderDatePicker}
-        onClose={() => setShowOrderDatePicker(false)}
-        onConfirm={(date) => {
-          setOrderDate(date);
-          setShowOrderDatePicker(false);
+        visible={showDatePicker}
+        onClose={() => {
+          setShowDatePicker(false);
+          setCurrentEditingCardId(null);
         }}
-        initialDate={orderDate}
-        title="Select Order Date"
-        description="When are you placing this order?"
+        onConfirm={handleExpiryConfirm}
+        onClear={handleExpiryClear}
+        initialDate={null}
+        minDate={expiryMinDate}
+        title="Select Expiry Date"
+        description="Choose the expiry date for this product"
+        infoText="Select any future date for the product expiry"
       />
 
-      {/* Delivery Date Picker */}
+      {/* Delivery Date Picker Modal */}
       <CalendarDatePickerModal
         visible={showDeliveryDatePicker}
         onClose={() => setShowDeliveryDatePicker(false)}
@@ -827,7 +840,7 @@ const OrderSuppliesScreen = () => {
           setShowDeliveryDatePicker(false);
         }}
         initialDate={deliveryDate}
-        minDate={orderDate}
+        minDate={new Date()}
         title="Select Delivery Date"
         description="When do you expect the delivery?"
       />
@@ -835,6 +848,7 @@ const OrderSuppliesScreen = () => {
   );
 };
 
+// Styles - EXACT match with add-product.tsx
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -896,21 +910,13 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 
-  keyboardView: {
-    flex: 1,
-  },
-
-  scrollContent: {
-    paddingHorizontal: s(20),
-    paddingBottom: vs(100),
-  },
-
-  // Order Info Card
-  orderInfoCard: {
+  // Supplier Info Card
+  supplierInfoCard: {
     backgroundColor: Colors.white,
-    borderRadius: s(20),
-    padding: s(20),
-    marginBottom: vs(20),
+    marginHorizontal: s(20),
+    marginBottom: vs(15),
+    borderRadius: s(15),
+    padding: s(15),
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -918,72 +924,63 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
-  orderInfoTitle: {
+  supplierLabel: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
-    color: Colors.darkGray,
-    marginBottom: vs(15),
-  },
-
-  supplierBox: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: s(12),
-    paddingHorizontal: s(15),
-    paddingVertical: vs(12),
-    marginBottom: vs(15),
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
+    fontSize: ms(12),
+    color: 'rgba(30, 30, 30, 0.5)',
+    marginBottom: vs(5),
   },
 
   supplierName: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(15),
+    fontWeight: '700',
+    fontSize: ms(18),
+    color: Colors.darkGray,
+    marginBottom: vs(10),
+  },
+
+  deliveryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  deliveryLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
     color: Colors.darkGray,
   },
 
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#F9FAFB',
-    borderRadius: s(12),
+    borderRadius: s(10),
     paddingHorizontal: s(12),
-    paddingVertical: vs(12),
+    paddingVertical: vs(8),
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
   },
 
   dateText: {
     fontFamily: Fonts.primary,
-    fontSize: ms(14),
+    fontSize: ms(13),
     color: Colors.darkGray,
+    marginRight: s(5),
   },
 
   dateIcon: {
-    fontSize: ms(16),
+    fontSize: ms(14),
   },
 
-  // Section Header
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: vs(15),
+  // Scroll View
+  scrollView: {
+    flex: 1,
   },
 
-  sectionHeaderTitle: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
-    color: Colors.darkGray,
-  },
-
-  sectionHeaderCount: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(13),
-    color: 'rgba(30, 30, 30, 0.6)',
+  scrollContent: {
+    paddingHorizontal: s(20),
+    paddingBottom: vs(100),
   },
 
   // Product Card
@@ -1102,8 +1099,10 @@ const styles = StyleSheet.create({
   },
 
   uploadIcon: {
-    fontSize: ms(40),
+    width: s(25),
+    height: vs(25),
     marginBottom: vs(8),
+    tintColor: Colors.primary,
   },
 
   uploadText: {
@@ -1145,38 +1144,84 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
   },
 
-  inputWithButton: {
+  descriptionContainer: {
+    minHeight: vs(80),
+  },
+
+  descriptionInput: {
+    minHeight: vs(60),
+    textAlignVertical: 'top',
+  },
+
+  // Category Input Row (Textbox + Dropdown Button)
+  categoryInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s(8),
+    marginBottom: vs(12),
+  },
+
+  categoryTextInputContainer: {
+    flex: 1,
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
     borderRadius: s(12),
     backgroundColor: Colors.white,
-    marginBottom: vs(12),
-    overflow: 'hidden',
-  },
-
-  textInputFlex: {
-    flex: 1,
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: '#1E1E1E',
     paddingHorizontal: s(12),
     paddingVertical: vs(10),
   },
 
-  selectButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: s(15),
-    paddingVertical: vs(12),
+  categoryTextInput: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: '#1E1E1E',
+    padding: 0,
+  },
+
+  categoryDropdownButton: {
+    width: s(44),
+    height: vs(42),
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: s(12),
+    backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  selectButtonText: {
-    color: Colors.white,
+  categoryDropdownIcon: {
+    fontSize: ms(16),
+    color: Colors.darkGray,
+  },
+
+  // Dropdown Container
+  dropdownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: s(12),
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(12),
+    paddingVertical: vs(12),
+    marginBottom: vs(12),
+  },
+
+  dropdownText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: 'rgba(30, 30, 30, 0.4)',
+    flex: 1,
+  },
+
+  dropdownTextSelected: {
+    color: '#1E1E1E',
+  },
+
+  dropdownArrow: {
     fontSize: ms(12),
-    fontWeight: '700',
+    color: Colors.darkGray,
   },
 
   // Row Fields
@@ -1206,6 +1251,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  priceInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: s(12),
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(10),
+    paddingVertical: vs(10),
+    marginBottom: vs(12),
+  },
+
+  pesoSign: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: Colors.primary,
+    marginRight: s(5),
+  },
+
+  priceInput: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: '#1E1E1E',
+  },
+
   dropdownContainerSmall: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1215,7 +1287,7 @@ const styles = StyleSheet.create({
     borderRadius: s(12),
     backgroundColor: Colors.white,
     paddingHorizontal: s(10),
-    paddingVertical: vs(12),
+    paddingVertical: vs(10),
     marginBottom: vs(12),
   },
 
@@ -1226,128 +1298,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  dropdownTextSelected: {
-    color: '#1E1E1E',
-  },
-
   dropdownArrowSmall: {
     fontSize: ms(10),
     color: Colors.darkGray,
-  },
-
-  // Quantity Controls
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: vs(15),
-  },
-
-  qtyButton: {
-    width: s(45),
-    height: s(45),
-    borderRadius: s(12),
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  qtyButtonText: {
-    fontSize: ms(24),
-    color: Colors.white,
-    fontWeight: '700',
-  },
-
-  qtyInput: {
-    flex: 1,
-    marginHorizontal: s(15),
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: s(12),
-    backgroundColor: Colors.white,
-    paddingVertical: vs(10),
-    fontFamily: Fonts.primary,
-    fontSize: ms(18),
-    fontWeight: '600',
-    color: '#1E1E1E',
-  },
-
-  // Price Input
-  priceInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: s(12),
-    backgroundColor: Colors.white,
-    paddingHorizontal: s(15),
-    paddingVertical: vs(12),
-    marginBottom: vs(15),
-  },
-
-  pesoSign: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(18),
-    fontWeight: '700',
-    color: Colors.primary,
-    marginRight: s(8),
-  },
-
-  priceInput: {
-    flex: 1,
-    fontFamily: Fonts.primary,
-    fontSize: ms(16),
-    color: '#1E1E1E',
-  },
-
-  // Subtotal
-  subtotalContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.lightGreen,
-    borderRadius: s(12),
-    padding: s(15),
-    marginBottom: vs(15),
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-
-  subtotalLabel: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(14),
-    color: Colors.darkGray,
-  },
-
-  subtotalValue: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(20),
-    color: Colors.primary,
-  },
-
-  // Quick Info Box
-  quickInfoBox: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: s(12),
-    padding: s(12),
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-
-  quickInfoTitle: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(12),
-    color: Colors.darkGray,
-    marginBottom: vs(5),
-  },
-
-  quickInfoText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: 'rgba(30, 30, 30, 0.7)',
-    lineHeight: ms(18),
   },
 
   // Add Another Button
@@ -1361,7 +1314,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.primary,
     borderStyle: 'dashed',
-    marginBottom: vs(20),
   },
 
   addAnotherIcon: {
@@ -1387,76 +1339,13 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
 
-  // Summary Card
-  summaryCard: {
-    backgroundColor: Colors.white,
-    borderRadius: s(20),
-    padding: s(20),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-
-  summaryTitle: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
-    color: Colors.darkGray,
-    marginBottom: vs(15),
-  },
-
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: vs(10),
-  },
-
-  summaryRowTotal: {
-    marginTop: vs(10),
-    paddingTop: vs(15),
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    marginBottom: 0,
-  },
-
-  summaryLabel: {
-    fontFamily: Fonts.primary,
-    fontWeight: '500',
-    fontSize: ms(14),
-    color: 'rgba(30, 30, 30, 0.7)',
-  },
-
-  summaryValue: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
-    color: '#1E1E1E',
-  },
-
-  summaryLabelTotal: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
-    color: '#1E1E1E',
-  },
-
-  summaryValueTotal: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(22),
-    color: Colors.primary,
-  },
-
   // Bottom Padding
   bottomPadding: {
     height: vs(20),
   },
 
-  // Place Order Button
-  placeOrderContainer: {
+  // Save Button
+  saveButtonContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -1468,7 +1357,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E0E0E0',
   },
 
-  placeOrderButton: {
+  saveButton: {
     backgroundColor: Colors.primary,
     borderRadius: s(20),
     paddingVertical: vs(15),
@@ -1481,15 +1370,21 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  placeOrderButtonDisabled: {
+  saveButtonDisabled: {
     backgroundColor: 'rgba(59, 183, 126, 0.6)',
   },
 
-  placeOrderButtonText: {
+  saveButtonText: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(18),
     color: Colors.white,
+  },
+
+  savingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(10),
   },
 
   // Modal Styles
@@ -1500,24 +1395,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  productSelectorModal: {
-    backgroundColor: Colors.white,
-    borderRadius: s(20),
-    width: s(360),
-    maxHeight: '80%',
-    padding: s(20),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 15,
-    elevation: 15,
-  },
-
   dropdownModal: {
     backgroundColor: Colors.white,
     borderRadius: s(20),
-    width: s(300),
-    maxHeight: '60%',
+    width: s(340),
+    maxHeight: '70%',
     padding: s(20),
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
@@ -1545,109 +1427,27 @@ const styles = StyleSheet.create({
     color: Colors.darkGray,
   },
 
-  modalTitle: {
+  dropdownTitle: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(18),
     color: Colors.darkGray,
     textAlign: 'center',
-    marginBottom: vs(15),
+    marginBottom: vs(20),
   },
 
-  // Search
-  searchContainer: {
-    marginBottom: vs(15),
-  },
-
-  searchInput: {
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: s(12),
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: s(15),
-    paddingVertical: vs(10),
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: '#1E1E1E',
-  },
-
-  // Products List
-  productsList: {
+  categoryScrollView: {
     maxHeight: vs(400),
   },
 
-  productOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: vs(12),
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-
-  productOptionImage: {
-    width: s(50),
-    height: s(50),
-    borderRadius: s(10),
-    marginRight: s(12),
-    backgroundColor: '#F3F4F6',
-  },
-
-  productOptionInfo: {
-    flex: 1,
-  },
-
-  productOptionName: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(14),
-    color: Colors.darkGray,
-    marginBottom: vs(2),
-  },
-
-  productOptionDetails: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: 'rgba(30, 30, 30, 0.6)',
-  },
-
-  productOptionStock: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(11),
-    color: Colors.primary,
-    marginTop: vs(2),
-  },
-
-  emptyProducts: {
-    paddingVertical: vs(30),
-    alignItems: 'center',
-  },
-
-  emptyProductsText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: 'rgba(30, 30, 30, 0.5)',
-    marginBottom: vs(5),
-  },
-
-  emptyProductsHint: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(12),
-    color: 'rgba(30, 30, 30, 0.4)',
-  },
-
-  // Units List
-  unitsList: {
-    maxHeight: vs(300),
-  },
-
-  unitOption: {
+  categoryOption: {
     paddingVertical: vs(15),
     paddingHorizontal: s(15),
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
 
-  unitOptionText: {
+  categoryOptionText: {
     fontFamily: Fonts.primary,
     fontSize: ms(15),
     color: Colors.darkGray,

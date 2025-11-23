@@ -198,6 +198,10 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/debt-settings' as any);
   };
 
+  const handleDamageHistory = () => {
+    router.push('/(main)/(store-owner)/inventory/damage-history');
+  };
+
   const handleHelp = () => {
     router.push('/(main)/(store-owner)/profile/help-center');
   };
@@ -347,6 +351,17 @@ export default function ProfileScreen() {
             title="Debt Settings"
             iconName="settings"
             onPress={handleDebtSettings}
+          />
+          <SettingItem
+            title="Record Damage & Spoilage"
+            iconName="alert-circle"
+            iconColor="#E92B45"
+            onPress={handleRecordDamage}
+          />
+          <SettingItem
+            title="Damage History"
+            iconName="list-circle"
+            onPress={handleDamageHistory}
             isLast={true}
           />
         </View>

@@ -270,7 +270,7 @@ export default function DebtSettingsScreen() {
             <View style={styles.settingCard}>
               <View style={styles.settingHeader}>
                 <View style={[styles.settingIconCircle, { backgroundColor: '#E3F2FD' }]}>
-                  <Text style={styles.settingIcon}>📅</Text>
+                  <Text style={styles.settingIcon}>🗓️</Text>
                 </View>
                 <View style={styles.settingInfo}>
                   <Text style={styles.settingTitle}>Maximum Due Date</Text>
