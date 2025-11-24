@@ -35,7 +35,7 @@ import { createPurchaseOrder } from '../../../../src/api/purchaseOrders';
 import { PurchaseOrderItem } from '../../../../src/models/PurchaseOrder';
 
 // Payment method types
-type PurchasePaymentMethod = 'cash' | 'debt';
+type PurchasePaymentMethod = 'cash' | 'paymaya' | 'debt';
 
 interface OrderData {
   supplierName: string;
@@ -153,7 +153,7 @@ const PurchasePaymentScreen = () => {
           purchaseDate: orderData.purchaseDate,
           notes: orderData.notes.trim() || undefined,
           paymentMethod: selectedPayment,
-          paymentStatus: selectedPayment === 'cash' ? 'paid' : 'unpaid',
+          paymentStatus: selectedPayment === 'cash' || selectedPayment === 'paymaya' ? 'paid' : 'unpaid',
         }
       );
 
@@ -255,8 +255,29 @@ const PurchasePaymentScreen = () => {
           {/* Invoice Link */}
           <View style={styles.invoiceRow}>
             <Text style={styles.billLabel}>Invoice</Text>
-            <TouchableOpacity activeOpacity={0.7}>
-              <Text style={styles.viewInvoiceText}>View Invoice</Text>
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => {
+                if (!orderData) {
+                  Alert.alert('Error', 'No order data available');
+                  return;
+                }
+                // Show preview - navigate with preview=true flag
+                router.push({
+                  pathname: '/(main)/(store-owner)/profile/purchase-invoice' as any,
+                  params: {
+                    preview: 'true',
+                    supplierName: orderData.supplierName,
+                    supplierContact: orderData.supplierContact,
+                    purchaseDate: orderData.purchaseDate,
+                    items: JSON.stringify(orderData.items),
+                    totalCost: orderData.totalCost.toString(),
+                    notes: orderData.notes,
+                  },
+                });
+              }}
+            >
+              <Text style={styles.viewInvoiceText}>View Invoice Preview</Text>
             </TouchableOpacity>
           </View>
 
@@ -298,6 +319,29 @@ const PurchasePaymentScreen = () => {
               selectedPayment === 'cash' && styles.radioCircleSelected
             ]}>
               {selectedPayment === 'cash' && <View style={styles.radioInner} />}
+            </View>
+          </TouchableOpacity>
+
+          {/* PayMaya Option - Digital payment */}
+          <TouchableOpacity
+            style={[
+              styles.paymentMethodCard,
+              selectedPayment === 'paymaya' && styles.paymentMethodCardSelected
+            ]}
+            onPress={() => handlePaymentSelect('paymaya')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.paymentMethodLeft}>
+              <View style={styles.paymayaIconContainer}>
+                <Text style={styles.paymayaIcon}>P</Text>
+              </View>
+              <Text style={styles.paymentMethodText}>PayMaya</Text>
+            </View>
+            <View style={[
+              styles.radioCircle,
+              selectedPayment === 'paymaya' && styles.radioCircleSelected
+            ]}>
+              {selectedPayment === 'paymaya' && <View style={styles.radioInner} />}
             </View>
           </TouchableOpacity>
 
@@ -735,6 +779,23 @@ const styles = StyleSheet.create({
   proceedButtonDisabled: {
     backgroundColor: 'rgba(59, 183, 126, 0.5)',
     opacity: 0.6,
+  },
+
+  // PayMaya icon styles
+  paymayaIconContainer: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: '#00D632',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  paymayaIcon: {
+    fontFamily: Fonts.primary,
+    fontSize: s(18),
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

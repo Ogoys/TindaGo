@@ -86,6 +86,7 @@ const OrderSuppliesScreen = () => {
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
   const [savingProgress, setSavingProgress] = useState({ current: 0, total: 0 });
+  const [isPickingImage, setIsPickingImage] = useState(false); // Prevent concurrent image picker calls
 
   // Create empty purchase item
   function createEmptyPurchaseItem(): PurchaseOrderCard {
@@ -188,7 +189,14 @@ const OrderSuppliesScreen = () => {
 
   // Handle image upload for a specific card
   const handleUploadImage = async (cardId: string) => {
+    // Prevent concurrent picker calls to avoid "Already resumed" crash
+    if (isPickingImage) {
+      console.log('⚠️ Image picker already open, ignoring request');
+      return;
+    }
+
     try {
+      setIsPickingImage(true);
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (permissionResult.granted === false) {
@@ -209,6 +217,9 @@ const OrderSuppliesScreen = () => {
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
+    } finally {
+      // Always reset picking state
+      setIsPickingImage(false);
     }
   };
 
@@ -382,12 +393,12 @@ const OrderSuppliesScreen = () => {
             }
           }
 
-          // Prepare purchase order item data
+          // Prepare purchase order item data for payment screen
           const purchaseItem = {
             productName: formatProductName(item.productName),
             description: item.description.trim(),
             category: item.selectedCategory,
-            supplierPrice: formatPrice(Number(item.supplierPrice)),
+            costPerUnit: formatPrice(Number(item.supplierPrice)),
             quantity: Math.floor(Number(item.quantity)),
             productSize: item.productSize.trim(),
             unit: item.selectedUnit,
@@ -405,49 +416,26 @@ const OrderSuppliesScreen = () => {
         }
       }
 
-      // Create purchase order in database
-      if (purchaseOrderItems.length > 0) {
-        const purchaseOrdersRef = ref(database, 'purchase_orders');
-        const newPurchaseOrderRef = push(purchaseOrdersRef);
-
-        const totalCost = purchaseOrderItems.reduce((sum, item) => sum + item.subtotal, 0);
-
-        const purchaseOrderData = {
-          storeOwnerId: currentUser.uid,
-          storeId: currentUser.uid,
-          storeName,
-          storeOwnerName,
-          supplierName: supplierName.trim(),
-          supplierContact: supplierContactParam || '',
-          purchaseDate: new Date().toISOString(),
-          expectedDeliveryDate: deliveryDate.toISOString(),
-          items: purchaseOrderItems,
-          totalItems: purchaseOrderItems.length,
-          totalQuantity: purchaseOrderItems.reduce((sum, item) => sum + item.quantity, 0),
-          totalCost: formatPrice(totalCost),
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        await set(newPurchaseOrderRef, purchaseOrderData);
-      }
-
-      // Show results
+      // Navigate to payment screen (don't save to DB yet - save after payment confirmation)
       if (savedCount > 0 && errors.length === 0) {
-        Alert.alert(
-          'Success',
-          `Purchase order created with ${savedCount} item${savedCount > 1 ? 's' : ''}!`,
-          [{ text: 'OK', onPress: () => router.back() }]
-        );
+        router.push({
+          pathname: '/(main)/(store-owner)/profile/purchase-payment' as any,
+          params: {
+            supplierName: supplierName.trim(),
+            supplierContact: supplierContactParam || '',
+            purchaseDate: new Date().toISOString().split('T')[0],
+            items: JSON.stringify(purchaseOrderItems),
+            notes: '',
+          },
+        });
       } else if (savedCount > 0 && errors.length > 0) {
         Alert.alert(
           'Partial Success',
-          `${savedCount} item${savedCount > 1 ? 's' : ''} saved.\n\nErrors:\n${errors.join('\n')}`,
-          [{ text: 'OK', onPress: () => router.back() }]
+          `${savedCount} item${savedCount > 1 ? 's' : ''} processed.\n\nErrors:\n${errors.join('\n')}`,
+          [{ text: 'OK' }]
         );
       } else {
-        Alert.alert('Error', `Failed to create purchase order:\n${errors.join('\n')}`);
+        Alert.alert('Error', `Failed to process items:\n${errors.join('\n')}`);
       }
 
     } catch (error) {

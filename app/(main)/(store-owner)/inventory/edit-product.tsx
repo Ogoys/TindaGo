@@ -43,6 +43,7 @@ const EditProductScreen = () => {
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPickingImage, setIsPickingImage] = useState(false); // Prevent concurrent image picker calls
 
   // Helper function: Format product name (Capitalize first letter of each word)
   const formatProductName = (name: string): string => {
@@ -154,7 +155,14 @@ const EditProductScreen = () => {
   };
 
   const handleUploadImage = async () => {
+    // Prevent concurrent picker calls to avoid "Already resumed" crash
+    if (isPickingImage) {
+      console.log('⚠️ Image picker already open, ignoring request');
+      return;
+    }
+
     try {
+      setIsPickingImage(true);
       // Request camera roll permissions
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -199,6 +207,9 @@ const EditProductScreen = () => {
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
+    } finally {
+      // Always reset picking state
+      setIsPickingImage(false);
     }
   };
 

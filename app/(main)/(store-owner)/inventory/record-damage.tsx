@@ -95,6 +95,7 @@ const RecordDamageScreen = () => {
   const [currentEditingCardId, setCurrentEditingCardId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [storeName, setStoreName] = useState('My Store');
+  const [isPickingImage, setIsPickingImage] = useState(false); // Prevent concurrent image picker calls
 
   useEffect(() => {
     fetchStoreInfo();
@@ -173,7 +174,14 @@ const RecordDamageScreen = () => {
 
   // Image picker
   const handleImageSelect = async (cardId: string) => {
+    // Prevent concurrent picker calls to avoid "Already resumed" crash
+    if (isPickingImage) {
+      console.log('⚠️ Image picker already open, ignoring request');
+      return;
+    }
+
     try {
+      setIsPickingImage(true);
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permissionResult.granted) {
@@ -194,6 +202,9 @@ const RecordDamageScreen = () => {
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image');
+    } finally {
+      // Always reset picking state
+      setIsPickingImage(false);
     }
   };
 

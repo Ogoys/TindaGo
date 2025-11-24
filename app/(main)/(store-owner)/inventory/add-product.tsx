@@ -70,6 +70,7 @@ const AddProductScreen = () => {
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
   const [savingProgress, setSavingProgress] = useState({ current: 0, total: 0 });
+  const [isPickingImage, setIsPickingImage] = useState(false); // Prevent concurrent image picker calls
 
   // Create empty product
   function createEmptyProduct(): ProductCard {
@@ -172,7 +173,14 @@ const AddProductScreen = () => {
 
   // Handle image upload for a specific card
   const handleUploadImage = async (cardId: string) => {
+    // Prevent concurrent picker calls to avoid "Already resumed" crash
+    if (isPickingImage) {
+      console.log('⚠️ Image picker already open, ignoring request');
+      return;
+    }
+
     try {
+      setIsPickingImage(true);
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (permissionResult.granted === false) {
@@ -193,6 +201,9 @@ const AddProductScreen = () => {
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
+    } finally {
+      // Always reset picking state
+      setIsPickingImage(false);
     }
   };
 

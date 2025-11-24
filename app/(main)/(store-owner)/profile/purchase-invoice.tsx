@@ -42,6 +42,7 @@ export default function PurchaseInvoiceScreen() {
   const params = useLocalSearchParams();
   const purchaseOrderId = params.id as string;
   const testMode = params.test === 'true';
+  const previewMode = params.preview === 'true';
   const paymentMethodParam = params.paymentMethod as string;
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
@@ -50,6 +51,37 @@ export default function PurchaseInvoiceScreen() {
   const invoiceRef = useRef<View>(null);
 
   useEffect(() => {
+    if (previewMode) {
+      // Preview mode - load from params
+      try {
+        const itemsString = typeof params.items === 'string' ? params.items : '[]';
+        const items: PurchaseOrderItem[] = JSON.parse(itemsString);
+        const totalCost = typeof params.totalCost === 'string' ? parseFloat(params.totalCost) : 0;
+        
+        setPurchaseOrder({
+          id: 'PREVIEW',
+          purchaseOrderNumber: 'PREVIEW',
+          storeId: '',
+          storeOwnerId: '',
+          storeName: '',
+          supplierName: typeof params.supplierName === 'string' ? params.supplierName : '',
+          supplierContact: typeof params.supplierContact === 'string' ? params.supplierContact : '',
+          items,
+          totalCost,
+          status: 'pending',
+          purchaseDate: typeof params.purchaseDate === 'string' ? params.purchaseDate : new Date().toISOString().split('T')[0],
+          notes: typeof params.notes === 'string' ? params.notes : '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as PurchaseOrder);
+      } catch (error) {
+        console.error('Error parsing preview params:', error);
+        Alert.alert('Error', 'Invalid invoice data');
+      }
+      setLoading(false);
+      return;
+    }
+
     if (testMode) {
       // Test data for development
       setPurchaseOrder({

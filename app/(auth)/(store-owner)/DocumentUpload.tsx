@@ -48,6 +48,7 @@ export default function DocumentUploadScreen() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false); // Prevent concurrent uploads
 
   const validateForm = () => {
     const newErrors: DocumentUploadErrors = {
@@ -75,7 +76,14 @@ export default function DocumentUploadScreen() {
   };
 
   const handleDocumentUpload = async (documentType: keyof DocumentUploadData) => {
+    // Prevent concurrent picker calls to avoid "Already resumed" crash
+    if (uploading) {
+      console.log('⚠️ Upload already in progress, ignoring request');
+      return;
+    }
+
     try {
+      setUploading(true);
       const result = await DocumentPicker.getDocumentAsync({
         type: ["image/*", "application/pdf"],
         copyToCacheDirectory: true,
@@ -151,6 +159,9 @@ export default function DocumentUploadScreen() {
     } catch (error) {
       console.error(`❌ Error picking ${documentType}:`, error);
       Alert.alert("Error", "Failed to pick document. Please try again.");
+    } finally {
+      // Always reset uploading state
+      setUploading(false);
     }
   };
 
@@ -271,6 +282,7 @@ export default function DocumentUploadScreen() {
               <TouchableOpacity
                 style={styles.uploadContainer}
                 onPress={() => handleDocumentUpload('barangayBusinessClearance')}
+                disabled={uploading}
               >
                 <View style={[styles.uploadBox, formData.barangayBusinessClearance && styles.uploadBoxSuccess]}>
                   <Image
@@ -294,6 +306,7 @@ export default function DocumentUploadScreen() {
               <TouchableOpacity
                 style={styles.uploadContainer}
                 onPress={() => handleDocumentUpload('businessPermit')}
+                disabled={uploading}
               >
                 <View style={[styles.uploadBox, formData.businessPermit && styles.uploadBoxSuccess]}>
                   <Image
@@ -317,6 +330,7 @@ export default function DocumentUploadScreen() {
               <TouchableOpacity
                 style={styles.uploadContainer}
                 onPress={() => handleDocumentUpload('dtiRegistration')}
+                disabled={uploading}
               >
                 <View style={[styles.uploadBox, formData.dtiRegistration && styles.uploadBoxSuccess]}>
                   <Image
@@ -340,6 +354,7 @@ export default function DocumentUploadScreen() {
               <TouchableOpacity
                 style={styles.uploadContainer}
                 onPress={() => handleDocumentUpload('validId')}
+                disabled={uploading}
               >
                 <View style={[styles.uploadBox, formData.validId && styles.uploadBoxSuccess]}>
                   <Image

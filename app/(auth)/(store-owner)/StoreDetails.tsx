@@ -89,6 +89,7 @@ export default function StoreDetailsScreen() {
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [isPickingImage, setIsPickingImage] = useState(false); // Prevent concurrent image picker calls
 
   // Memoized handlers to prevent keyboard issues
   const handleStoreNameChange = useCallback((text: string) => {
@@ -160,7 +161,14 @@ export default function StoreDetailsScreen() {
   };
 
   const handleImagePicker = async (type: 'logo' | 'coverImage') => {
+    // Prevent concurrent picker calls to avoid "Already resumed" crash
+    if (isPickingImage) {
+      console.log('⚠️ Image picker already open, ignoring request');
+      return;
+    }
+
     try {
+      setIsPickingImage(true);
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
@@ -241,6 +249,9 @@ export default function StoreDetailsScreen() {
     } catch (error) {
       console.error(`❌ Error picking ${type}:`, error);
       Alert.alert('Error', `Failed to pick ${type}. Please try again.`);
+    } finally {
+      // Always reset picking state
+      setIsPickingImage(false);
     }
   };
 
