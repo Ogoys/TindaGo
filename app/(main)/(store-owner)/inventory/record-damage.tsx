@@ -1,16 +1,17 @@
 /**
- * RECORD DAMAGE SCREEN - Multi-Product Card Pattern
+ * RECORD DAMAGE & SPOILAGE SCREEN - Product Selection Pattern
  *
  * Allows store owners to record damaged, expired, or spoiled products
- * Uses the same horizontal scroll card pattern as add-product.tsx and order-supplies.tsx
+ * Uses product selection from existing inventory (improved from manual entry)
  *
  * Features:
- * - Multiple product cards with horizontal scroll
- * - Manual entry for all product details
- * - Image upload (optional)
- * - Damage reason selection
+ * - Multi-product selection from inventory
+ * - Product search and filtering
+ * - Damage reason input with dropdown suggestions
+ * - Quantity input with validation (max = stock)
+ * - Optional notes per item
  * - Automatic loss calculation
- * - Real-time validation
+ * - Real-time inventory validation
  */
 
 import React, { useState, useEffect } from 'react';
@@ -28,76 +29,72 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { ref, onValue, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { recordDamage } from '../../../../src/api/damages';
 import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
-import { DamageItem, DamageReason, DAMAGE_REASONS } from '../../../../src/models/Damage';
-import * as ImagePicker from 'expo-image-picker';
+import { DamageItem, DamageReason } from '../../../../src/models/Damage';
+import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
-// CATEGORIES - Same as add-product.tsx
-const CATEGORIES = [
-  'Fruits & Vegetables',
-  'Dairy & Bakery',
-  'Snacks & Sweets',
-  'Beverages',
-  'Personal & Baby Care',
-  'Home & Kitchen',
-  'Staple Foods',
-  'Condiments & Cooking',
-  'Frozen Goods',
-  'Miscellaneous & Others',
+// Damage reason options (no icons, plain text)
+const DAMAGE_REASON_OPTIONS = [
+  'Expired',
+  'Damaged',
+  'Spoiled',
+  'Broken',
+  'Water Damage',
+  'Crushed/Dented',
+  'Mold/Contaminated',
+  'Customer Return - Defective',
+  'Other',
 ];
 
-// UNITS - Same as add-product.tsx
-const UNITS = [
-  'g', 'kg', 'mg', 'lb', 'oz',
-  'ml', 'L', 'gal',
-  'pc', 'pcs', 'pack', 'box', 'can', 'bottle', 'sachet', 'bar',
-];
-
-interface DamageCard {
+interface Product {
   id: string;
   productName: string;
   description: string;
-  selectedCategory: string;
-  unitPrice: string;
-  quantity: string;
+  category: string;
+  price: number;
+  quantity: number;
   productSize: string;
-  selectedUnit: string;
-  selectedReason: DamageReason;
+  unit: string;
+  productImage?: string;       // Legacy base64
+  productImageUrl?: string;    // New Cloudinary URL
+  status: 'available' | 'out_of_stock';
+}
+
+interface SelectedProduct extends Product {
+  damageQuantity: number;
+  damageReason: string;
   notes: string;
-  selectedImage: string | null;
+  totalLoss: number;
 }
 
 const RecordDamageScreen = () => {
-  const [damageCards, setDamageCards] = useState<DamageCard[]>([
-    {
-      id: '1',
-      productName: '',
-      description: '',
-      selectedCategory: '',
-      unitPrice: '',
-      quantity: '',
-      productSize: '',
-      selectedUnit: '',
-      selectedReason: 'expired',
-      notes: '',
-      selectedImage: null,
-    },
-  ]);
-
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
+  const [showProductSelector, setShowProductSelector] = useState(false);
   const [showReasonDropdown, setShowReasonDropdown] = useState(false);
-  const [currentEditingCardId, setCurrentEditingCardId] = useState<string | null>(null);
+  const [currentProductId, setCurrentProductId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [storeName, setStoreName] = useState('My Store');
-  const [isPickingImage, setIsPickingImage] = useState(false); // Prevent concurrent image picker calls
+  const [searchQuery, setSearchQuery] = useState('');
+  const [checkedProductIds, setCheckedProductIds] = useState<string[]>([]);
+
+  const filteredProducts = products.filter(p =>
+    p.productName.toLowerCase().includes(searchQuery.toLowerCase()) &&
+    p.status === 'available' &&
+    p.quantity > 0
+  );
+
+  const totalLoss = selectedProducts.reduce((sum, p) => sum + p.totalLoss, 0);
 
   useEffect(() => {
+    fetchProducts();
     fetchStoreInfo();
   }, []);
 
@@ -106,7 +103,6 @@ const RecordDamageScreen = () => {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const { ref, get } = await import('firebase/database');
       const storeRef = ref(database, `stores/${currentUser.uid}`);
       const storeSnapshot = await get(storeRef);
 
@@ -119,12 +115,40 @@ const RecordDamageScreen = () => {
     }
   };
 
-  const handleBack = () => {
-    const hasData = damageCards.some(card =>
-      card.productName || card.description || card.quantity || card.unitPrice
+  const fetchProducts = () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    const productsRef = ref(database, 'products');
+    const userProductsQuery = query(
+      productsRef,
+      orderByChild('storeOwnerId'),
+      equalTo(currentUser.uid)
     );
 
-    if (hasData) {
+    const unsubscribe = onValue(userProductsQuery, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const productsList: Product[] = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key],
+          status: data[key].status || 'available',
+        }));
+        setProducts(productsList);
+      } else {
+        setProducts([]);
+      }
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  };
+
+  const handleBack = () => {
+    if (selectedProducts.length > 0) {
       Alert.alert(
         'Discard Changes?',
         'You have unsaved damage records. Are you sure you want to go back?',
@@ -138,126 +162,166 @@ const RecordDamageScreen = () => {
     }
   };
 
-  // Update damage card field
-  const updateDamageCard = (cardId: string, field: keyof DamageCard, value: string) => {
-    setDamageCards(damageCards.map(card =>
-      card.id === cardId ? { ...card, [field]: value } : card
+  const handleAddProduct = (product: Product) => {
+    const existingProduct = selectedProducts.find(p => p.id === product.id);
+
+    if (existingProduct) {
+      Alert.alert('Already Added', 'This product is already in the damage list.');
+      return;
+    }
+
+    const newProduct: SelectedProduct = {
+      ...product,
+      damageQuantity: 1,
+      damageReason: '',
+      notes: '',
+      totalLoss: product.price,
+    };
+
+    setSelectedProducts([...selectedProducts, newProduct]);
+    setShowProductSelector(false);
+  };
+
+  const handleToggleProductCheck = (productId: string) => {
+    setCheckedProductIds(prev => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId);
+      } else {
+        return [...prev, productId];
+      }
+    });
+  };
+
+  const handleAddSelectedProducts = () => {
+    if (checkedProductIds.length === 0) {
+      Alert.alert('No Products Selected', 'Please select at least one product to add.');
+      return;
+    }
+
+    const productsToAdd = products.filter(p => checkedProductIds.includes(p.id));
+    const alreadyAdded: string[] = [];
+    const newProducts: SelectedProduct[] = [];
+
+    productsToAdd.forEach(product => {
+      const existingProduct = selectedProducts.find(p => p.id === product.id);
+      if (existingProduct) {
+        alreadyAdded.push(product.productName);
+      } else {
+        newProducts.push({
+          ...product,
+          damageQuantity: 1,
+          damageReason: '',
+          notes: '',
+          totalLoss: product.price,
+        });
+      }
+    });
+
+    if (newProducts.length > 0) {
+      setSelectedProducts([...selectedProducts, ...newProducts]);
+    }
+
+    if (alreadyAdded.length > 0) {
+      Alert.alert(
+        'Some Products Already Added',
+        `The following products are already in the list:\n${alreadyAdded.join(', ')}`
+      );
+    }
+
+    setCheckedProductIds([]);
+    setShowProductSelector(false);
+  };
+
+  const handleQuantityChange = (productId: string, newQuantity: string) => {
+    const quantity = parseInt(newQuantity) || 0;
+
+    setSelectedProducts(selectedProducts.map(p => {
+      if (p.id === productId) {
+        // Don't allow quantity greater than available stock
+        const validQuantity = Math.min(quantity, p.quantity);
+        return {
+          ...p,
+          damageQuantity: validQuantity,
+          totalLoss: validQuantity * p.price,
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleIncrementQuantity = (productId: string) => {
+    setSelectedProducts(selectedProducts.map(p => {
+      if (p.id === productId) {
+        // Don't exceed available stock
+        const newQuantity = Math.min(p.damageQuantity + 1, p.quantity);
+        return {
+          ...p,
+          damageQuantity: newQuantity,
+          totalLoss: newQuantity * p.price,
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleDecrementQuantity = (productId: string) => {
+    setSelectedProducts(selectedProducts.map(p => {
+      if (p.id === productId && p.damageQuantity > 1) {
+        const newQuantity = p.damageQuantity - 1;
+        return {
+          ...p,
+          damageQuantity: newQuantity,
+          totalLoss: newQuantity * p.price,
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleRemoveProduct = (productId: string) => {
+    setSelectedProducts(selectedProducts.filter(p => p.id !== productId));
+  };
+
+  const handleReasonChange = (productId: string, reason: string) => {
+    setSelectedProducts(selectedProducts.map(p =>
+      p.id === productId ? { ...p, damageReason: reason } : p
     ));
   };
 
-  // Add new damage card
-  const handleAddAnotherProduct = () => {
-    const newCard: DamageCard = {
-      id: Date.now().toString(),
-      productName: '',
-      description: '',
-      selectedCategory: '',
-      unitPrice: '',
-      quantity: '',
-      productSize: '',
-      selectedUnit: '',
-      selectedReason: 'expired',
-      notes: '',
-      selectedImage: null,
-    };
-    setDamageCards([...damageCards, newCard]);
+  const handleReasonSelect = (reason: string) => {
+    if (currentProductId) {
+      setSelectedProducts(selectedProducts.map(p =>
+        p.id === currentProductId ? { ...p, damageReason: reason } : p
+      ));
+    }
+    setShowReasonDropdown(false);
+    setCurrentProductId(null);
   };
 
-  // Remove damage card
-  const handleRemoveCard = (cardId: string) => {
-    if (damageCards.length === 1) {
-      Alert.alert('Cannot Remove', 'You must have at least one product card.');
-      return;
-    }
-    setDamageCards(damageCards.filter(card => card.id !== cardId));
+  const handleNotesChange = (productId: string, notes: string) => {
+    setSelectedProducts(selectedProducts.map(p =>
+      p.id === productId ? { ...p, notes } : p
+    ));
   };
 
-  // Image picker
-  const handleImageSelect = async (cardId: string) => {
-    // Prevent concurrent picker calls to avoid "Already resumed" crash
-    if (isPickingImage) {
-      console.log('⚠️ Image picker already open, ignoring request');
-      return;
-    }
-
+  const handleRecordDamage = async () => {
     try {
-      setIsPickingImage(true);
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Please allow access to your photos');
+      if (selectedProducts.length === 0) {
+        Alert.alert('Error', 'Please add at least one damaged product');
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        updateDamageCard(cardId, 'selectedImage', result.assets[0].uri);
+      const invalidProducts = selectedProducts.filter(p => p.damageQuantity <= 0);
+      if (invalidProducts.length > 0) {
+        Alert.alert('Error', 'All products must have a quantity greater than 0');
+        return;
       }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
-    } finally {
-      // Always reset picking state
-      setIsPickingImage(false);
-    }
-  };
 
-  // Category selection
-  const handleCategorySelect = (category: string) => {
-    if (currentEditingCardId) {
-      updateDamageCard(currentEditingCardId, 'selectedCategory', category);
-    }
-    setShowCategoryDropdown(false);
-    setCurrentEditingCardId(null);
-  };
-
-  // Unit selection
-  const handleUnitSelect = (unit: string) => {
-    if (currentEditingCardId) {
-      updateDamageCard(currentEditingCardId, 'selectedUnit', unit);
-    }
-    setShowUnitDropdown(false);
-    setCurrentEditingCardId(null);
-  };
-
-  // Reason selection
-  const handleReasonSelect = (reason: DamageReason) => {
-    if (currentEditingCardId) {
-      updateDamageCard(currentEditingCardId, 'selectedReason', reason);
-    }
-    setShowReasonDropdown(false);
-    setCurrentEditingCardId(null);
-  };
-
-  // Validation
-  const validateDamageItem = (item: DamageCard): { valid: boolean; error?: string } => {
-    if (!item.productName.trim()) return { valid: false, error: 'Product name is required' };
-    if (!item.description.trim()) return { valid: false, error: 'Description is required' };
-    if (!item.selectedCategory) return { valid: false, error: 'Category is required' };
-    if (!item.unitPrice || parseFloat(item.unitPrice) <= 0) return { valid: false, error: 'Valid unit price is required' };
-    if (!item.quantity || parseInt(item.quantity) <= 0) return { valid: false, error: 'Valid quantity is required' };
-    if (!item.productSize.trim()) return { valid: false, error: 'Product size is required' };
-    if (!item.selectedUnit) return { valid: false, error: 'Unit is required' };
-    if (!item.selectedReason) return { valid: false, error: 'Damage reason is required' };
-    return { valid: true };
-  };
-
-  // Record damage
-  const handleRecordDamage = async () => {
-    try {
-      // Validate all cards
-      for (let i = 0; i < damageCards.length; i++) {
-        const validation = validateDamageItem(damageCards[i]);
-        if (!validation.valid) {
-          Alert.alert('Validation Error', `Product #${i + 1}: ${validation.error}`);
-          return;
-        }
+      // Validate damage reasons
+      const missingReasons = selectedProducts.filter(p => !p.damageReason.trim());
+      if (missingReasons.length > 0) {
+        Alert.alert('Error', 'Please specify a damage reason for all products');
+        return;
       }
 
       const currentUser = auth.currentUser;
@@ -268,22 +332,21 @@ const RecordDamageScreen = () => {
 
       setSaving(true);
 
-      const damageItems: DamageItem[] = damageCards.map(card => ({
-        productName: card.productName,
-        description: card.description,
-        category: card.selectedCategory,
-        quantity: parseInt(card.quantity),
-        price: parseFloat(card.unitPrice),
-        totalLoss: parseInt(card.quantity) * parseFloat(card.unitPrice),
-        productSize: card.productSize,
-        unit: card.selectedUnit,
-        reason: card.selectedReason,
-        notes: card.notes,
-        productImage: card.selectedImage || undefined,
-        productId: `damage-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      const damageItems: DamageItem[] = selectedProducts.map(p => ({
+        productId: p.id,
+        productName: p.productName,
+        description: p.description,
+        category: p.category,
+        quantity: p.damageQuantity,
+        price: p.price,
+        totalLoss: p.totalLoss,
+        productSize: p.productSize,
+        unit: p.unit,
+        reason: p.damageReason.toLowerCase() as DamageReason,
+        notes: p.notes,
+        productImage: p.productImage,
+        productImageUrl: p.productImageUrl,
       }));
-
-      const totalLoss = damageItems.reduce((sum, item) => sum + item.totalLoss, 0);
 
       const result = await recordDamage(
         currentUser.uid,
@@ -294,7 +357,7 @@ const RecordDamageScreen = () => {
       if (result.success) {
         Alert.alert(
           'Damage Recorded!',
-          `Total Items: ${damageItems.length}\\nTotal Loss: ₱${totalLoss.toFixed(2)}\\n\\nDamage records have been saved.`,
+          `Total Items: ${damageItems.length}\nTotal Loss: ₱${totalLoss.toFixed(2)}\n\nDamage records have been saved.`,
           [
             {
               text: 'View History',
@@ -303,19 +366,7 @@ const RecordDamageScreen = () => {
             {
               text: 'Record Another',
               onPress: () => {
-                setDamageCards([{
-                  id: '1',
-                  productName: '',
-                  description: '',
-                  selectedCategory: '',
-                  unitPrice: '',
-                  quantity: '',
-                  productSize: '',
-                  selectedUnit: '',
-                  selectedReason: 'expired',
-                  notes: '',
-                  selectedImage: null,
-                }]);
+                setSelectedProducts([]);
               }
             }
           ]
@@ -331,20 +382,6 @@ const RecordDamageScreen = () => {
     }
   };
 
-  // Calculate total loss
-  const calculateTotalLoss = () => {
-    return damageCards.reduce((total, card) => {
-      const price = parseFloat(card.unitPrice) || 0;
-      const qty = parseInt(card.quantity) || 0;
-      return total + (price * qty);
-    }, 0);
-  };
-
-  const getReasonLabel = (reason: DamageReason) => {
-    const reasonData = DAMAGE_REASONS.find(r => r.value === reason);
-    return reasonData ? reasonData.label : reason;
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
@@ -353,310 +390,276 @@ const RecordDamageScreen = () => {
       <ProfileScreenHeader title="Record Damage & Spoilage" onBack={handleBack} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Section Header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Damaged Products</Text>
-          <Text style={styles.itemCount}>
-            {damageCards.length} {damageCards.length === 1 ? 'item' : 'items'}
-          </Text>
-        </View>
 
-        {/* Damage Product Cards */}
-        {damageCards.map((item, index) => (
-          <View key={item.id} style={styles.productCard}>
-            {/* Card Header */}
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIndexBadge}>
-                <Text style={styles.cardIndexText}>Product #{index + 1}</Text>
-              </View>
-              {damageCards.length > 1 && (
+        {/* Add Products Button */}
+        <TouchableOpacity
+          style={styles.addProductCard}
+          onPress={() => setShowProductSelector(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.addProductLeft}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../../../../src/assets/images/store-product/add-new-icon.png')}
+                style={styles.addIcon}
+              />
+            </View>
+            <Text style={styles.addProductText}>Add Damaged Product</Text>
+          </View>
+          <Image
+            source={require('../../../../src/assets/images/store-product/forward-arrow.png')}
+            style={styles.forwardArrow}
+          />
+        </TouchableOpacity>
+
+        {/* Selected Products Section */}
+        <Text style={styles.sectionLabel}>Damaged Items</Text>
+
+        {selectedProducts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No items added</Text>
+            <Text style={styles.emptyStateSubtext}>Tap "Add Damaged Product" to get started</Text>
+          </View>
+        ) : (
+          selectedProducts.map((product) => {
+            return (
+              <View key={product.id} style={styles.selectedProductCard}>
+                {/* Delete X Button */}
                 <TouchableOpacity
-                  onPress={() => handleRemoveCard(item.id)}
+                  onPress={() => handleRemoveProduct(product.id)}
                   style={styles.removeButton}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.removeButtonText}>✕ Remove</Text>
+                  <Text style={styles.removeButtonText}>✕</Text>
                 </TouchableOpacity>
-              )}
-            </View>
 
-            {/* 2-COLUMN HORIZONTAL SCROLL - Same as add-product.tsx */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.twoColumnScroll}
-            >
-              {/* SECTION 1: Product Info */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Product Info</Text>
-
-                {/* Upload Image */}
-                <TouchableOpacity
-                  style={styles.uploadContainer}
-                  onPress={() => handleImageSelect(item.id)}
-                  activeOpacity={0.7}
-                >
-                  {item.selectedImage ? (
-                    <Image source={{ uri: item.selectedImage }} style={styles.selectedImagePreview} />
+                {/* Product Image and Info */}
+                <View style={styles.productMainRow}>
+                  {getProductImageSource(product) ? (
+                    <Image source={getProductImageSource(product)!} style={styles.selectedProductImage} />
                   ) : (
-                    <>
-                      <Image
-                        source={require('../../../../src/assets/images/add-product/upload-icon.png')}
-                        style={styles.uploadIcon}
-                      />
-                      <Text style={styles.uploadText}>Upload Image (Optional)</Text>
-                    </>
+                    <View style={[styles.selectedProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Text style={{ fontSize: 10, color: '#999' }}>No Image</Text>
+                    </View>
                   )}
-                </TouchableOpacity>
 
-                {/* Product Name */}
-                <Text style={styles.fieldLabel}>Product Name *</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. Expired Canned Sardines"
-                    placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                    value={item.productName}
-                    onChangeText={(text) => updateDamageCard(item.id, 'productName', text)}
-                  />
+                  <View style={styles.selectedProductInfo}>
+                    <Text style={styles.selectedProductName} numberOfLines={2}>
+                      {product.productName}
+                    </Text>
+                    <Text style={styles.selectedProductSize}>
+                      {product.productSize} {product.unit}
+                    </Text>
+                    <Text style={styles.selectedProductPrice}>₱{product.price.toFixed(2)} each</Text>
+                    <Text style={styles.selectedProductStock}>Stock: {product.quantity}</Text>
+                  </View>
                 </View>
 
-                {/* Description */}
-                <Text style={styles.fieldLabel}>Description *</Text>
-                <View style={[styles.inputContainer, styles.descriptionContainer]}>
-                  <TextInput
-                    style={[styles.textInput, styles.descriptionInput]}
-                    placeholder="Describe the product"
-                    placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                    value={item.description}
-                    onChangeText={(text) => updateDamageCard(item.id, 'description', text)}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                </View>
-              </View>
-
-              {/* SECTION 2: Damage Details */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Damage Details</Text>
-
-                {/* Category - Dynamic with Dropdown */}
-                <Text style={styles.fieldLabel}>Category *</Text>
-                <View style={styles.categoryInputRow}>
-                  <View style={styles.categoryTextInputContainer}>
+                {/* Damage Reason Input with Dropdown */}
+                <Text style={styles.reasonLabel}>Damage Reason:</Text>
+                <View style={styles.reasonInputRow}>
+                  <View style={styles.reasonTextInputContainer}>
                     <TextInput
-                      style={styles.categoryTextInput}
-                      placeholder="Type or select"
+                      style={styles.reasonTextInput}
+                      placeholder="Type or select reason"
                       placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                      value={item.selectedCategory}
-                      onChangeText={(text) => updateDamageCard(item.id, 'selectedCategory', text)}
+                      value={product.damageReason}
+                      onChangeText={(text) => handleReasonChange(product.id, text)}
                     />
                   </View>
                   <TouchableOpacity
-                    style={styles.categoryDropdownButton}
+                    style={styles.reasonDropdownButton}
                     onPress={() => {
-                      setCurrentEditingCardId(item.id);
-                      setShowCategoryDropdown(true);
+                      setCurrentProductId(product.id);
+                      setShowReasonDropdown(true);
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.categoryDropdownIcon}>▼</Text>
+                    <Text style={styles.reasonDropdownIcon}>▼</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Price & Quantity Row */}
-                <View style={styles.rowFields}>
-                  <View style={styles.halfField}>
-                    <Text style={styles.fieldLabel}>Unit Price *</Text>
-                    <View style={styles.priceInputContainer}>
-                      <Text style={styles.pesoSign}>₱</Text>
-                      <TextInput
-                        style={styles.priceInput}
-                        placeholder="0.00"
-                        placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                        keyboardType="decimal-pad"
-                        value={item.unitPrice}
-                        onChangeText={(text) => updateDamageCard(item.id, 'unitPrice', text)}
-                      />
-                    </View>
-                  </View>
+                {/* Notes Input */}
+                <TextInput
+                  style={styles.notesInput}
+                  placeholder="Notes (optional)"
+                  placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                  value={product.notes}
+                  onChangeText={(text) => handleNotesChange(product.id, text)}
+                  multiline
+                />
 
-                  <View style={styles.halfField}>
-                    <Text style={styles.fieldLabel}>Qty Damaged *</Text>
-                    <View style={styles.inputContainer}>
-                      <TextInput
-                        style={styles.textInput}
-                        placeholder="e.g. 10"
-                        placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                        keyboardType="number-pad"
-                        value={item.quantity}
-                        onChangeText={(text) => updateDamageCard(item.id, 'quantity', text)}
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                {/* Size & Unit Row */}
-                <View style={styles.rowFields}>
-                  <View style={styles.halfField}>
-                    <Text style={styles.fieldLabel}>Size *</Text>
-                    <View style={styles.inputContainerSmall}>
-                      <TextInput
-                        style={styles.textInputSmall}
-                        placeholder="e.g. 500"
-                        placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                        value={item.productSize}
-                        onChangeText={(text) => updateDamageCard(item.id, 'productSize', text)}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={styles.halfField}>
-                    <Text style={styles.fieldLabel}>Unit *</Text>
+                {/* Quantity Controls and Loss */}
+                <View style={styles.bottomControlsRow}>
+                  <View style={styles.quantityControls}>
                     <TouchableOpacity
-                      style={styles.dropdownContainerSmall}
-                      onPress={() => {
-                        setCurrentEditingCardId(item.id);
-                        setShowUnitDropdown(true);
-                      }}
+                      style={styles.quantityButton}
+                      onPress={() => handleDecrementQuantity(product.id)}
+                      disabled={product.damageQuantity <= 1}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.dropdownTextSmall, item.selectedUnit && styles.dropdownTextSelected]}>
-                        {item.selectedUnit || 'Unit'}
-                      </Text>
-                      <Text style={styles.dropdownArrowSmall}>▼</Text>
+                      <Text style={styles.quantityButtonText}>−</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.quantityDisplayBox}>
+                      <TextInput
+                        style={styles.quantityInput}
+                        value={product.damageQuantity.toString()}
+                        onChangeText={(text) => handleQuantityChange(product.id, text)}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.quantityButton}
+                      onPress={() => handleIncrementQuantity(product.id)}
+                      disabled={product.damageQuantity >= product.quantity}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.quantityButtonText}>+</Text>
                     </TouchableOpacity>
                   </View>
+
+                  <View style={styles.subtotalBox}>
+                    <Text style={styles.subtotalLabel}>Loss:</Text>
+                    <Text style={styles.subtotalText}>₱{product.totalLoss.toFixed(2)}</Text>
+                  </View>
                 </View>
-
-                {/* Damage Reason */}
-                <Text style={styles.fieldLabel}>Damage Reason *</Text>
-                <TouchableOpacity
-                  style={styles.dropdownContainer}
-                  onPress={() => {
-                    setCurrentEditingCardId(item.id);
-                    setShowReasonDropdown(true);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.dropdownText, item.selectedReason && styles.dropdownTextSelected]}>
-                    {getReasonLabel(item.selectedReason)}
-                  </Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
-                </TouchableOpacity>
               </View>
-            </ScrollView>
-
-            {/* Swipe Indicator */}
-            <View style={styles.swipeIndicator}>
-              <Text style={styles.swipeText}>← Swipe for more fields →</Text>
-            </View>
-
-            {/* Loss Calculation */}
-            {item.unitPrice && item.quantity && (
-              <View style={styles.lossPreview}>
-                <Text style={styles.lossLabel}>Loss for this item:</Text>
-                <Text style={styles.lossAmount}>
-                  ₱{(parseFloat(item.unitPrice) * parseInt(item.quantity) || 0).toFixed(2)}
-                </Text>
-              </View>
-            )}
-          </View>
-        ))}
-
-        {/* Add Another Product Button */}
-        <TouchableOpacity
-          style={styles.addAnotherButton}
-          onPress={handleAddAnotherProduct}
-          activeOpacity={0.7}
-        >
-          <View style={styles.addButtonCircle}>
-            <Text style={styles.addButtonIcon}>+</Text>
-          </View>
-          <Text style={styles.addButtonText}>Add Another Damaged Product</Text>
-        </TouchableOpacity>
+            );
+          })
+        )}
 
         {/* Total Loss Section */}
-        {damageCards.length > 0 && calculateTotalLoss() > 0 && (
+        {selectedProducts.length > 0 && (
           <View style={styles.totalSection}>
             <Text style={styles.totalLabel}>Total Loss</Text>
-            <Text style={styles.totalAmount}>₱{calculateTotalLoss().toFixed(2)}</Text>
+            <Text style={styles.totalAmount}>₱{totalLoss.toFixed(2)}</Text>
           </View>
         )}
 
         {/* Record Damage Button */}
         <TouchableOpacity
-          style={[styles.recordButton, saving && styles.recordButtonDisabled]}
+          style={[
+            styles.processButton,
+            (selectedProducts.length === 0 || saving) && styles.processButtonDisabled
+          ]}
           onPress={handleRecordDamage}
           activeOpacity={0.7}
-          disabled={saving}
+          disabled={selectedProducts.length === 0 || saving}
         >
           {saving ? (
             <ActivityIndicator color={Colors.white} />
           ) : (
-            <Text style={styles.recordButtonText}>Record Damage</Text>
+            <Text style={styles.processButtonText}>Record Damage</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Category Dropdown Modal */}
+      {/* Product Selector Modal */}
       <Modal
-        visible={showCategoryDropdown}
+        visible={showProductSelector}
         transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowCategoryDropdown(false)}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowProductSelector(false);
+          setCheckedProductIds([]);
+        }}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowCategoryDropdown(false)}
-        >
-          <View style={styles.dropdownModal}>
-            <Text style={styles.modalTitle}>Select Category</Text>
-            <ScrollView style={styles.dropdownList}>
-              {CATEGORIES.map((category) => (
-                <TouchableOpacity
-                  key={category}
-                  style={styles.dropdownOption}
-                  onPress={() => handleCategorySelect(category)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.dropdownOptionText}>{category}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        <View style={styles.modalOverlay}>
+          <View style={styles.productSelectorModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Products</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowProductSelector(false);
+                  setCheckedProductIds([]);
+                }}
+                style={styles.closeButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
-      {/* Unit Dropdown Modal */}
-      <Modal
-        visible={showUnitDropdown}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowUnitDropdown(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowUnitDropdown(false)}
-        >
-          <View style={styles.dropdownModal}>
-            <Text style={styles.modalTitle}>Select Unit</Text>
-            <ScrollView style={styles.dropdownList}>
-              {UNITS.map((unit) => (
-                <TouchableOpacity
-                  key={unit}
-                  style={styles.dropdownOption}
-                  onPress={() => handleUnitSelect(unit)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.dropdownOptionText}>{unit}</Text>
-                </TouchableOpacity>
-              ))}
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor="rgba(30, 30, 30, 0.5)"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+
+            <ScrollView style={styles.productsListScroll}>
+              {loading ? (
+                <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+              ) : filteredProducts.length === 0 ? (
+                <Text style={styles.noProductsText}>
+                  {searchQuery ? 'No products found' : 'No products available in inventory'}
+                </Text>
+              ) : (
+                filteredProducts.map((product) => {
+                  const isChecked = checkedProductIds.includes(product.id);
+                  return (
+                    <TouchableOpacity
+                      key={product.id}
+                      style={[styles.productSelectorItem, isChecked && styles.productSelectorItemChecked]}
+                      onPress={() => handleToggleProductCheck(product.id)}
+                      activeOpacity={0.7}
+                    >
+                      {/* Checkbox */}
+                      <View style={styles.checkboxContainer}>
+                        <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+                          {isChecked && <Text style={styles.checkmark}>✓</Text>}
+                        </View>
+                      </View>
+
+                      {getProductImageSource(product) ? (
+                        <Image source={getProductImageSource(product)!} style={styles.selectorProductImage} />
+                      ) : (
+                        <View style={[styles.selectorProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                          <Text style={{ fontSize: 10, color: '#999' }}>No Image</Text>
+                        </View>
+                      )}
+                      <View style={styles.selectorProductInfo}>
+                        <Text style={styles.selectorProductName} numberOfLines={1}>
+                          {product.productName}
+                        </Text>
+                        <Text style={styles.selectorProductSize}>
+                          {product.productSize} {product.unit}
+                        </Text>
+                        <Text style={styles.selectorProductPrice}>₱{product.price.toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.selectorProductStock}>
+                        <Text style={styles.stockText}>Stock: {product.quantity}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
+
+            {/* Add Selected Products Button */}
+            <View style={styles.modalFooter}>
+              <View style={styles.selectionInfo}>
+                <Text style={styles.selectionText}>
+                  {checkedProductIds.length} product{checkedProductIds.length !== 1 ? 's' : ''} selected
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.addSelectedButton,
+                  checkedProductIds.length === 0 && styles.addSelectedButtonDisabled
+                ]}
+                onPress={handleAddSelectedProducts}
+                disabled={checkedProductIds.length === 0}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.addSelectedButtonText}>Add Selected Products</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Reason Dropdown Modal */}
@@ -672,16 +675,16 @@ const RecordDamageScreen = () => {
           onPress={() => setShowReasonDropdown(false)}
         >
           <View style={styles.dropdownModal}>
-            <Text style={styles.modalTitle}>Select Damage Reason</Text>
+            <Text style={styles.dropdownModalTitle}>Select Damage Reason</Text>
             <ScrollView style={styles.dropdownList}>
-              {DAMAGE_REASONS.map((reason) => (
+              {DAMAGE_REASON_OPTIONS.map((reason) => (
                 <TouchableOpacity
-                  key={reason.value}
+                  key={reason}
                   style={styles.dropdownOption}
-                  onPress={() => handleReasonSelect(reason.value)}
+                  onPress={() => handleReasonSelect(reason)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.dropdownOptionText}>{reason.label}</Text>
+                  <Text style={styles.dropdownOptionText}>{reason}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -703,178 +706,182 @@ const styles = StyleSheet.create({
     paddingBottom: vs(40),
   },
 
-  // Section Header
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: vs(15),
-    marginTop: vs(10),
-  },
-
   sectionLabel: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(20),
-    lineHeight: vs(24),
+    fontSize: ms(18),
+    lineHeight: vs(22),
+    color: Colors.darkGray,
+    marginBottom: vs(12),
+  },
+
+  addProductCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    paddingVertical: vs(15),
+    paddingHorizontal: s(15),
+    marginBottom: vs(20),
+    marginTop: vs(10),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+
+  addProductLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(15),
+  },
+
+  logoContainer: {
+    width: s(50),
+    height: vs(50),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  addIcon: {
+    width: s(30),
+    height: vs(30),
+  },
+
+  addProductText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(18),
+    lineHeight: vs(22),
     color: Colors.darkGray,
   },
 
-  itemCount: {
+  forwardArrow: {
+    width: s(30),
+    height: s(30),
+  },
+
+  emptyState: {
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    paddingVertical: vs(40),
+    alignItems: 'center',
+    marginBottom: vs(20),
+  },
+
+  emptyStateText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    fontSize: ms(16),
+    color: Colors.darkGray,
+    marginBottom: vs(5),
+  },
+
+  emptyStateSubtext: {
     fontFamily: Fonts.primary,
     fontSize: ms(14),
     color: Colors.textSecondary,
   },
 
-  // Product Card
-  productCard: {
+  selectedProductCard: {
     backgroundColor: Colors.white,
     borderRadius: s(16),
     padding: s(15),
-    marginBottom: vs(20),
+    marginBottom: vs(15),
     shadowColor: 'rgba(0, 0, 0, 0.25)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 5,
-  },
-
-  // Card Header
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: vs(15),
-  },
-
-  cardIndexBadge: {
-    backgroundColor: '#E92B45',
-    paddingHorizontal: s(12),
-    paddingVertical: vs(6),
-    borderRadius: s(8),
-  },
-
-  cardIndexText: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(12),
-    color: Colors.white,
+    position: 'relative',
   },
 
   removeButton: {
-    paddingVertical: vs(4),
-    paddingHorizontal: s(8),
+    position: 'absolute',
+    top: s(10),
+    right: s(10),
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 
   removeButtonText: {
-    fontFamily: Fonts.primary,
-    fontWeight: '500',
-    fontSize: ms(13),
-    color: '#FF5252',
+    fontSize: ms(18),
+    fontWeight: '600',
+    color: '#FF3B30',
   },
 
-  // 2-Column Horizontal Scroll
-  twoColumnScroll: {
+  productMainRow: {
     flexDirection: 'row',
-    gap: s(15),
-    paddingRight: s(20),
+    marginBottom: vs(12),
   },
 
-  // Section
-  section: {
-    width: s(320),
+  selectedProductImage: {
+    width: s(80),
+    height: s(80),
+    borderRadius: s(12),
   },
 
-  sectionTitle: {
+  selectedProductInfo: {
+    flex: 1,
+    marginLeft: s(12),
+    justifyContent: 'space-between',
+    paddingVertical: vs(2),
+  },
+
+  selectedProductName: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(16),
+    fontSize: ms(15),
     color: Colors.darkGray,
-    marginBottom: vs(12),
+    marginBottom: vs(3),
+    lineHeight: vs(18),
   },
 
-  swipeIndicator: {
-    alignItems: 'center',
-    marginTop: vs(8),
+  selectedProductSize: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: Colors.textSecondary,
+    marginBottom: vs(3),
   },
 
-  swipeText: {
+  selectedProductPrice: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(13),
+    color: '#E92B45',
+    marginBottom: vs(3),
+  },
+
+  selectedProductStock: {
     fontFamily: Fonts.primary,
     fontSize: ms(11),
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-  },
-
-  // Row Fields
-  rowFields: {
-    flexDirection: 'row',
-    gap: s(10),
-    marginBottom: vs(12),
-  },
-
-  halfField: {
-    flex: 1,
-  },
-
-  fieldLabel: {
-    fontFamily: Fonts.primary,
+    color: '#FF9800',
     fontWeight: '500',
-    fontSize: ms(14),
+  },
+
+  reasonLabel: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(13),
     color: Colors.darkGray,
     marginBottom: vs(6),
   },
 
-  inputContainer: {
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: s(12),
-    backgroundColor: Colors.white,
-    paddingHorizontal: s(12),
-    paddingVertical: vs(10),
-    marginBottom: vs(12),
-  },
-
-  textInput: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: '#1E1E1E',
-  },
-
-  inputContainerSmall: {
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: s(12),
-    backgroundColor: Colors.white,
-    paddingHorizontal: s(10),
-    paddingVertical: vs(8),
-    marginBottom: vs(12),
-  },
-
-  textInputSmall: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(13),
-    color: '#1E1E1E',
-    textAlign: 'center',
-  },
-
-  descriptionContainer: {
-    height: vs(100),
-  },
-
-  descriptionInput: {
-    height: '100%',
-    textAlignVertical: 'top',
-  },
-
-  // Category Input Row
-  categoryInputRow: {
+  reasonInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: s(8),
     marginBottom: vs(12),
   },
 
-  categoryTextInputContainer: {
+  reasonTextInputContainer: {
     flex: 1,
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
@@ -884,14 +891,14 @@ const styles = StyleSheet.create({
     paddingVertical: vs(10),
   },
 
-  categoryTextInput: {
+  reasonTextInput: {
     fontFamily: Fonts.primary,
     fontSize: ms(14),
     color: '#1E1E1E',
     padding: 0,
   },
 
-  categoryDropdownButton: {
+  reasonDropdownButton: {
     width: s(44),
     height: vs(42),
     borderWidth: 1.5,
@@ -902,194 +909,101 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  categoryDropdownIcon: {
+  reasonDropdownIcon: {
     fontSize: ms(16),
     color: Colors.darkGray,
   },
 
-  priceInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: s(12),
-    backgroundColor: Colors.white,
-    paddingHorizontal: s(10),
+  notesInput: {
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: s(10),
+    paddingHorizontal: s(12),
     paddingVertical: vs(10),
-    marginBottom: vs(12),
-  },
-
-  pesoSign: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(16),
-    fontWeight: '600',
-    color: Colors.primary,
-    marginRight: s(5),
-  },
-
-  priceInput: {
-    flex: 1,
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: '#1E1E1E',
-  },
-
-  dropdownContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: s(12),
-    backgroundColor: Colors.white,
-    paddingHorizontal: s(12),
-    paddingVertical: vs(12),
-    marginBottom: vs(12),
-  },
-
-  dropdownText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: 'rgba(30, 30, 30, 0.4)',
-    flex: 1,
-  },
-
-  dropdownTextSelected: {
-    color: '#1E1E1E',
-  },
-
-  dropdownArrow: {
-    fontSize: ms(12),
-    color: Colors.darkGray,
-  },
-
-  dropdownContainerSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: s(12),
-    backgroundColor: Colors.white,
-    paddingHorizontal: s(12),
-    paddingVertical: vs(8),
-    marginBottom: vs(12),
-  },
-
-  dropdownTextSmall: {
     fontFamily: Fonts.primary,
     fontSize: ms(13),
-    color: 'rgba(30, 30, 30, 0.4)',
-    flex: 1,
-  },
-
-  dropdownArrowSmall: {
-    fontSize: ms(10),
     color: Colors.darkGray,
+    marginBottom: vs(10),
+    minHeight: vs(50),
+    textAlignVertical: 'top',
   },
 
-  // Image Upload - Same as order-supplies.tsx
-  uploadContainer: {
-    width: '100%',
-    height: vs(120),
-    backgroundColor: '#F9FAFB',
-    borderRadius: s(15),
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: vs(15),
-  },
-
-  selectedImagePreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: s(13),
-  },
-
-  uploadIcon: {
-    width: s(25),
-    height: vs(25),
-    marginBottom: vs(8),
-    tintColor: Colors.primary,
-  },
-
-  uploadText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(11),
-    color: 'rgba(30, 30, 30, 0.4)',
-  },
-
-  // Loss Preview
-  lossPreview: {
-    backgroundColor: '#FFF3E0',
-    borderRadius: s(12),
-    padding: s(12),
+  bottomControlsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFB74D',
+    paddingTop: vs(12),
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
   },
 
-  lossLabel: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(14),
-    color: '#E65100',
-  },
-
-  lossAmount: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(18),
-    color: '#E92B45',
-  },
-
-  // Add Another Button
-  addAnotherButton: {
+  quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: Colors.white,
-    borderRadius: s(16),
-    paddingVertical: vs(16),
-    borderWidth: 2,
+    borderRadius: s(10),
+    borderWidth: 1.5,
     borderColor: '#E92B45',
-    borderStyle: 'dashed',
-    marginBottom: vs(20),
+    paddingHorizontal: s(4),
+    paddingVertical: vs(4),
   },
 
-  addButtonCircle: {
-    width: s(28),
-    height: s(28),
-    borderRadius: s(14),
+  quantityButton: {
+    width: s(32),
+    height: s(32),
+    borderRadius: s(8),
     backgroundColor: '#E92B45',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: s(10),
   },
 
-  addButtonIcon: {
-    fontFamily: Fonts.primary,
+  quantityButtonText: {
+    fontSize: ms(20),
     fontWeight: '700',
-    fontSize: ms(18),
     color: Colors.white,
   },
 
-  addButtonText: {
+  quantityDisplayBox: {
+    backgroundColor: 'rgba(233, 43, 69, 0.08)',
+    paddingHorizontal: s(12),
+    paddingVertical: vs(6),
+    marginHorizontal: s(6),
+    borderRadius: s(6),
+    minWidth: s(50),
+  },
+
+  quantityInput: {
+    textAlign: 'center',
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(16),
+    fontWeight: '700',
+    fontSize: ms(18),
+    color: Colors.darkGray,
+    padding: 0,
+  },
+
+  subtotalBox: {
+    alignItems: 'flex-end',
+  },
+
+  subtotalLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: Colors.textSecondary,
+    marginBottom: vs(2),
+  },
+
+  subtotalText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(20),
     color: '#E92B45',
   },
 
-  // Total Section
   totalSection: {
     backgroundColor: '#E92B45',
     borderRadius: s(16),
     paddingVertical: vs(20),
     paddingHorizontal: s(20),
+    marginTop: vs(10),
     marginBottom: vs(20),
     alignItems: 'center',
   },
@@ -1109,8 +1023,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 
-  // Record Button
-  recordButton: {
+  processButton: {
     backgroundColor: Colors.primary,
     borderRadius: s(16),
     paddingVertical: vs(18),
@@ -1122,11 +1035,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 
-  recordButtonDisabled: {
+  processButtonDisabled: {
     backgroundColor: 'rgba(59, 183, 126, 0.5)',
   },
 
-  recordButtonText: {
+  processButtonText: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(18),
@@ -1137,19 +1050,219 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+
+  productSelectorModal: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: s(25),
+    borderTopRightRadius: s(25),
+    height: '85%',
+    paddingTop: vs(20),
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: s(20),
+    marginBottom: vs(20),
+  },
+
+  modalTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(22),
+    color: Colors.darkGray,
+  },
+
+  closeButton: {
+    width: s(32),
+    height: s(32),
+    borderRadius: s(16),
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
+  closeButtonText: {
+    fontSize: ms(18),
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+
+  searchInput: {
+    marginHorizontal: s(20),
+    marginBottom: vs(15),
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: s(12),
+    paddingHorizontal: s(15),
+    paddingVertical: vs(12),
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    color: Colors.darkGray,
+  },
+
+  productsListScroll: {
+    flex: 1,
+    paddingHorizontal: s(20),
+    paddingBottom: vs(10),
+  },
+
+  noProductsText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: vs(40),
+  },
+
+  productSelectorItem: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderRadius: s(12),
+    padding: s(12),
+    marginBottom: vs(10),
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+
+  productSelectorItemChecked: {
+    backgroundColor: 'rgba(233, 43, 69, 0.05)',
+    borderColor: '#E92B45',
+  },
+
+  checkboxContainer: {
+    marginRight: s(12),
+  },
+
+  checkbox: {
+    width: s(24),
+    height: s(24),
+    borderRadius: s(6),
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  checkboxChecked: {
+    backgroundColor: '#E92B45',
+    borderColor: '#E92B45',
+  },
+
+  checkmark: {
+    color: Colors.white,
+    fontSize: ms(16),
+    fontWeight: '700',
+  },
+
+  selectorProductImage: {
+    width: s(60),
+    height: s(60),
+    borderRadius: s(10),
+  },
+
+  selectorProductInfo: {
+    flex: 1,
+    marginLeft: s(12),
+  },
+
+  selectorProductName: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(15),
+    color: Colors.darkGray,
+    marginBottom: vs(3),
+  },
+
+  selectorProductSize: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: Colors.textSecondary,
+    marginBottom: vs(3),
+  },
+
+  selectorProductPrice: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(15),
+    color: Colors.primary,
+  },
+
+  selectorProductStock: {
+    backgroundColor: '#E92B45',
+    paddingHorizontal: s(10),
+    paddingVertical: vs(6),
+    borderRadius: s(8),
+  },
+
+  stockText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(12),
+    color: Colors.white,
+  },
+
+  // Modal Footer
+  modalFooter: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(20),
+    paddingTop: vs(15),
+    paddingBottom: vs(20),
+    borderTopWidth: 1,
+    borderTopColor: '#E8E8E8',
+  },
+
+  selectionInfo: {
+    marginBottom: vs(12),
+  },
+
+  selectionText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+
+  addSelectedButton: {
+    backgroundColor: '#E92B45',
+    borderRadius: s(16),
+    paddingVertical: vs(16),
+    alignItems: 'center',
+    shadowColor: '#E92B45',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  addSelectedButtonDisabled: {
+    backgroundColor: 'rgba(233, 43, 69, 0.3)',
+  },
+
+  addSelectedButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: Colors.white,
+  },
+
+  // Dropdown Modal (same as category dropdown in add-product)
   dropdownModal: {
     backgroundColor: Colors.white,
     borderRadius: s(20),
     padding: s(20),
-    width: '85%',
+    marginHorizontal: s(40),
+    marginTop: 'auto',
+    marginBottom: 'auto',
     maxHeight: '70%',
   },
 
-  modalTitle: {
+  dropdownModalTitle: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(20),

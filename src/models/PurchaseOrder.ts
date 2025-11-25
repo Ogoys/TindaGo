@@ -7,7 +7,7 @@
 
 export type PurchaseOrderStatus = 'pending' | 'received' | 'cancelled';
 
-export type PurchasePaymentMethod = 'cash' | 'debt';
+export type PurchasePaymentMethod = 'cash' | 'gcash' | 'paymaya' | 'debt';
 
 export type PurchasePaymentStatus = 'paid' | 'unpaid';
 
@@ -83,5 +83,7 @@ export const generatePurchaseOrderNumber = (count: number): string => {
  */
 export const PURCHASE_PAYMENT_METHODS = [
   { value: 'cash' as PurchasePaymentMethod, label: 'Cash', icon: 'cash' },
+  { value: 'gcash' as PurchasePaymentMethod, label: 'GCash', icon: 'gcash' },
+  { value: 'paymaya' as PurchasePaymentMethod, label: 'PayMaya', icon: 'paymaya' },
   { value: 'debt' as PurchasePaymentMethod, label: 'Debt/Loan', icon: 'debt' },
 ];

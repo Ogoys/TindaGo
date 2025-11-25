@@ -145,7 +145,13 @@ export default function DamageHistoryScreen() {
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Damage History</Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => router.push('/(main)/(store-owner)/inventory/record-damage')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.addButtonText}>+</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -470,6 +476,25 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: s(30),
+  },
+  addButton: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(59, 183, 126, 0.4)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  addButtonText: {
+    fontSize: ms(24),
+    color: Colors.white,
+    fontWeight: '700',
+    marginTop: -2,
   },
   scrollView: {
     flex: 1,

@@ -32,10 +32,7 @@ import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { createPurchaseOrder } from '../../../../src/api/purchaseOrders';
-import { PurchaseOrderItem } from '../../../../src/models/PurchaseOrder';
-
-// Payment method types
-type PurchasePaymentMethod = 'cash' | 'paymaya' | 'debt';
+import { PurchaseOrderItem, PurchasePaymentMethod } from '../../../../src/models/PurchaseOrder';
 
 interface OrderData {
   supplierName: string;
@@ -153,7 +150,7 @@ const PurchasePaymentScreen = () => {
           purchaseDate: orderData.purchaseDate,
           notes: orderData.notes.trim() || undefined,
           paymentMethod: selectedPayment,
-          paymentStatus: selectedPayment === 'cash' || selectedPayment === 'paymaya' ? 'paid' : 'unpaid',
+          paymentStatus: selectedPayment === 'cash' || selectedPayment === 'gcash' || selectedPayment === 'paymaya' ? 'paid' : 'unpaid',
         }
       );
 
@@ -308,10 +305,9 @@ const PurchasePaymentScreen = () => {
             activeOpacity={0.7}
           >
             <View style={styles.paymentMethodLeft}>
-              <Image
-                source={require('../../../../src/assets/images/store-owner-purchase-payment/gcash-icon.png')}
-                style={styles.paymentIcon}
-              />
+              <View style={styles.cashIconContainer}>
+                <Text style={styles.cashIcon}>₱</Text>
+              </View>
               <Text style={styles.paymentMethodText}>Cash</Text>
             </View>
             <View style={[
@@ -319,6 +315,30 @@ const PurchasePaymentScreen = () => {
               selectedPayment === 'cash' && styles.radioCircleSelected
             ]}>
               {selectedPayment === 'cash' && <View style={styles.radioInner} />}
+            </View>
+          </TouchableOpacity>
+
+          {/* GCash Option - Digital payment */}
+          <TouchableOpacity
+            style={[
+              styles.paymentMethodCard,
+              selectedPayment === 'gcash' && styles.paymentMethodCardSelected
+            ]}
+            onPress={() => handlePaymentSelect('gcash')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.paymentMethodLeft}>
+              <Image
+                source={require('../../../../src/assets/images/store-owner-purchase-payment/gcash-icon.png')}
+                style={styles.paymentIcon}
+              />
+              <Text style={styles.paymentMethodText}>GCash</Text>
+            </View>
+            <View style={[
+              styles.radioCircle,
+              selectedPayment === 'gcash' && styles.radioCircleSelected
+            ]}>
+              {selectedPayment === 'gcash' && <View style={styles.radioInner} />}
             </View>
           </TouchableOpacity>
 
@@ -779,6 +799,23 @@ const styles = StyleSheet.create({
   proceedButtonDisabled: {
     backgroundColor: 'rgba(59, 183, 126, 0.5)',
     opacity: 0.6,
+  },
+
+  // Cash icon styles
+  cashIconContainer: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  cashIcon: {
+    fontFamily: Fonts.primary,
+    fontSize: s(18),
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 
   // PayMaya icon styles
