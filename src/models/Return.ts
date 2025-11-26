@@ -15,7 +15,7 @@ export type ReturnReason =
 
 export type ReturnCondition = 'sellable' | 'unsellable';
 
-export type RefundMethod = 'cash' | 'gcash' | 'paymaya' | 'loan';
+export type RefundMethod = 'cash' | 'replace_product' | 'no_refund';
 
 export type ReturnStatus = 'pending' | 'resolved' | 'rejected';
 
@@ -37,7 +37,10 @@ export interface ReturnItem {
   notes?: string;
 
   // Inventory Impact
-  restoreToInventory: boolean; // true if sellable
+  restoreToInventory: boolean; // true if sellable AND refund method is 'cash'
+  isReplacement?: boolean; // true if refund method is 'replace_product'
+  replacementGiven?: boolean; // true if replacement product was actually given
+  currentStock?: number; // Available stock at time of return (for replacement validation)
 }
 
 export interface Return {
@@ -66,8 +69,9 @@ export interface Return {
   additionalDetails?: string; // Customer notes/explanation
   photoUrls?: string[]; // Photos of damaged/defective items
 
-  // Loan Details (if refundMethod is 'loan')
-  loanPaymentDate?: string; // ISO string - date customer will repurchase
+  // Replacement Tracking (if refundMethod is 'replace_product')
+  replacementCompleted?: boolean; // true if replacement was successfully given
+  replacementNotes?: string; // Notes about replacement process
 
   // Metadata
   createdAt: string;
@@ -99,12 +103,24 @@ export const RETURN_REASONS: { value: ReturnReason; label: string }[] = [
 
 /**
  * Refund methods with labels for UI
+ * For physical returns at sari-sari stores
  */
-export const REFUND_METHODS: { value: RefundMethod; label: string }[] = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'gcash', label: 'GCash' },
-  { value: 'paymaya', label: 'PayMaya' },
-  { value: 'loan', label: 'Loan (Pay Later)' },
+export const REFUND_METHODS: { value: RefundMethod; label: string; description: string }[] = [
+  {
+    value: 'cash',
+    label: 'Cash Refund',
+    description: 'Give cash back to customer'
+  },
+  {
+    value: 'replace_product',
+    label: 'Replace Product',
+    description: 'Exchange with new product from stock'
+  },
+  {
+    value: 'no_refund',
+    label: 'No Refund (Goodwill)',
+    description: 'Accept return without refund'
+  },
 ];
 
 /**

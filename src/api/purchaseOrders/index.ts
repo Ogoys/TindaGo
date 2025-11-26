@@ -17,7 +17,7 @@ export const createPurchaseOrder = async (
   storeOwnerId: string,
   storeName: string,
   orderData: PurchaseOrderInput
-): Promise<{ success: boolean; purchaseOrderId?: string; error?: string }> => {
+): Promise<{ success: boolean; purchaseOrderId?: string; purchaseOrderNumber?: string; error?: string }> => {
   try {
     // Validate items
     if (!orderData.items || orderData.items.length === 0) {
@@ -33,7 +33,8 @@ export const createPurchaseOrder = async (
     const totalCost = orderData.items.reduce((sum, item) => sum + item.subtotal, 0);
 
     // Get existing purchase orders count for PO number generation
-    const purchaseOrdersRef = ref(database, 'purchaseOrders');
+    // ✅ FIXED: Using standardized 'purchase_orders' path (snake_case)
+    const purchaseOrdersRef = ref(database, 'purchase_orders');
     const storeOrdersQuery = query(
       purchaseOrdersRef,
       orderByChild('storeOwnerId'),
@@ -49,26 +50,43 @@ export const createPurchaseOrder = async (
     const newPurchaseOrderRef = push(purchaseOrdersRef);
     const purchaseOrderId = newPurchaseOrderRef.key!;
 
-    const purchaseOrder: Omit<PurchaseOrder, 'id'> = {
+    // Build purchase order object, only including defined optional fields
+    const purchaseOrder: any = {
       purchaseOrderNumber,
       storeId: storeOwnerId,
       storeOwnerId: storeOwnerId,
       storeName: storeName,
-      supplierName: orderData.supplierName,
-      supplierContact: orderData.supplierContact,
       items: orderData.items,
       totalCost: totalCost,
       status: 'pending', // Default status when created
       purchaseDate: orderData.purchaseDate,
-      notes: orderData.notes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       recordedBy: storeOwnerId,
+      paymentStatus: orderData.paymentStatus || 'unpaid', // Default to unpaid
     };
+
+    // Only add optional fields if they have values (Firebase doesn't allow undefined)
+    if (orderData.supplierName) {
+      purchaseOrder.supplierName = orderData.supplierName;
+    }
+    if (orderData.supplierContact) {
+      purchaseOrder.supplierContact = orderData.supplierContact;
+    }
+    if (orderData.notes) {
+      purchaseOrder.notes = orderData.notes;
+    }
+    if (orderData.paymentMethod) {
+      purchaseOrder.paymentMethod = orderData.paymentMethod;
+    }
+    if (orderData.debtDueDate) {
+      purchaseOrder.debtDueDate = orderData.debtDueDate;
+    }
 
     await set(newPurchaseOrderRef, { ...purchaseOrder, id: purchaseOrderId });
 
-    return { success: true, purchaseOrderId };
+    // ✅ FIXED: Return both purchaseOrderId AND purchaseOrderNumber
+    return { success: true, purchaseOrderId, purchaseOrderNumber };
   } catch (error) {
     console.error('Error creating purchase order:', error);
     return { success: false, error: 'Failed to create purchase order' };
@@ -80,7 +98,8 @@ export const createPurchaseOrder = async (
  */
 export const getPurchaseOrders = async (storeOwnerId: string): Promise<PurchaseOrder[]> => {
   try {
-    const purchaseOrdersRef = ref(database, 'purchaseOrders');
+    // ✅ FIXED: Using standardized 'purchase_orders' path
+    const purchaseOrdersRef = ref(database, 'purchase_orders');
     const storeOrdersQuery = query(
       purchaseOrdersRef,
       orderByChild('storeOwnerId'),
@@ -88,7 +107,7 @@ export const getPurchaseOrders = async (storeOwnerId: string): Promise<PurchaseO
     );
 
     const snapshot = await get(storeOrdersQuery);
-    
+
     if (!snapshot.exists()) {
       return [];
     }
@@ -102,7 +121,7 @@ export const getPurchaseOrders = async (storeOwnerId: string): Promise<PurchaseO
     });
 
     // Sort by date (newest first)
-    return purchaseOrders.sort((a, b) => 
+    return purchaseOrders.sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   } catch (error) {
@@ -116,9 +135,10 @@ export const getPurchaseOrders = async (storeOwnerId: string): Promise<PurchaseO
  */
 export const getPurchaseOrderById = async (orderId: string): Promise<PurchaseOrder | null> => {
   try {
-    const orderRef = ref(database, `purchaseOrders/${orderId}`);
+    // ✅ FIXED: Using standardized 'purchase_orders' path
+    const orderRef = ref(database, `purchase_orders/${orderId}`);
     const snapshot = await get(orderRef);
-    
+
     if (!snapshot.exists()) {
       return null;
     }
@@ -141,7 +161,8 @@ export const updatePurchaseOrderStatus = async (
   status: 'pending' | 'received' | 'cancelled'
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const orderRef = ref(database, `purchaseOrders/${orderId}`);
+    // ✅ FIXED: Using standardized 'purchase_orders' path
+    const orderRef = ref(database, `purchase_orders/${orderId}`);
     const updates: any = {
       status: status,
       updatedAt: new Date().toISOString(),
@@ -223,7 +244,7 @@ export const deletePurchaseOrder = async (
   try {
     // Get purchase order to check status
     const purchaseOrder = await getPurchaseOrderById(orderId);
-    
+
     if (!purchaseOrder) {
       return { success: false, error: 'Purchase order not found' };
     }
@@ -232,7 +253,8 @@ export const deletePurchaseOrder = async (
       return { success: false, error: 'Cannot delete received purchase order' };
     }
 
-    const orderRef = ref(database, `purchaseOrders/${orderId}`);
+    // ✅ FIXED: Using standardized 'purchase_orders' path
+    const orderRef = ref(database, `purchase_orders/${orderId}`);
     await set(orderRef, null); // Delete from Firebase
 
     return { success: true };

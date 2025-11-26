@@ -254,8 +254,7 @@ const PurchaseOrderHistoryScreen = () => {
         key={order.id}
         style={styles.orderCard}
         onPress={() => {
-          setSelectedOrder(order);
-          setShowDetailsModal(true);
+          router.push(`/(main)/(store-owner)/profile/purchase-details?purchaseOrderId=${order.id}` as any);
         }}
         activeOpacity={0.7}
       >

@@ -24,13 +24,26 @@ export const createReturn = async (
       return { success: false, error: 'No items in return' };
     }
 
-    // Validate all products exist
+    // Validate all products exist and check stock for replacements
     for (const item of returnData.items) {
       const productRef = ref(database, `products/${item.productId}`);
       const productSnapshot = await get(productRef);
-      
+
       if (!productSnapshot.exists()) {
         return { success: false, error: `Product ${item.productName} not found` };
+      }
+
+      // For replacement refunds, validate stock availability
+      if (returnData.refundMethod === 'replace_product' && item.isReplacement) {
+        const product = productSnapshot.val();
+        const currentStock = product.quantity || 0;
+
+        if (currentStock < item.quantity) {
+          return {
+            success: false,
+            error: `Insufficient stock for ${item.productName}. Available: ${currentStock}, Needed: ${item.quantity}`
+          };
+        }
       }
     }
 
@@ -74,33 +87,54 @@ export const createReturn = async (
 
     await set(newReturnRef, { ...returnRecord, id: returnId });
 
-    // Restore inventory for sellable items
+    // Process inventory based on refund method
     for (const item of returnData.items) {
-      if (item.restoreToInventory && item.condition === 'sellable') {
-        const productRef = ref(database, `products/${item.productId}`);
-        const productSnapshot = await get(productRef);
-        
-        if (productSnapshot.exists()) {
-          const product = productSnapshot.val();
-          const newQuantity = (product.quantity || 0) + item.quantity;
-          
+      const productRef = ref(database, `products/${item.productId}`);
+      const productSnapshot = await get(productRef);
+
+      if (productSnapshot.exists()) {
+        const product = productSnapshot.val();
+        let newQuantity = product.quantity || 0;
+
+        // Handle different refund methods
+        if (returnData.refundMethod === 'replace_product' && item.isReplacement) {
+          // REPLACEMENT: Deduct 1 from stock (giving replacement), add returned item back
+          // Net effect: Quantity stays the same (removed defective, gave new one)
+          // But we mark the transaction for tracking
+          console.log(`[Return] Product replacement: ${item.productName} - Stock remains at ${newQuantity}`);
+
+          // Mark replacement as given
+          await update(ref(database, `returns/${returnId}/items/${returnData.items.indexOf(item)}`), {
+            replacementGiven: true,
+          });
+
+        } else if (item.restoreToInventory && item.condition === 'sellable') {
+          // CASH REFUND with SELLABLE item: Add returned item back to inventory
+          newQuantity = newQuantity + item.quantity;
+
           await update(productRef, {
             quantity: newQuantity,
             status: 'available', // Mark as available since we have stock
             updatedAt: new Date().toISOString(),
           });
+
+          console.log(`[Return] Sellable item restored: ${item.productName} - New stock: ${newQuantity}`);
+
+        } else if (item.condition === 'unsellable') {
+          // UNSELLABLE item: Item is damaged/expired, don't restore to inventory
+          // No quantity change needed
+          console.log(`[Return] Unsellable item not restored: ${item.productName}`);
         }
       }
     }
 
-    // TODO: Process refunds for wallet/store_credit
-    // For now, cash refunds are just recorded
-    // Future implementation:
-    // if (returnData.refundMethod === 'wallet') {
-    //   await creditCustomerWallet(returnData.customerId, totalRefund);
-    // } else if (returnData.refundMethod === 'store_credit') {
-    //   await issueStoreCredit(returnData.customerId, totalRefund);
-    // }
+    // Update return record with completion flag
+    if (returnData.refundMethod === 'replace_product') {
+      await update(newReturnRef, {
+        replacementCompleted: true,
+        replacementNotes: 'Product replacement completed successfully',
+      });
+    }
 
     return { success: true, returnId, returnNumber };
   } catch (error) {

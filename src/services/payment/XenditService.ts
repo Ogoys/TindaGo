@@ -43,6 +43,24 @@ export interface PaymentStatusResponse {
   error?: string;
 }
 
+export interface PurchaseOrderPaymentRequest {
+  purchaseOrderId: string;
+  purchaseOrderNumber: string;
+  amount: number;
+  storeOwnerEmail: string;
+  storeOwnerName: string;
+  storeOwnerPhone: string;
+  storeId: string;
+  storeName: string;
+  supplierName: string;
+  items: {
+    name: string;
+    quantity: number;
+    price: number;
+  }[];
+  paymentMethod: 'gcash' | 'paymaya';
+}
+
 class PaymentService {
   /**
    * Create payment invoice via admin API
@@ -83,6 +101,78 @@ class PaymentService {
     } catch (error: any) {
       console.error('Admin invoice error:', error?.message || error);
       return { success: false, error: error?.message || 'Network error' };
+    }
+  }
+
+  /**
+   * Create payment invoice for Purchase Order (B2B payment tracking)
+   * Store owner pays supplier via Xendit for record keeping
+   */
+  async createPurchaseOrderPayment(request: PurchaseOrderPaymentRequest): Promise<PaymentResponse> {
+    try {
+      console.log('[XenditService] Creating Purchase Order payment:', request.purchaseOrderNumber);
+      console.log('[XenditService] API Base URL:', ADMIN_API_BASE);
+      console.log('[XenditService] Request payload:', JSON.stringify({
+        purchaseOrderId: request.purchaseOrderId,
+        purchaseOrderNumber: request.purchaseOrderNumber,
+        total: request.amount,
+        method: request.paymentMethod,
+        store: { id: request.storeId, name: request.storeName },
+      }));
+
+      const res = await fetch(`${ADMIN_API_BASE}/api/payments/purchase-order-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          purchaseOrderId: request.purchaseOrderId,
+          purchaseOrderNumber: request.purchaseOrderNumber,
+          total: request.amount,
+          method: request.paymentMethod,
+          store: { id: request.storeId, name: request.storeName },
+          storeOwner: {
+            email: request.storeOwnerEmail,
+            name: request.storeOwnerName,
+            phone: request.storeOwnerPhone
+          },
+          supplierName: request.supplierName,
+          items: request.items,
+        }),
+      });
+
+      console.log('[XenditService] Purchase Order payment response status:', res.status);
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('[XenditService] Purchase Order payment error response:', text);
+        console.error('[XenditService] Response headers:', JSON.stringify(res.headers));
+
+        // Try to parse as JSON for better error message
+        let errorMessage = text;
+        try {
+          const errorJson = JSON.parse(text);
+          errorMessage = errorJson.error || errorJson.message || text;
+        } catch {
+          // Keep original text if not JSON
+        }
+
+        return { success: false, error: `HTTP ${res.status}: ${errorMessage}` };
+      }
+
+      const data = await res.json();
+      console.log('[XenditService] Purchase Order payment success:', data);
+      return {
+        success: true,
+        invoiceId: data.invoiceId,
+        invoiceUrl: data.invoiceUrl,
+        expiryDate: data.expiryDate,
+      };
+    } catch (error: any) {
+      console.error('[XenditService] Purchase Order payment exception:', error);
+      console.error('[XenditService] Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        type: typeof error,
+      });
+      return { success: false, error: `Network error: ${error?.message || 'Unknown error'}` };
     }
   }
 

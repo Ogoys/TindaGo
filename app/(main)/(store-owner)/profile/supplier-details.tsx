@@ -341,7 +341,15 @@ const SupplierDetailsScreen = () => {
           </View>
         ) : (
           supplierData.purchaseOrders.map((order, index) => (
-            <View key={order.id} style={styles.purchaseOrderCard}>
+            <TouchableOpacity
+              key={order.id}
+              style={styles.purchaseOrderCard}
+              onPress={() => router.push({
+                pathname: '/profile/purchase-details',
+                params: { purchaseOrderId: order.id }
+              })}
+              activeOpacity={0.7}
+            >
               {/* Order Header */}
               <Text style={styles.orderNumber}>{order.orderNumber}</Text>
               <Text style={styles.orderDate}>{formatDate(order.purchaseDate)}</Text>
@@ -368,7 +376,7 @@ const SupplierDetailsScreen = () => {
                 <Text style={styles.totalLabel}>Total Value:</Text>
                 <Text style={styles.totalValue}>{formatCurrency(order.totalCost)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>

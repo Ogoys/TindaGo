@@ -78,12 +78,15 @@ const RecordReturnScreen = () => {
   const [saving, setSaving] = useState(false);
   const [storeName, setStoreName] = useState('My Store');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Customer information
   const [customerName, setCustomerName] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
   const [refundMethod, setRefundMethod] = useState<RefundMethod>('cash');
   const [showRefundSelector, setShowRefundSelector] = useState(false);
+
+  // Product stock tracking (for replacement validation)
+  const [productStocks, setProductStocks] = useState<Record<string, number>>({});
 
   const filteredProducts = products.filter(p => 
     p.productName.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -163,11 +166,17 @@ const RecordReturnScreen = () => {
 
   const handleAddProduct = (product: Product) => {
     const existingProduct = selectedProducts.find(p => p.id === product.id);
-    
+
     if (existingProduct) {
       Alert.alert('Already Added', 'This product is already in the return list.');
       return;
     }
+
+    // Track product stock for replacement validation
+    setProductStocks(prev => ({
+      ...prev,
+      [product.id]: product.quantity
+    }));
 
     const newProduct: SelectedProduct = {
       ...product,
@@ -176,7 +185,7 @@ const RecordReturnScreen = () => {
       condition: 'sellable',
       notes: '',
       refundAmount: product.price,
-      restoreToInventory: true, // Default true for sellable
+      restoreToInventory: true, // Will be updated based on refund method
     };
 
     setSelectedProducts([...selectedProducts, newProduct]);
@@ -277,6 +286,20 @@ const RecordReturnScreen = () => {
         return;
       }
 
+      // Validate stock for replacements
+      if (refundMethod === 'replace_product') {
+        for (const product of selectedProducts) {
+          const availableStock = productStocks[product.id] || 0;
+          if (availableStock < product.returnQuantity) {
+            Alert.alert(
+              'Insufficient Stock',
+              `Cannot replace ${product.productName}.\nAvailable: ${availableStock}, Needed: ${product.returnQuantity}\n\nPlease reduce quantity or choose Cash Refund instead.`
+            );
+            return;
+          }
+        }
+      }
+
       const currentUser = auth.currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'User not authenticated');
@@ -292,13 +315,15 @@ const RecordReturnScreen = () => {
         productImageUrl: p.productImageUrl,
         quantity: p.returnQuantity,
         price: p.price,
-        refundAmount: p.refundAmount,
+        refundAmount: refundMethod === 'no_refund' ? 0 : p.refundAmount,
         productSize: p.productSize,
         unit: p.unit,
         reason: p.reason,
         condition: p.condition,
         notes: p.notes,
-        restoreToInventory: p.restoreToInventory,
+        restoreToInventory: refundMethod === 'cash' && p.condition === 'sellable',
+        isReplacement: refundMethod === 'replace_product',
+        currentStock: productStocks[p.id],
       }));
 
       const result = await createReturn(
@@ -313,14 +338,30 @@ const RecordReturnScreen = () => {
       );
 
       if (result.success) {
-        const sellableCount = selectedProducts.filter(p => p.condition === 'sellable').length;
-        const inventoryMessage = sellableCount > 0 
-          ? `\n\n${sellableCount} sellable item(s) restored to inventory.`
-          : '\n\nNo items restored to inventory (all unsellable).';
-        
+        let message = `Return #${result.returnNumber}\n`;
+
+        if (refundMethod === 'cash') {
+          const sellableCount = selectedProducts.filter(p => p.condition === 'sellable').length;
+          message += `Cash Refund: ₱${totalRefund.toFixed(2)}\n`;
+          if (sellableCount > 0) {
+            message += `${sellableCount} sellable item(s) restored to inventory.`;
+          } else {
+            message += 'No items restored (all unsellable).';
+          }
+        } else if (refundMethod === 'replace_product') {
+          message += `Replacement Given: ${selectedProducts.length} product(s)\n`;
+          message += 'Stock updated automatically.';
+        } else if (refundMethod === 'no_refund') {
+          message += 'Return accepted without refund (Goodwill).\n';
+          const sellableCount = selectedProducts.filter(p => p.condition === 'sellable').length;
+          if (sellableCount > 0) {
+            message += `${sellableCount} sellable item(s) restored to inventory.`;
+          }
+        }
+
         Alert.alert(
           'Return Processed!',
-          `Return #${result.returnNumber}\nTotal Refund: ₱${totalRefund.toFixed(2)}${inventoryMessage}`,
+          message,
           [
             {
               text: 'View History',
@@ -333,6 +374,7 @@ const RecordReturnScreen = () => {
                 setCustomerName('');
                 setOrderNumber('');
                 setRefundMethod('cash');
+                setProductStocks({});
               }
             }
           ]
@@ -353,7 +395,11 @@ const RecordReturnScreen = () => {
   };
 
   const getRefundMethodLabel = (method: RefundMethod) => {
-    return REFUND_METHODS.find(m => m.value === method)?.label || 'Cash';
+    return REFUND_METHODS.find(m => m.value === method)?.label || 'Cash Refund';
+  };
+
+  const getRefundMethodDescription = (method: RefundMethod) => {
+    return REFUND_METHODS.find(m => m.value === method)?.description || '';
   };
 
   return (
@@ -449,6 +495,16 @@ const RecordReturnScreen = () => {
                       {product.productSize} {product.unit}
                     </Text>
                     <Text style={styles.selectedProductPrice}>₱{product.price.toFixed(2)} each</Text>
+
+                    {/* Show stock for replacement method */}
+                    {refundMethod === 'replace_product' && productStocks[product.id] !== undefined && (
+                      <View style={styles.stockBadge}>
+                        <Text style={styles.stockBadgeText}>
+                          Stock: {productStocks[product.id]}
+                          {productStocks[product.id] < product.returnQuantity && ' ⚠️'}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
 
@@ -698,19 +754,30 @@ const RecordReturnScreen = () => {
         onRequestClose={() => setShowRefundSelector(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.reasonSelectorModal}>
+          <View style={styles.refundMethodSelectorModal}>
             <Text style={styles.modalTitle}>Select Refund Method</Text>
             {REFUND_METHODS.map((method) => (
               <TouchableOpacity
                 key={method.value}
-                style={styles.reasonOption}
+                style={[
+                  styles.refundMethodOption,
+                  refundMethod === method.value && styles.refundMethodOptionSelected
+                ]}
                 onPress={() => {
                   setRefundMethod(method.value);
                   setShowRefundSelector(false);
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.reasonOptionText}>{method.label}</Text>
+                <View style={styles.refundMethodOptionContent}>
+                  <Text style={styles.refundMethodOptionTitle}>{method.label}</Text>
+                  <Text style={styles.refundMethodOptionDesc}>{method.description}</Text>
+                </View>
+                {refundMethod === method.value && (
+                  <View style={styles.selectedCheckmark}>
+                    <Text style={styles.selectedCheckmarkText}>✓</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -921,6 +988,22 @@ const styles = StyleSheet.create({
     fontSize: ms(13),
     color: Colors.primary,
     marginBottom: vs(3),
+  },
+
+  stockBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    borderRadius: s(8),
+    marginTop: vs(5),
+  },
+
+  stockBadgeText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(11),
+    fontWeight: '600',
+    color: '#1976D2',
   },
 
   reasonSelector: {
@@ -1331,6 +1414,71 @@ const styles = StyleSheet.create({
     fontSize: ms(16),
     color: Colors.darkGray,
     textAlign: 'center',
+  },
+
+  // Refund Method Modal Styles
+  refundMethodSelectorModal: {
+    backgroundColor: Colors.white,
+    borderRadius: s(20),
+    marginHorizontal: s(30),
+    padding: s(20),
+    marginTop: 'auto',
+    marginBottom: 'auto',
+    maxHeight: '70%',
+  },
+
+  refundMethodOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: vs(16),
+    paddingHorizontal: s(15),
+    borderRadius: s(12),
+    backgroundColor: Colors.white,
+    marginBottom: vs(12),
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+
+  refundMethodOptionSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(59, 183, 126, 0.08)',
+  },
+
+  refundMethodOptionContent: {
+    flex: 1,
+    marginRight: s(10),
+  },
+
+  refundMethodOptionTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: Colors.darkGray,
+    marginBottom: vs(4),
+  },
+
+  refundMethodOptionDesc: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: Colors.textSecondary,
+    lineHeight: vs(18),
+  },
+
+  selectedCheckmark: {
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  selectedCheckmarkText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    fontWeight: '700',
+    color: Colors.white,
   },
 });
 

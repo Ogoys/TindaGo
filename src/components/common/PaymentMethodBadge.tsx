@@ -1,8 +1,9 @@
 /**
  * PAYMENT METHOD BADGE
- * 
+ *
  * Displays payment method with appropriate icon
- * Supports: Cash, GCash, PayMaya, COD, PayPal
+ * Matches design from purchase-payment.tsx
+ * Supports: Cash, GCash, PayMaya, Debt
  */
 
 import React from 'react';
@@ -16,27 +17,25 @@ interface PaymentMethodBadgeProps {
   showText?: boolean;
 }
 
-const PaymentMethodBadge: React.FC<PaymentMethodBadgeProps> = ({ 
-  method, 
+const PaymentMethodBadge: React.FC<PaymentMethodBadgeProps> = ({
+  method,
   size = 'small',
-  showText = true 
+  showText = true
 }) => {
   const normalizedMethod = method?.toLowerCase() || 'cash';
-  
-  // Get icon source
+
+  // Get icon source - using purchase-payment icons
   const getIconSource = () => {
     switch (normalizedMethod) {
       case 'gcash':
-        return require('../../assets/images/payment/gcash-icon.png');
+        return require('../../assets/images/store-owner-purchase-payment/gcash-icon.png');
       case 'paymaya':
-        return require('../../assets/images/payment/paymaya-icon.png');
+        return require('../../assets/images/store-owner-purchase-payment/paymaya-icon.png');
+      case 'debt':
+        return require('../../assets/images/store-owner-purchase-payment/debt-icon.png');
       case 'cash':
-      case 'cod':
-        return require('../../assets/images/payment/cash-icon.png');
-      case 'paypal':
-        return require('../../assets/images/payment/paypal-icon.png');
       default:
-        return require('../../assets/images/payment/cash-icon.png');
+        return null; // Cash uses green circle with ₱ symbol
     }
   };
 
@@ -47,51 +46,57 @@ const PaymentMethodBadge: React.FC<PaymentMethodBadgeProps> = ({
         return 'GCash';
       case 'paymaya':
         return 'PayMaya';
+      case 'debt':
+        return 'Debt';
       case 'cash':
         return 'Cash';
-      case 'cod':
-        return 'COD';
-      case 'paypal':
-        return 'PayPal';
       default:
         return method || 'Cash';
     }
   };
 
-  // Get size styles
+  // Get size styles (matching purchase-payment.tsx: 30x30 icon, 18px text)
   const getSizeStyles = () => {
     switch (size) {
       case 'large':
         return {
-          iconSize: s(28),
-          fontSize: ms(15),
-          padding: s(10),
+          iconSize: s(30),
+          fontSize: ms(18),
+          cashIconSize: s(18),
         };
       case 'medium':
         return {
-          iconSize: s(20),
-          fontSize: ms(13),
-          padding: s(8),
+          iconSize: s(30),
+          fontSize: ms(18),
+          cashIconSize: s(18),
         };
       case 'small':
       default:
         return {
-          iconSize: s(16),
-          fontSize: ms(12),
-          padding: s(6),
+          iconSize: s(30),
+          fontSize: ms(18),
+          cashIconSize: s(18),
         };
     }
   };
 
   const sizeStyles = getSizeStyles();
+  const iconSource = getIconSource();
 
   return (
     <View style={styles.container}>
-      <Image 
-        source={getIconSource()} 
-        style={[styles.icon, { width: sizeStyles.iconSize, height: sizeStyles.iconSize }]}
-        resizeMode="contain"
-      />
+      {/* Cash uses green circle with ₱ symbol */}
+      {normalizedMethod === 'cash' ? (
+        <View style={[styles.cashIconContainer, { width: sizeStyles.iconSize, height: sizeStyles.iconSize }]}>
+          <Text style={[styles.cashIcon, { fontSize: sizeStyles.cashIconSize }]}>₱</Text>
+        </View>
+      ) : (
+        <Image
+          source={iconSource!}
+          style={[styles.icon, { width: sizeStyles.iconSize, height: sizeStyles.iconSize }]}
+          resizeMode="contain"
+        />
+      )}
       {showText && (
         <Text style={[styles.text, { fontSize: sizeStyles.fontSize }]}>
           {getDisplayName()}
@@ -105,16 +110,30 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s(10),
   },
   icon: {
-    width: s(16),
-    height: s(16),
-    marginRight: s(6),
+    width: s(30),
+    height: s(30),
+  },
+  cashIconContainer: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cashIcon: {
+    fontFamily: Fonts.primary,
+    fontSize: s(18),
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   text: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(12),
+    fontSize: ms(18),
     color: '#1E1E1E',
   },
 });

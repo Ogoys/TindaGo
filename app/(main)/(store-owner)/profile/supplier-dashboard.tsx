@@ -29,7 +29,7 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
@@ -65,154 +65,157 @@ const SupplierDashboardScreen = () => {
   const [headerRefreshing, setHeaderRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchSupplierData();
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    // ✅ REAL-TIME: Listen to purchase orders for live updates
+    const purchaseOrdersRef = ref(database, 'purchase_orders');
+    const userPurchaseOrdersQuery = query(
+      purchaseOrdersRef,
+      orderByChild('storeOwnerId'),
+      equalTo(currentUser.uid)
+    );
+
+    const unsubscribe = onValue(userPurchaseOrdersQuery, async (poSnapshot) => {
+      try {
+        const suppliersData = new Map<string, SupplierStats>();
+
+        // 1. First, fetch dedicated suppliers from suppliers collection (one-time)
+        const suppliersRef = ref(database, 'suppliers');
+        const suppliersSnapshot = await get(suppliersRef);
+
+        if (suppliersSnapshot.exists()) {
+          const suppliers = suppliersSnapshot.val();
+          Object.keys(suppliers).forEach((supplierId) => {
+            const supplier = suppliers[supplierId];
+            // Only include suppliers belonging to current user
+            if (supplier.storeOwnerId === currentUser.uid) {
+              // Add supplier with empty stats (will be updated from purchase orders)
+              suppliersData.set(supplier.name, {
+                supplierName: supplier.name,
+                totalPurchaseOrders: 0,
+                totalAmountSpent: 0,
+                lastPurchaseDate: null,
+                uniqueProducts: new Set(),
+                purchaseOrderIds: [],
+              });
+            }
+          });
+        }
+
+        // 2. Process purchase orders (real-time data)
+        if (poSnapshot.exists()) {
+          const purchaseOrders = poSnapshot.val();
+
+          // Process each purchase order
+          Object.keys(purchaseOrders).forEach((poId) => {
+            const po: any = purchaseOrders[poId];
+            const supplierName = po.supplierName || 'Unknown Supplier';
+
+            if (!suppliersData.has(supplierName)) {
+              suppliersData.set(supplierName, {
+                supplierName,
+                totalPurchaseOrders: 0,
+                totalAmountSpent: 0,
+                lastPurchaseDate: null,
+                uniqueProducts: new Set(),
+                purchaseOrderIds: [],
+              });
+            }
+
+            const supplierStats = suppliersData.get(supplierName)!;
+
+            // Update statistics
+            supplierStats.totalPurchaseOrders += 1;
+            supplierStats.totalAmountSpent += po.totalCost || 0;
+            supplierStats.purchaseOrderIds.push(poId);
+
+            // Track unique products
+            if (po.items && Array.isArray(po.items)) {
+              po.items.forEach((item: any) => {
+                if (item.productId) {
+                  supplierStats.uniqueProducts.add(item.productId);
+                }
+              });
+            }
+
+            // Update last purchase date
+            const purchaseDate = po.purchaseDate || po.createdAt;
+            if (
+              purchaseDate &&
+              (!supplierStats.lastPurchaseDate ||
+                new Date(purchaseDate) > new Date(supplierStats.lastPurchaseDate))
+            ) {
+              supplierStats.lastPurchaseDate = purchaseDate;
+            }
+          });
+        }
+
+        // Handle empty state
+        if (suppliersData.size === 0) {
+          setSuppliersMap(new Map());
+          setDashboardStats({
+            totalSuppliers: 0,
+            totalSpent: 0,
+            totalPurchaseOrders: 0,
+            mostFrequentSupplier: null,
+          });
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+
+        // Calculate dashboard stats
+        let totalSpent = 0;
+        let totalPOs = 0;
+        let mostFrequent: string | null = null;
+        let maxPOs = 0;
+
+        suppliersData.forEach((stats, supplierName) => {
+          totalSpent += stats.totalAmountSpent;
+          totalPOs += stats.totalPurchaseOrders;
+
+          if (stats.totalPurchaseOrders > maxPOs) {
+            maxPOs = stats.totalPurchaseOrders;
+            mostFrequent = supplierName;
+          }
+        });
+
+        setSuppliersMap(suppliersData);
+        setDashboardStats({
+          totalSuppliers: suppliersData.size,
+          totalSpent,
+          totalPurchaseOrders: totalPOs,
+          mostFrequentSupplier: mostFrequent,
+        });
+      } catch (error) {
+        console.error('Error processing supplier data:', error);
+        Alert.alert('Error', 'Failed to load supplier data');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    });
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
 
-  const fetchSupplierData = async () => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      const suppliersData = new Map<string, SupplierStats>();
-
-      // 1. First, fetch dedicated suppliers from suppliers collection
-      const suppliersRef = ref(database, 'suppliers');
-      const suppliersSnapshot = await get(suppliersRef);
-
-      if (suppliersSnapshot.exists()) {
-        const suppliers = suppliersSnapshot.val();
-        Object.keys(suppliers).forEach((supplierId) => {
-          const supplier = suppliers[supplierId];
-          // Only include suppliers belonging to current user
-          if (supplier.storeOwnerId === currentUser.uid) {
-            // Add supplier with empty stats (will be updated from purchase orders)
-            suppliersData.set(supplier.name, {
-              supplierName: supplier.name,
-              totalPurchaseOrders: 0,
-              totalAmountSpent: 0,
-              lastPurchaseDate: null,
-              uniqueProducts: new Set(),
-              purchaseOrderIds: [],
-            });
-          }
-        });
-      }
-
-      // 2. Fetch all purchase orders and merge supplier data
-      const purchaseOrdersRef = ref(database, 'purchase_orders');
-      const userPurchaseOrdersQuery = query(
-        purchaseOrdersRef,
-        orderByChild('storeOwnerId'),
-        equalTo(currentUser.uid)
-      );
-
-      const poSnapshot = await get(userPurchaseOrdersQuery);
-
-      if (poSnapshot.exists()) {
-        const purchaseOrders = poSnapshot.val();
-
-        // Process each purchase order
-        Object.keys(purchaseOrders).forEach((poId) => {
-          const po: any = purchaseOrders[poId];
-          const supplierName = po.supplierName || 'Unknown Supplier';
-
-          if (!suppliersData.has(supplierName)) {
-            suppliersData.set(supplierName, {
-              supplierName,
-              totalPurchaseOrders: 0,
-              totalAmountSpent: 0,
-              lastPurchaseDate: null,
-              uniqueProducts: new Set(),
-              purchaseOrderIds: [],
-            });
-          }
-
-          const supplierStats = suppliersData.get(supplierName)!;
-
-          // Update statistics
-          supplierStats.totalPurchaseOrders += 1;
-          supplierStats.totalAmountSpent += po.totalCost || 0;
-          supplierStats.purchaseOrderIds.push(poId);
-
-          // Track unique products
-          if (po.items && Array.isArray(po.items)) {
-            po.items.forEach((item: any) => {
-              if (item.productId) {
-                supplierStats.uniqueProducts.add(item.productId);
-              }
-            });
-          }
-
-          // Update last purchase date
-          const purchaseDate = po.purchaseDate || po.createdAt;
-          if (
-            purchaseDate &&
-            (!supplierStats.lastPurchaseDate ||
-              new Date(purchaseDate) > new Date(supplierStats.lastPurchaseDate))
-          ) {
-            supplierStats.lastPurchaseDate = purchaseDate;
-          }
-        });
-      }
-
-      // Handle empty state
-      if (suppliersData.size === 0) {
-        setSuppliersMap(new Map());
-        setDashboardStats({
-          totalSuppliers: 0,
-          totalSpent: 0,
-          totalPurchaseOrders: 0,
-          mostFrequentSupplier: null,
-        });
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      // Calculate dashboard stats
-      let totalSpent = 0;
-      let totalPOs = 0;
-      let mostFrequent: string | null = null;
-      let maxPOs = 0;
-
-      suppliersData.forEach((stats, supplierName) => {
-        totalSpent += stats.totalAmountSpent;
-        totalPOs += stats.totalPurchaseOrders;
-
-        if (stats.totalPurchaseOrders > maxPOs) {
-          maxPOs = stats.totalPurchaseOrders;
-          mostFrequent = supplierName;
-        }
-      });
-
-      setSuppliersMap(suppliersData);
-      setDashboardStats({
-        totalSuppliers: suppliersData.size,
-        totalSpent,
-        totalPurchaseOrders: totalPOs,
-        mostFrequentSupplier: mostFrequent,
-      });
-    } catch (error) {
-      console.error('Error fetching supplier data:', error);
-      Alert.alert('Error', 'Failed to load supplier data');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
   const onRefresh = () => {
+    // Real-time listener already updates automatically
+    // This just provides visual feedback
     setRefreshing(true);
-    fetchSupplierData();
+    setTimeout(() => setRefreshing(false), 500);
   };
 
   const handleHeaderRefresh = () => {
+    // Real-time listener already updates automatically
+    // This just provides visual feedback
     setHeaderRefreshing(true);
-    fetchSupplierData().finally(() => setHeaderRefreshing(false));
+    setTimeout(() => setHeaderRefreshing(false), 500);
   };
 
   const handleAddSupplier = () => {

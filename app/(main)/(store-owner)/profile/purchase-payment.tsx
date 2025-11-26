@@ -24,6 +24,7 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ref, get, update } from 'firebase/database';
@@ -33,6 +34,8 @@ import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { createPurchaseOrder } from '../../../../src/api/purchaseOrders';
 import { PurchaseOrderItem, PurchasePaymentMethod } from '../../../../src/models/PurchaseOrder';
+import { xenditService } from '../../../../src/services/payment/XenditService';
+import * as Linking from 'expo-linking';
 
 interface OrderData {
   supplierName: string;
@@ -51,6 +54,11 @@ const PurchasePaymentScreen = () => {
   const [processing, setProcessing] = useState(false);
   const [storeName, setStoreName] = useState('My Store');
   const [orderData, setOrderData] = useState<OrderData | null>(null);
+
+  // Additional payment details
+  const [debtDueDate, setDebtDueDate] = useState(
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Default: 30 days from now
+  );
 
   useEffect(() => {
     fetchStoreInfo();
@@ -139,8 +147,31 @@ const PurchasePaymentScreen = () => {
     setProcessing(true);
 
     try {
-      // Create purchase order with payment info
-      const result = await createPurchaseOrder(
+      // For GCash/PayMaya: Process via Xendit
+      if (selectedPayment === 'gcash' || selectedPayment === 'paymaya') {
+        await handleXenditPayment(currentUser);
+      }
+      // For Cash: Create order as paid (manual payment tracking)
+      else if (selectedPayment === 'cash') {
+        await handleCashPayment(currentUser);
+      }
+      // For Debt: Create order as unpaid (debt tracking)
+      else if (selectedPayment === 'debt') {
+        await handleDebtPayment(currentUser);
+      }
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      Alert.alert('Error', 'Failed to process payment. Please try again.');
+      setProcessing(false);
+    }
+  };
+
+  const handleXenditPayment = async (currentUser: any) => {
+    try {
+      if (!orderData) return;
+
+      // First create the purchase order with pending payment
+      const poResult = await createPurchaseOrder(
         currentUser.uid,
         storeName,
         {
@@ -150,27 +181,176 @@ const PurchasePaymentScreen = () => {
           purchaseDate: orderData.purchaseDate,
           notes: orderData.notes.trim() || undefined,
           paymentMethod: selectedPayment,
-          paymentStatus: selectedPayment === 'cash' || selectedPayment === 'gcash' || selectedPayment === 'paymaya' ? 'paid' : 'unpaid',
+          paymentStatus: 'unpaid', // Will be updated after Xendit payment
         }
       );
 
-      if (result.success && result.purchaseOrderId) {
-        // Navigate to invoice screen
+      if (!poResult.success || !poResult.purchaseOrderId || !poResult.purchaseOrderNumber) {
+        Alert.alert('Error', poResult.error || 'Failed to create purchase order');
+        setProcessing(false);
+        return;
+      }
+
+      // Create Xendit invoice for B2B payment tracking
+      const paymentResult = await xenditService.createPurchaseOrderPayment({
+        purchaseOrderId: poResult.purchaseOrderId,
+        purchaseOrderNumber: poResult.purchaseOrderNumber,
+        amount: orderData.totalCost,
+        storeOwnerEmail: currentUser.email || 'storeowner@tindago.com',
+        storeOwnerName: storeName,
+        storeOwnerPhone: currentUser.phoneNumber || '',
+        storeId: currentUser.uid,
+        storeName: storeName,
+        supplierName: orderData.supplierName || 'Supplier',
+        items: orderData.items.map(item => ({
+          name: item.productName,
+          quantity: item.quantity,
+          price: item.costPerUnit,
+        })),
+        paymentMethod: selectedPayment as 'gcash' | 'paymaya',
+      });
+
+      setProcessing(false);
+
+      if (paymentResult.success && paymentResult.invoiceUrl) {
+        // Open Xendit payment page
+        await Linking.openURL(paymentResult.invoiceUrl);
+
+        // Navigate to purchase details (payment pending)
         router.replace({
-          pathname: '/(main)/(store-owner)/profile/purchase-invoice' as any,
+          pathname: '/(main)/(store-owner)/profile/purchase-details' as any,
           params: {
-            id: result.purchaseOrderId,
-            paymentMethod: selectedPayment,
+            purchaseOrderId: poResult.purchaseOrderId,
+            fromPayment: 'true',
           },
         });
+      } else {
+        // More detailed error message for debugging
+        const errorDetails = paymentResult.error || 'Unknown error';
+        console.error('[Purchase Payment] Xendit error details:', errorDetails);
+        console.error('[Purchase Payment] Full response:', JSON.stringify(paymentResult));
+
+        Alert.alert(
+          'Payment Error',
+          `Failed to create payment invoice.\n\nError: ${errorDetails}\n\nThe purchase order has been created but payment is pending. You can retry payment from the purchase order details.`
+        );
+
+        // Still navigate to details
+        router.replace({
+          pathname: '/(main)/(store-owner)/profile/purchase-details' as any,
+          params: {
+            purchaseOrderId: poResult.purchaseOrderId,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error('[Purchase Payment] Xendit payment exception:', error);
+      console.error('[Purchase Payment] Error message:', error?.message);
+      console.error('[Purchase Payment] Error stack:', error?.stack);
+      setProcessing(false);
+      Alert.alert(
+        'Payment Error',
+        `Failed to process Xendit payment.\n\nDetails: ${error?.message || JSON.stringify(error)}`
+      );
+    }
+  };
+
+  const handleCashPayment = async (currentUser: any) => {
+    try {
+      if (!orderData) return;
+
+      // Create purchase order as paid (store owner paid supplier in cash)
+      const result = await createPurchaseOrder(
+        currentUser.uid,
+        storeName,
+        {
+          supplierName: orderData.supplierName.trim() || undefined,
+          supplierContact: orderData.supplierContact.trim() || undefined,
+          items: orderData.items,
+          purchaseDate: orderData.purchaseDate,
+          notes: orderData.notes.trim() || undefined,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid', // Cash payment is considered immediate
+        }
+      );
+
+      setProcessing(false);
+
+      if (result.success && result.purchaseOrderId) {
+        Alert.alert(
+          'Purchase Order Created',
+          'Cash payment recorded. Purchase order has been created successfully.',
+          [
+            {
+              text: 'View Details',
+              onPress: () => {
+                router.replace({
+                  pathname: '/(main)/(store-owner)/profile/purchase-details' as any,
+                  params: {
+                    purchaseOrderId: result.purchaseOrderId,
+                  },
+                });
+              },
+            },
+          ]
+        );
       } else {
         Alert.alert('Error', result.error || 'Failed to create purchase order');
       }
     } catch (error) {
-      console.error('Error processing payment:', error);
-      Alert.alert('Error', 'Failed to process payment. Please try again.');
-    } finally {
+      console.error('Cash payment error:', error);
       setProcessing(false);
+      Alert.alert('Error', 'Failed to record cash payment');
+    }
+  };
+
+  const handleDebtPayment = async (currentUser: any) => {
+    try {
+      if (!orderData) return;
+
+      // Create purchase order as unpaid (debt/loan tracking)
+      const result = await createPurchaseOrder(
+        currentUser.uid,
+        storeName,
+        {
+          supplierName: orderData.supplierName.trim() || undefined,
+          supplierContact: orderData.supplierContact.trim() || undefined,
+          items: orderData.items,
+          purchaseDate: orderData.purchaseDate,
+          notes: orderData.notes.trim() || undefined,
+          paymentMethod: 'debt',
+          paymentStatus: 'unpaid', // Debt tracking
+          debtDueDate: debtDueDate, // ✅ Include debt due date
+        }
+      );
+
+      setProcessing(false);
+
+      if (result.success && result.purchaseOrderId) {
+        Alert.alert(
+          'Purchase Order Created',
+          `Debt of ₱${orderData.totalCost.toFixed(2)} has been recorded. Remember to pay the supplier later.`,
+          [
+            {
+              text: 'View Details',
+              onPress: () => {
+                router.replace({
+                  pathname: '/(main)/(store-owner)/profile/purchase-details' as any,
+                  params: {
+                    purchaseOrderId: result.purchaseOrderId,
+                  },
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to create purchase order');
+      }
+    } catch (error) {
+      console.error('Debt payment error:', error);
+      setProcessing(false);
+      Alert.alert('Error', 'Failed to record debt');
     }
   };
 
@@ -215,24 +395,6 @@ const PurchasePaymentScreen = () => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
-        {/* Pay Loan / Order Details Card - Figma: x: 20, y: 136, width: 399, height: 144 */}
-        <View style={styles.orderDetailsCard}>
-          <Text style={styles.payLoanTitle}>Pay Loan</Text>
-
-          <View style={styles.dateSection}>
-            <Text style={styles.dateLabel}>Date</Text>
-            <View style={styles.dateBox}>
-              <Text style={styles.dateText}>
-                {orderData ? formatDate(orderData.purchaseDate) : '--/--/----'}
-              </Text>
-              <Image
-                source={require('../../../../src/assets/images/store-owner-purchase-payment/calendar-icon.png')}
-                style={styles.calendarIcon}
-              />
-            </View>
-          </View>
-        </View>
-
         {/* Bill Card - Figma: x: 20, y: 296, width: 400, height: 208 */}
         <View style={styles.billCard}>
           {/* Item count - Figma: Item row */}
@@ -270,6 +432,7 @@ const PurchasePaymentScreen = () => {
                     items: JSON.stringify(orderData.items),
                     totalCost: orderData.totalCost.toString(),
                     notes: orderData.notes,
+                    paymentMethod: selectedPayment || 'cash',
                   },
                 });
               }}
@@ -308,7 +471,10 @@ const PurchasePaymentScreen = () => {
               <View style={styles.cashIconContainer}>
                 <Text style={styles.cashIcon}>₱</Text>
               </View>
-              <Text style={styles.paymentMethodText}>Cash</Text>
+              <View style={styles.paymentMethodTextContainer}>
+                <Text style={styles.paymentMethodText}>Cash</Text>
+                <Text style={styles.paymentMethodDescription}>Paid cash to supplier</Text>
+              </View>
             </View>
             <View style={[
               styles.radioCircle,
@@ -352,9 +518,10 @@ const PurchasePaymentScreen = () => {
             activeOpacity={0.7}
           >
             <View style={styles.paymentMethodLeft}>
-              <View style={styles.paymayaIconContainer}>
-                <Text style={styles.paymayaIcon}>P</Text>
-              </View>
+              <Image
+                source={require('../../../../src/assets/images/store-owner-purchase-payment/paymaya-icon.png')}
+                style={styles.paymentIcon}
+              />
               <Text style={styles.paymentMethodText}>PayMaya</Text>
             </View>
             <View style={[
@@ -390,13 +557,55 @@ const PurchasePaymentScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Debt Warning Message */}
+        {/* Debt Information Card - Only shows when Debt is selected */}
         {selectedPayment === 'debt' && (
-          <View style={styles.debtWarningCard}>
-            <Text style={styles.debtWarningTitle}>Debt/Loan Selected</Text>
-            <Text style={styles.debtWarningText}>
-              This purchase will be recorded as UNPAID. You can mark it as paid later from the purchase order history.
-            </Text>
+          <View style={styles.debtInfoCard}>
+            <View style={styles.debtInfoHeader}>
+              <Text style={styles.debtInfoTitle}>💳 Debt/Loan Selected</Text>
+            </View>
+
+            <View style={styles.debtInfoContent}>
+              <View style={styles.debtInfoRow}>
+                <Text style={styles.debtInfoLabel}>Purchase Date:</Text>
+                <Text style={styles.debtInfoValue}>
+                  {orderData ? formatDate(orderData.purchaseDate) : '--/--/----'}
+                </Text>
+              </View>
+
+              <View style={styles.debtInfoRow}>
+                <Text style={styles.debtInfoLabel}>Amount Owed:</Text>
+                <Text style={styles.debtInfoValueAmount}>₱{orderData?.totalCost.toFixed(2) || '0.00'}</Text>
+              </View>
+
+              <View style={styles.debtInfoRow}>
+                <Text style={styles.debtInfoLabel}>Supplier:</Text>
+                <Text style={styles.debtInfoValue}>
+                  {orderData?.supplierName || 'Not specified'}
+                </Text>
+              </View>
+
+              {/* Due Date Input */}
+              <View style={styles.debtDueDateSection}>
+                <Text style={styles.debtDueDateLabel}>When will you pay this debt?</Text>
+                <TextInput
+                  style={styles.debtDueDateInput}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                  value={debtDueDate}
+                  onChangeText={setDebtDueDate}
+                />
+                <Text style={styles.debtDueDateHint}>
+                  Set a payment deadline to track when you need to pay the supplier
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.debtWarningBox}>
+              <Text style={styles.debtWarningIcon}>⚠️</Text>
+              <Text style={styles.debtWarningText}>
+                This purchase will be recorded as UNPAID. Remember to pay the supplier later. You can track this debt in your purchase order history.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -508,75 +717,10 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
   },
 
-  // Order Details Card - Figma: x: 20, y: 136, width: 399, height: 144
-  orderDetailsCard: {
-    marginHorizontal: s(20),
-    marginTop: vs(10),
-    marginBottom: vs(20),
-    backgroundColor: Colors.white,
-    borderRadius: s(16),
-    padding: s(20),
-    shadowColor: 'rgba(0, 0, 0, 0.25)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-
-  payLoanTitle: {
-    fontFamily: Fonts.primary,
-    fontSize: s(18),
-    fontWeight: '500',
-    color: '#000000', // Figma: fill_OZM8EW
-    lineHeight: s(22),
-    marginBottom: vs(15),
-  },
-
-  dateSection: {
-    gap: vs(5),
-  },
-
-  dateLabel: {
-    fontFamily: Fonts.primary,
-    fontSize: s(16),
-    fontWeight: '500',
-    color: '#1E1E1E',
-    lineHeight: s(22),
-  },
-
-  dateBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.white,
-    borderWidth: 2,
-    borderColor: '#02545F',
-    borderRadius: s(20),
-    paddingHorizontal: s(20),
-    paddingVertical: vs(14),
-    shadowColor: 'rgba(0, 0, 0, 0.25)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-
-  dateText: {
-    fontFamily: Fonts.primary,
-    fontSize: s(14),
-    fontWeight: '500',
-    color: '#1E1E1E',
-    lineHeight: s(22),
-  },
-
-  calendarIcon: {
-    width: s(25),
-    height: s(25),
-  },
-
   // Bill Card - Figma: x: 20, y: 296, width: 400, height: 208
   billCard: {
     marginHorizontal: s(20),
+    marginTop: vs(20),
     marginBottom: vs(20),
     backgroundColor: Colors.white,
     borderRadius: s(20),
@@ -700,6 +844,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: s(20),
+    flex: 1,
   },
 
   paymentIcon: {
@@ -707,12 +852,25 @@ const styles = StyleSheet.create({
     height: s(30),
   },
 
+  paymentMethodTextContainer: {
+    flex: 1,
+  },
+
   paymentMethodText: {
     fontFamily: Fonts.primary,
-    fontSize: s(20),
+    fontSize: s(18),
     fontWeight: '600',
     color: '#1E1E1E',
     lineHeight: s(22),
+  },
+
+  paymentMethodDescription: {
+    fontFamily: Fonts.primary,
+    fontSize: s(12),
+    fontWeight: '400',
+    color: '#666666',
+    lineHeight: s(16),
+    marginTop: vs(2),
   },
 
   radioCircle: {
@@ -737,28 +895,87 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
 
-  // Debt Warning Card
-  debtWarningCard: {
+  // Debt Information Card (shows only when debt is selected)
+  debtInfoCard: {
     marginHorizontal: s(20),
-    marginTop: vs(15),
-    backgroundColor: '#FFF3E0',
+    marginTop: vs(20),
+    marginBottom: vs(20),
+    backgroundColor: Colors.white,
     borderRadius: s(16),
-    padding: s(15),
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#FF8D2F',
+    overflow: 'hidden',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 5,
   },
 
-  debtWarningTitle: {
+  debtInfoHeader: {
+    backgroundColor: '#FF8D2F',
+    paddingVertical: vs(15),
+    paddingHorizontal: s(20),
+  },
+
+  debtInfoTitle: {
     fontFamily: Fonts.primary,
-    fontSize: s(16),
+    fontSize: s(18),
     fontWeight: '600',
+    color: Colors.white,
+    lineHeight: s(22),
+  },
+
+  debtInfoContent: {
+    padding: s(20),
+    gap: vs(15),
+  },
+
+  debtInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  debtInfoLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: s(14),
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+
+  debtInfoValue: {
+    fontFamily: Fonts.primary,
+    fontSize: s(14),
+    fontWeight: '600',
+    color: Colors.darkGray,
+  },
+
+  debtInfoValueAmount: {
+    fontFamily: Fonts.primary,
+    fontSize: s(18),
+    fontWeight: '700',
     color: '#FF8D2F',
-    marginBottom: vs(5),
+  },
+
+  debtWarningBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF3E0',
+    paddingVertical: vs(15),
+    paddingHorizontal: s(15),
+    gap: s(10),
+    alignItems: 'flex-start',
+  },
+
+  debtWarningIcon: {
+    fontSize: s(20),
+    marginTop: vs(2),
   },
 
   debtWarningText: {
+    flex: 1,
     fontFamily: Fonts.primary,
-    fontSize: s(14),
+    fontSize: s(13),
     fontWeight: '400',
     color: '#1E1E1E',
     lineHeight: s(20),
@@ -818,21 +1035,41 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // PayMaya icon styles
-  paymayaIconContainer: {
-    width: s(30),
-    height: s(30),
-    borderRadius: s(15),
-    backgroundColor: '#00D632',
-    justifyContent: 'center',
-    alignItems: 'center',
+  // Debt Due Date Section
+  debtDueDateSection: {
+    marginTop: vs(15),
+    paddingTop: vs(15),
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
 
-  paymayaIcon: {
+  debtDueDateLabel: {
     fontFamily: Fonts.primary,
-    fontSize: s(18),
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: s(14),
+    fontWeight: '600',
+    color: Colors.darkGray,
+    marginBottom: vs(8),
+  },
+
+  debtDueDateInput: {
+    fontFamily: Fonts.primary,
+    fontSize: s(16),
+    color: Colors.darkGray,
+    backgroundColor: Colors.white,
+    borderRadius: s(12),
+    paddingVertical: vs(12),
+    paddingHorizontal: s(15),
+    borderWidth: 1.5,
+    borderColor: '#FF8D2F',
+    marginBottom: vs(8),
+  },
+
+  debtDueDateHint: {
+    fontFamily: Fonts.primary,
+    fontSize: s(12),
+    color: Colors.textSecondary,
+    lineHeight: s(16),
+    fontStyle: 'italic',
   },
 });
 

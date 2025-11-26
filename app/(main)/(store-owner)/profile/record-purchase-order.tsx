@@ -27,6 +27,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ref, onValue, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
@@ -87,7 +88,90 @@ const RecordPurchaseOrderScreen = () => {
   useEffect(() => {
     fetchProducts();
     fetchStoreInfo();
+    loadCartFromStorage();
   }, []);
+
+  // Save cart to AsyncStorage whenever selectedProducts, supplier info, or notes changes
+  useEffect(() => {
+    if (selectedProducts.length > 0) {
+      saveCartToStorage();
+    }
+  }, [selectedProducts, supplierName, supplierContact, notes]);
+
+  const saveCartToStorage = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const cartData = {
+        selectedProducts,
+        supplierName,
+        supplierContact,
+        purchaseDate,
+        notes,
+        timestamp: new Date().toISOString(),
+      };
+
+      await AsyncStorage.setItem(
+        `purchase_order_cart_${currentUser.uid}`,
+        JSON.stringify(cartData)
+      );
+    } catch (error) {
+      console.error('Error saving cart to storage:', error);
+    }
+  };
+
+  const loadCartFromStorage = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const cartDataString = await AsyncStorage.getItem(
+        `purchase_order_cart_${currentUser.uid}`
+      );
+
+      if (cartDataString) {
+        const cartData = JSON.parse(cartDataString);
+
+        // Check if cart is not too old (24 hours)
+        const cartAge = new Date().getTime() - new Date(cartData.timestamp).getTime();
+        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+        if (cartAge < maxAge) {
+          setSelectedProducts(cartData.selectedProducts || []);
+          setSupplierName(cartData.supplierName || '');
+          setSupplierContact(cartData.supplierContact || '');
+          setPurchaseDate(cartData.purchaseDate || new Date().toISOString().split('T')[0]);
+          setNotes(cartData.notes || '');
+
+          // Show notification that cart was restored
+          if (cartData.selectedProducts && cartData.selectedProducts.length > 0) {
+            Alert.alert(
+              'Cart Restored',
+              `Your previous order with ${cartData.selectedProducts.length} item(s) has been restored.`,
+              [{ text: 'OK' }]
+            );
+          }
+        } else {
+          // Cart is too old, clear it
+          await clearCartFromStorage();
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cart from storage:', error);
+    }
+  };
+
+  const clearCartFromStorage = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      await AsyncStorage.removeItem(`purchase_order_cart_${currentUser.uid}`);
+    } catch (error) {
+      console.error('Error clearing cart from storage:', error);
+    }
+  };
 
   const fetchStoreInfo = async () => {
     try {
@@ -139,18 +223,8 @@ const RecordPurchaseOrderScreen = () => {
   };
 
   const handleBack = () => {
-    if (selectedProducts.length > 0) {
-      Alert.alert(
-        'Discard Purchase Order?',
-        'You have unsaved items. Are you sure you want to go back?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', onPress: () => router.back() }
-        ]
-      );
-    } else {
-      router.back();
-    }
+    // Products are now persisted to storage, so we can navigate back freely
+    router.back();
   };
 
   const handleAddProduct = (product: Product) => {
@@ -237,6 +311,29 @@ const RecordPurchaseOrderScreen = () => {
     setSelectedProducts(selectedProducts.filter(p => p.id !== productId));
   };
 
+  const handleClearCart = () => {
+    Alert.alert(
+      'Clear Cart',
+      'Are you sure you want to remove all items and start fresh?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Cart',
+          style: 'destructive',
+          onPress: () => {
+            setSelectedProducts([]);
+            setSupplierName('');
+            setSupplierContact('');
+            setPurchaseDate(new Date().toISOString().split('T')[0]);
+            setNotes('');
+            clearCartFromStorage();
+            Alert.alert('Cart Cleared', 'All items have been removed.');
+          },
+        },
+      ]
+    );
+  };
+
   const handleRecordPurchase = () => {
     if (selectedProducts.length === 0) {
       Alert.alert('No Products', 'Please add at least one product to the purchase order.');
@@ -262,6 +359,9 @@ const RecordPurchaseOrderScreen = () => {
       productSize: p.productSize,
       unit: p.unit,
     }));
+
+    // Clear cart from storage since user is proceeding to payment
+    clearCartFromStorage();
 
     // Navigate to payment screen with order data
     router.push({
@@ -491,6 +591,17 @@ const RecordPurchaseOrderScreen = () => {
             <Text style={styles.totalLabel}>Total Cost</Text>
             <Text style={styles.totalAmount}>₱{totalCost.toFixed(2)}</Text>
           </View>
+        )}
+
+        {/* Action Buttons */}
+        {selectedProducts.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearCartButton}
+            onPress={handleClearCart}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.clearCartButtonText}>Clear Cart</Text>
+          </TouchableOpacity>
         )}
 
         {/* Place Order Button - Navigates to Payment Screen */}
@@ -895,6 +1006,7 @@ const styles = StyleSheet.create({
     color: Colors.darkGray,
     paddingVertical: vs(10),
     paddingRight: s(12),
+    textAlign: 'center',
   },
 
   // Quantity Section
@@ -1034,6 +1146,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: ms(32),
     color: Colors.white,
+  },
+
+  clearCartButton: {
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    borderWidth: 2,
+    borderColor: '#FF5252',
+    paddingVertical: vs(15),
+    alignItems: 'center',
+    marginBottom: vs(15),
+  },
+
+  clearCartButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: '#FF5252',
   },
 
   recordButton: {

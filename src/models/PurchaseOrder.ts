@@ -41,8 +41,17 @@ export interface PurchaseOrder {
   totalCost: number; // Total amount paid to supplier
 
   // Payment tracking
-  paymentMethod?: PurchasePaymentMethod; // 'cash' or 'debt'
+  paymentMethod?: PurchasePaymentMethod; // 'cash', 'gcash', 'paymaya', or 'debt'
   paymentStatus?: PurchasePaymentStatus; // 'paid' or 'unpaid'
+  paymentInfo?: {
+    invoiceId?: string; // Xendit invoice ID (for GCash/PayMaya payments)
+    invoiceUrl?: string; // Xendit payment URL
+    expiryDate?: string; // Invoice expiration date
+    paidAt?: string; // When payment was confirmed
+    status?: string; // Xendit invoice status (PENDING, PAID, SETTLED, EXPIRED)
+    createdAt?: string; // When payment was initiated
+  };
+  debtDueDate?: string; // When debt should be paid (for debt payment method)
 
   // Status
   status: PurchaseOrderStatus;
@@ -66,6 +75,7 @@ export interface PurchaseOrderInput {
   notes?: string;
   paymentMethod?: PurchasePaymentMethod;
   paymentStatus?: PurchasePaymentStatus;
+  debtDueDate?: string; // When debt should be paid (for debt payment method)
 }
 
 /**
