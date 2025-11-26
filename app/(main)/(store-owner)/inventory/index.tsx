@@ -3,7 +3,13 @@
  *
  * Features:
  * - Real-time inventory statistics and insights
- * - Inventory List Table: Product Name, Total, Available, Unavailable, Return, Loan
+ * - Inventory List Table: Product Name, Total, Stock, Sold, Damage, Return, Debt
+ *   - Total: Sum of all states (Stock + Sold + Damage + Returns)
+ *   - Stock: Currently available in inventory
+ *   - Sold: Units sold/ordered by customers (from completed/picked_up orders)
+ *   - Damage: Units damaged/spoiled
+ *   - Return: Units in customer returns (pending resolution)
+ *   - Debt: Units sold on debt/credit payment
  * - Return List Table: Product Name, Total Available, Damage, Action Button
  * - Restore returns to inventory functionality
  * - Stock level monitoring and expiry tracking
@@ -87,10 +93,10 @@ interface ProductInventory {
   productImageUrl?: string;
   total: number; // Total quantity across all states
   available: number; // In stock and sellable
-  unavailable: number; // Out of stock
-  returns: number; // In customer returns (pending resolution)
-  loans: number; // In loan transactions
+  unavail: number; // Units unavailable (ordered by customers - pending, preparing, completed, picked_up)
   damage: number; // Damaged/spoiled quantity
+  returns: number; // In customer returns (pending resolution)
+  debt: number; // In debt transactions
   price: number;
 }
 
@@ -164,7 +170,7 @@ export default function InventoryDashboardScreen() {
       const returns = returnsSnapshot.exists() ? returnsSnapshot.val() : {};
 
       // Fetch damages
-      const damagesRef = ref(database, 'damages_spoilage');
+      const damagesRef = ref(database, 'damages');
       const damagesQuery = query(
         damagesRef,
         orderByChild('storeOwnerId'),
@@ -181,17 +187,18 @@ export default function InventoryDashboardScreen() {
       // Initialize from products
       Object.keys(products).forEach(productId => {
         const product = products[productId];
+        const currentQuantity = product.quantity || 0;
         productInventoryMap[productId] = {
           productId,
           productName: product.productName || 'Unknown Product',
           productImage: product.productImage,
           productImageUrl: product.productImageUrl,
-          total: product.quantity || 0,
-          available: product.quantity || 0,
-          unavailable: 0,
-          returns: 0,
-          loans: 0,
+          total: currentQuantity,
+          available: currentQuantity,
+          unavail: 0, // Will be calculated from orders
           damage: 0,
+          returns: 0,
+          debt: 0,
           price: product.price || 0,
         };
       });
@@ -215,10 +222,10 @@ export default function InventoryDashboardScreen() {
               productImageUrl: item.productImageUrl,
               total: 0,
               available: 0,
-              unavailable: 0,
-              returns: 0,
-              loans: 0,
+              unavail: 0,
               damage: 0,
+              returns: 0,
+              debt: 0,
               price: item.price || 0,
             };
           }
@@ -296,9 +303,9 @@ export default function InventoryDashboardScreen() {
         lowStock: 0,
         outOfStock: 0,
         totalAvailable: 0,
-        totalUnavailable: 0,
+        totalUnavailable: 0, // This will be sold + damage + returns + debt
         totalInReturns: 0,
-        totalInLoans: 0,
+        totalInLoans: 0, // Actually debt now
         expired: 0,
         expiringSoon: 0,
         recentlyUpdated: 0,
@@ -315,9 +322,9 @@ export default function InventoryDashboardScreen() {
           inventoryStats.totalProducts++;
           inventoryStats.totalValue += item.available * item.price;
           inventoryStats.totalAvailable += item.available;
-          inventoryStats.totalUnavailable += item.unavailable;
+          inventoryStats.totalUnavailable += item.unavail; // Unavailable units (in orders)
           inventoryStats.totalInReturns += item.returns;
-          inventoryStats.totalInLoans += item.loans;
+          inventoryStats.totalInLoans += item.debt;
 
           if (item.available >= 10) {
             inventoryStats.inStock++;
@@ -359,7 +366,7 @@ export default function InventoryDashboardScreen() {
 
       inventoryStats.expired = inventoryStats.expiredNotRecorded;
 
-      // Fetch orders to count product order frequencies
+      // Fetch orders to count product order frequencies AND unavailable quantities
       const ordersRef = ref(database, 'orders');
       const storeOrdersQuery = query(
         ordersRef,
@@ -370,18 +377,44 @@ export default function InventoryDashboardScreen() {
       const ordersSnapshot = await get(storeOrdersQuery);
       if (ordersSnapshot.exists()) {
         const orders = ordersSnapshot.val();
+        console.log('[Inventory] Total orders found:', Object.keys(orders).length);
+        
+        let processedOrders = 0;
         Object.values(orders).forEach((order: any) => {
-          // Only count completed or picked_up orders
-          if (order.status === 'completed' || order.status === 'picked_up') {
+          // Count all orders that have items committed (pending, preparing, completed, picked_up)
+          // Exclude cancelled orders
+          const validStatuses = ['pending', 'preparing', 'completed', 'picked_up'];
+          
+          if (validStatuses.includes(order.status)) {
+            processedOrders++;
             if (order.items && Array.isArray(order.items)) {
               order.items.forEach((item: any) => {
-                if (item.productId && productOrderCounts[item.productId]) {
-                  productOrderCounts[item.productId].count += item.quantity || 1;
+                const productId = item.productId;
+                const quantity = item.quantity || 0;
+                
+                // Count for top products (only completed/picked_up for actual sales)
+                if ((order.status === 'completed' || order.status === 'picked_up') && 
+                    productId && productOrderCounts[productId]) {
+                  productOrderCounts[productId].count += quantity;
+                }
+                
+                // Track unavailable count (all valid order statuses)
+                if (productId && productInventoryMap[productId]) {
+                  console.log(`[Inventory] Adding ${quantity} to unavail for product ${productInventoryMap[productId].productName}`);
+                  productInventoryMap[productId].unavail += quantity;
+                  
+                  // Track debt separately if payment method is debt
+                  if (order.paymentMethod === 'debt') {
+                    productInventoryMap[productId].debt += quantity;
+                  }
                 }
               });
             }
           }
         });
+        console.log('[Inventory] Processed orders with valid status:', processedOrders);
+      } else {
+        console.log('[Inventory] No orders found for store owner:', user.uid);
       }
 
       // Convert to array and sort by order count
@@ -395,6 +428,11 @@ export default function InventoryDashboardScreen() {
         .sort((a, b) => b.orderCount - a.orderCount)
         .slice(0, 5); // Top 5 products
 
+      // Calculate total for each product (Available + Unavail + Damage + Returns)
+      Object.values(productInventoryMap).forEach(item => {
+        item.total = item.available + item.unavail + item.damage + item.returns;
+      });
+      
       setStats(inventoryStats);
       setInventoryList(Object.values(productInventoryMap).sort((a, b) =>
         b.total - a.total
@@ -593,9 +631,21 @@ export default function InventoryDashboardScreen() {
               <Text style={styles.insightLabel}>Out of Stock</Text>
             </View>
 
+            <View style={[styles.insightCard, styles.soldCard]}>
+              <Text style={styles.insightValue}>{stats.totalUnavailable}</Text>
+              <Text style={styles.insightLabel}>Unavailable</Text>
+            </View>
+          </View>
+
+          <View style={styles.insightsGrid}>
             <View style={styles.insightCard}>
               <Text style={styles.insightValue}>{stats.totalInReturns}</Text>
               <Text style={styles.insightLabel}>In Returns</Text>
+            </View>
+
+            <View style={[styles.insightCard, styles.debtCard]}>
+              <Text style={styles.insightValue}>{stats.totalInLoans}</Text>
+              <Text style={styles.insightLabel}>In Debt</Text>
             </View>
           </View>
         </View>
@@ -738,10 +788,11 @@ export default function InventoryDashboardScreen() {
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderText, styles.col1]}>Product</Text>
             <Text style={[styles.tableHeaderText, styles.col2]}>Total</Text>
-            <Text style={[styles.tableHeaderText, styles.col3]}>Avail</Text>
+            <Text style={[styles.tableHeaderText, styles.col3]}>Stock</Text>
             <Text style={[styles.tableHeaderText, styles.col4]}>Unavail</Text>
-            <Text style={[styles.tableHeaderText, styles.col5]}>Return</Text>
-            <Text style={[styles.tableHeaderText, styles.col6]}>Loan</Text>
+            <Text style={[styles.tableHeaderText, styles.col5]}>Damage</Text>
+            <Text style={[styles.tableHeaderText, styles.col6]}>Return</Text>
+            <Text style={[styles.tableHeaderText, styles.col7]}>Debt</Text>
           </View>
 
           {/* Table Rows */}
@@ -774,18 +825,21 @@ export default function InventoryDashboardScreen() {
                     {item.productName}
                   </Text>
                 </View>
-                <Text style={[styles.tableCellText, styles.col2]}>{item.total}</Text>
+                <Text style={[styles.tableCellText, styles.col2, styles.totalText]}>{item.total}</Text>
                 <Text style={[styles.tableCellText, styles.col3, styles.successText]}>
                   {item.available}
                 </Text>
-                <Text style={[styles.tableCellText, styles.col4, styles.dangerText]}>
-                  {item.unavailable}
+                <Text style={[styles.tableCellText, styles.col4, styles.unavailText]}>
+                  {item.unavail}
                 </Text>
-                <Text style={[styles.tableCellText, styles.col5, styles.warningText]}>
+                <Text style={[styles.tableCellText, styles.col5, styles.dangerText]}>
+                  {item.damage}
+                </Text>
+                <Text style={[styles.tableCellText, styles.col6, styles.warningText]}>
                   {item.returns}
                 </Text>
-                <Text style={[styles.tableCellText, styles.col6]}>
-                  {item.loans}
+                <Text style={[styles.tableCellText, styles.col7, styles.debtText]}>
+                  {item.debt}
                 </Text>
               </View>
             ))
@@ -991,6 +1045,16 @@ const styles = StyleSheet.create({
     borderColor: '#E92B45',
   },
 
+  soldCard: {
+    backgroundColor: '#FFE5E5',
+    borderColor: '#FF6B6B',
+  },
+
+  debtCard: {
+    backgroundColor: '#F3E5F5',
+    borderColor: '#9B59B6',
+  },
+
   insightValue: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
@@ -1012,69 +1076,96 @@ const styles = StyleSheet.create({
     padding: s(20),
     backgroundColor: '#FFFFFF',
     marginBottom: vs(10),
+    borderRadius: s(16),
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: s(8),
+    elevation: 3,
   },
 
   // Inventory Table
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: Colors.primary,
-    paddingVertical: vs(12),
-    paddingHorizontal: s(10),
-    borderRadius: s(10),
-    marginBottom: vs(5),
+    paddingVertical: vs(14),
+    paddingHorizontal: s(8),
+    borderTopLeftRadius: s(12),
+    borderTopRightRadius: s(12),
+    marginBottom: vs(0),
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: s(4),
+    elevation: 3,
   },
 
   tableHeaderText: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(11),
+    fontSize: ms(10),
     color: '#FFFFFF',
     textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 
   col1: {
-    width: '40%',
+    width: '26%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: s(5),
+    paddingRight: s(4),
   },
 
   col2: {
-    width: '10%',
+    width: '11%',
     textAlign: 'center',
+    paddingHorizontal: s(2),
   },
 
   col3: {
-    width: '12%',
+    width: '11%',
     textAlign: 'center',
+    paddingHorizontal: s(2),
   },
 
   col4: {
     width: '13%',
     textAlign: 'center',
+    paddingHorizontal: s(2),
   },
 
   col5: {
     width: '13%',
     textAlign: 'center',
+    paddingHorizontal: s(2),
   },
 
   col6: {
-    width: '12%',
+    width: '13%',
     textAlign: 'center',
+    paddingHorizontal: s(2),
+  },
+
+  col7: {
+    width: '13%',
+    textAlign: 'center',
+    paddingHorizontal: s(2),
   },
 
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: vs(12),
-    paddingHorizontal: s(10),
+    paddingVertical: vs(14),
+    paddingHorizontal: s(8),
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
+    minHeight: vs(70),
   },
 
   tableRowEven: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FAFBFC',
   },
 
   tableCellText: {
@@ -1082,26 +1173,47 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: ms(13),
     color: '#1E1E1E',
+    textAlign: 'center',
+  },
+
+  totalText: {
+    color: '#1E1E1E',
+    fontWeight: '700',
   },
 
   successText: {
     color: Colors.primary,
+    fontWeight: '700',
+  },
+
+  unavailText: {
+    color: '#FF6B6B',
+    fontWeight: '700',
   },
 
   warningText: {
     color: '#FFA500',
+    fontWeight: '600',
   },
 
   dangerText: {
     color: '#E92B45',
+    fontWeight: '700',
+  },
+
+  debtText: {
+    color: '#9B59B6',
+    fontWeight: '600',
   },
 
   productImage: {
-    width: s(40),
-    height: s(40),
+    width: s(42),
+    height: s(42),
     borderRadius: s(8),
-    marginRight: s(10),
+    marginRight: s(8),
     backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
 
   productImagePlaceholder: {
@@ -1118,8 +1230,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(13),
+    fontSize: ms(12),
     color: '#1E1E1E',
+    lineHeight: ms(15),
   },
 
   // Return Table
