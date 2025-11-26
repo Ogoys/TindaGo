@@ -6,6 +6,7 @@ import { auth, database } from "../FirebaseConfig";
 import { ref, get } from "firebase/database";
 import { useUser } from "../src/contexts/UserContext";
 import { Colors } from "../src/constants/Colors";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Index() {
   const { setUser: setUserContext } = useUser();
@@ -52,8 +53,23 @@ export default function Index() {
                 console.log('🛍️ [index.tsx] Customer user - redirecting to home');
                 setRedirectPath("/(main)/(customer)/home");
               } else if (userData.userType === 'store_owner') {
-                console.log('🏪 [index.tsx] Store owner - redirecting to store home');
-                setRedirectPath("/(main)/(store-owner)/home");
+                // ✅ Check for pending purchase order navigation (after Xendit payment)
+                const pendingNavKey = `pending_purchase_order_navigation_${currentUser.uid}`;
+                const pendingPurchaseOrderId = await AsyncStorage.getItem(pendingNavKey);
+                
+                if (pendingPurchaseOrderId) {
+                  console.log('💳 [index.tsx] Pending purchase order navigation found - redirecting to purchase details');
+                  console.log('💳 [index.tsx] Purchase Order ID:', pendingPurchaseOrderId);
+                  
+                  // Clear the pending navigation
+                  await AsyncStorage.removeItem(pendingNavKey);
+                  
+                  // Redirect to purchase details instead of home
+                  setRedirectPath(`/(main)/(store-owner)/profile/purchase-details?purchaseOrderId=${pendingPurchaseOrderId}` as any);
+                } else {
+                  console.log('🏪 [index.tsx] Store owner - redirecting to store home');
+                  setRedirectPath("/(main)/(store-owner)/home");
+                }
               } else {
                 console.log('❓ [index.tsx] Unknown user type - redirecting to onboarding');
                 setRedirectPath("/(auth)/onboarding");

@@ -50,6 +50,7 @@ interface PurchaseOrderCard {
   description: string;
   selectedCategory: string;
   supplierPrice: string;
+  sellingPrice: string;
   quantity: string;
   productSize: string;
   selectedUnit: string;
@@ -97,6 +98,7 @@ const OrderSuppliesScreen = () => {
       description: '',
       selectedCategory: '',
       supplierPrice: '',
+      sellingPrice: '',
       quantity: '',
       productSize: '',
       selectedUnit: '',
@@ -296,6 +298,14 @@ const OrderSuppliesScreen = () => {
       return { valid: false, error: 'Valid supplier price is required' };
     }
 
+    const sellingPriceNum = Number(item.sellingPrice);
+    if (!item.sellingPrice.trim() || isNaN(sellingPriceNum) || sellingPriceNum <= 0) {
+      return { valid: false, error: 'Valid selling price is required' };
+    }
+    if (sellingPriceNum < priceNum) {
+      return { valid: false, error: 'Selling price must be at least equal to supplier price' };
+    }
+
     const quantityNum = Number(item.quantity);
     if (!item.quantity.trim() || isNaN(quantityNum) || quantityNum <= 0 || !Number.isInteger(quantityNum)) {
       return { valid: false, error: 'Valid quantity (whole number) is required' };
@@ -394,7 +404,10 @@ const OrderSuppliesScreen = () => {
             }
           }
 
-          // Check if product exists, if not create it
+          // ✅ FIX: Don't create products immediately
+          // Products will only be created when purchase order is marked as delivered
+          // This prevents "Out of Stock" products from appearing in inventory
+          
           const productName = formatProductName(item.productName);
           const productsRef = ref(database, 'products');
           const productsQuery = query(
@@ -406,11 +419,11 @@ const OrderSuppliesScreen = () => {
           
           let productId: string | null = null;
           
-          // Search for existing product with same name (case-insensitive)
+          // Only check if product EXISTS - don't create it yet
           if (productsSnapshot.exists()) {
             const products = productsSnapshot.val();
             for (const [id, product] of Object.entries<any>(products)) {
-              if (product.name?.toLowerCase() === productName.toLowerCase()) {
+              if (product.productName?.toLowerCase() === productName.toLowerCase()) {
                 productId = id;
                 console.log(`[Order Supplies] Found existing product: ${productName} (ID: ${productId})`);
                 break;
@@ -418,41 +431,12 @@ const OrderSuppliesScreen = () => {
             }
           }
           
-          // If product doesn't exist, create it
+          // If product doesn't exist, generate a temporary ID
+          // The actual product will be created when order is delivered
           if (!productId) {
-            console.log(`[Order Supplies] Creating new product: ${productName}`);
             const newProductRef = push(productsRef);
             productId = newProductRef.key!;
-            
-            // Create product with initial data
-            const newProduct = {
-              id: productId,
-              name: productName,
-              productName: productName, // Add productName field for consistency
-              description: item.description.trim(),
-              category: item.selectedCategory,
-              categoryId: categories.find(c => c.name === item.selectedCategory)?.id || '10',
-              price: formatPrice(Number(item.supplierPrice) * 1.3), // Default 30% markup
-              costPrice: formatPrice(Number(item.supplierPrice)),
-              storeOwnerId: currentUser.uid, // Use storeOwnerId (not storeId)
-              storeName: storeName,
-              imageUrl: productImageUrl || '',
-              productImageUrl: productImageUrl || '', // Add productImageUrl for consistency
-              stock: 0, // Will be updated when purchase order is marked as received
-              quantity: 0,
-              productSize: item.productSize.trim(), // Add productSize field
-              weight: item.productSize.trim(),
-              unit: item.selectedUnit,
-              status: 'out_of_stock' as const, // Will be updated when order is received
-              isFeatured: false,
-              isBestSelling: false,
-              isPopular: false,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            
-            await set(newProductRef, newProduct);
-            console.log(`[Order Supplies] ✅ Product created: ${productName} (ID: ${productId})`);
+            console.log(`[Order Supplies] New product will be created on delivery: ${productName} (Temp ID: ${productId})`);
           }
 
           // Prepare purchase order item data for payment screen
@@ -462,6 +446,7 @@ const OrderSuppliesScreen = () => {
             description: item.description.trim(),
             category: item.selectedCategory,
             costPerUnit: formatPrice(Number(item.supplierPrice)),
+            sellingPrice: formatPrice(Number(item.sellingPrice)),
             quantity: Math.floor(Number(item.quantity)),
             productSize: item.productSize.trim(),
             unit: item.selectedUnit,
@@ -630,7 +615,7 @@ const OrderSuppliesScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Supplier Price & Quantity Row */}
+            {/* Supplier Price & Selling Price Row */}
             <View style={styles.rowFields}>
               <View style={styles.halfField}>
                 <Text style={styles.fieldLabel}>Supplier Price</Text>
@@ -648,18 +633,32 @@ const OrderSuppliesScreen = () => {
               </View>
 
               <View style={styles.halfField}>
-                <Text style={styles.fieldLabel}>Quantity</Text>
-                <View style={styles.inputContainerSmall}>
+                <Text style={styles.fieldLabel}>Selling Price</Text>
+                <View style={styles.priceInputContainer}>
+                  <Text style={styles.pesoSign}>₱</Text>
                   <TextInput
-                    style={styles.textInputSmall}
-                    placeholder="0"
+                    style={styles.priceInput}
+                    placeholder="0.00"
                     placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                    value={item.quantity}
-                    onChangeText={(text) => updatePurchaseCard(item.id, 'quantity', text)}
-                    keyboardType="number-pad"
+                    value={item.sellingPrice}
+                    onChangeText={(text) => updatePurchaseCard(item.id, 'sellingPrice', text)}
+                    keyboardType="decimal-pad"
                   />
                 </View>
               </View>
+            </View>
+
+            {/* Quantity Row */}
+            <Text style={styles.fieldLabel}>Quantity</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="0"
+                placeholderTextColor="rgba(30, 30, 30, 0.5)"
+                value={item.quantity}
+                onChangeText={(text) => updatePurchaseCard(item.id, 'quantity', text)}
+                keyboardType="number-pad"
+              />
             </View>
 
             {/* Size & Unit Row */}

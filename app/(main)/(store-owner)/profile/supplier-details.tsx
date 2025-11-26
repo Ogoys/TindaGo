@@ -56,6 +56,9 @@ interface SupplierPurchaseOrder {
     subtotal: number;
   }[];
   totalCost: number;
+  paymentStatus?: 'paid' | 'unpaid';
+  paymentMethod?: string;
+  debtDueDate?: string;
 }
 
 interface SupplierData {
@@ -65,6 +68,8 @@ interface SupplierData {
   address?: string;
   purchaseOrders: SupplierPurchaseOrder[];
   totalValue: number;
+  unpaidAmount: number;
+  overdueCount: number;
 }
 
 const SupplierDetailsScreen = () => {
@@ -99,6 +104,8 @@ const SupplierDetailsScreen = () => {
       let supplierAddress: string | undefined;
       const supplierPurchaseOrders: SupplierPurchaseOrder[] = [];
       let totalValue = 0;
+      let unpaidAmount = 0;
+      let overdueCount = 0;
 
       // 1. First, try to get supplier info from suppliers collection
       const suppliersRef = ref(database, 'suppliers');
@@ -157,12 +164,32 @@ const SupplierDetailsScreen = () => {
             const orderYear = purchaseDate ? new Date(purchaseDate).getFullYear() : 2025;
             const orderNumber = `${orderYear}-${String(supplierPurchaseOrders.length + 1).padStart(3, '0')}`;
 
+            // Track unpaid amounts and overdue payments
+            const isUnpaid = po.paymentStatus === 'unpaid';
+            if (isUnpaid) {
+              unpaidAmount += po.totalCost || 0;
+              
+              // Check if overdue
+              if (po.debtDueDate) {
+                const dueDate = new Date(po.debtDueDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                dueDate.setHours(0, 0, 0, 0);
+                if (today > dueDate) {
+                  overdueCount++;
+                }
+              }
+            }
+
             supplierPurchaseOrders.push({
               id: poId,
               orderNumber,
               purchaseDate: purchaseDate || '',
               items,
               totalCost: po.totalCost || 0,
+              paymentStatus: po.paymentStatus,
+              paymentMethod: po.paymentMethod,
+              debtDueDate: po.debtDueDate,
             });
           }
         });
@@ -186,6 +213,8 @@ const SupplierDetailsScreen = () => {
         address: supplierAddress,
         purchaseOrders: supplierPurchaseOrders,
         totalValue,
+        unpaidAmount,
+        overdueCount,
       });
     } catch (error) {
       console.error('Error fetching supplier details:', error);
@@ -330,6 +359,22 @@ const SupplierDetailsScreen = () => {
           )}
         </View>
 
+        {/* Unpaid Amount Warning */}
+        {supplierData.unpaidAmount > 0 && (
+          <View style={styles.unpaidWarningCard}>
+            <Text style={styles.unpaidWarningIcon}>💳</Text>
+            <View style={styles.unpaidWarningContent}>
+              <Text style={styles.unpaidWarningTitle}>Unpaid to Supplier</Text>
+              <Text style={styles.unpaidWarningAmount}>₱{formatCurrency(supplierData.unpaidAmount)}</Text>
+              {supplierData.overdueCount > 0 && (
+                <Text style={styles.unpaidWarningOverdue}>
+                  ⚠️ {supplierData.overdueCount} overdue payment{supplierData.overdueCount > 1 ? 's' : ''}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Purchase Order Cards - Figma: white background, 400x168, borderRadius: 16 */}
         {supplierData.purchaseOrders.length === 0 ? (
           <View style={styles.noPurchaseOrdersCard}>
@@ -340,19 +385,41 @@ const SupplierDetailsScreen = () => {
             </Text>
           </View>
         ) : (
-          supplierData.purchaseOrders.map((order, index) => (
-            <TouchableOpacity
-              key={order.id}
-              style={styles.purchaseOrderCard}
-              onPress={() => router.push({
-                pathname: '/profile/purchase-details',
-                params: { purchaseOrderId: order.id }
-              })}
-              activeOpacity={0.7}
-            >
-              {/* Order Header */}
-              <Text style={styles.orderNumber}>{order.orderNumber}</Text>
-              <Text style={styles.orderDate}>{formatDate(order.purchaseDate)}</Text>
+          supplierData.purchaseOrders.map((order, index) => {
+            const isOverdue = order.paymentStatus === 'unpaid' && order.debtDueDate && 
+              new Date() > new Date(order.debtDueDate);
+            const isUnpaid = order.paymentStatus === 'unpaid';
+
+            return (
+              <TouchableOpacity
+                key={order.id}
+                style={styles.purchaseOrderCard}
+                onPress={() => router.push({
+                  pathname: '/profile/purchase-details',
+                  params: { purchaseOrderId: order.id }
+                })}
+                activeOpacity={0.7}
+              >
+                {/* Order Header */}
+                <View style={styles.orderHeaderRow}>
+                  <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+                  {order.paymentMethod && (
+                    <View style={[
+                      styles.paymentStatusBadge,
+                      { backgroundColor: isOverdue ? '#E92B45' : (isUnpaid ? '#FF9800' : '#4CAF50') }
+                    ]}>
+                      <Text style={styles.paymentStatusText}>
+                        {isOverdue ? 'Overdue' : (isUnpaid ? 'Unpaid' : 'Paid')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.orderDate}>{formatDate(order.purchaseDate)}</Text>
+                {isOverdue && order.debtDueDate && (
+                  <Text style={styles.overdueWarningText}>
+                    ⚠️ Overdue since {formatDate(order.debtDueDate)}
+                  </Text>
+                )}
 
               {/* Order Items */}
               {order.items.map((item, itemIndex) => (
@@ -377,7 +444,8 @@ const SupplierDetailsScreen = () => {
                 <Text style={styles.totalValue}>{formatCurrency(order.totalCost)}</Text>
               </View>
             </TouchableOpacity>
-          ))
+            );
+          })
         )}
       </ScrollView>
 
@@ -717,6 +785,87 @@ const styles = StyleSheet.create({
     lineHeight: vs(22),
     color: ScreenColors.white,
     textAlign: 'center',
+  },
+
+  // Unpaid Warning Card
+  unpaidWarningCard: {
+    width: s(400),
+    backgroundColor: '#FFF3E0',
+    borderRadius: s(16),
+    padding: s(20),
+    marginBottom: vs(15),
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FF9800',
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
+  unpaidWarningIcon: {
+    fontSize: ms(40),
+    marginRight: s(15),
+  },
+
+  unpaidWarningContent: {
+    flex: 1,
+  },
+
+  unpaidWarningTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: ScreenColors.darkGray,
+    marginBottom: vs(4),
+  },
+
+  unpaidWarningAmount: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(24),
+    color: '#FF9800',
+    marginBottom: vs(4),
+  },
+
+  unpaidWarningOverdue: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: '#E92B45',
+    fontWeight: '600',
+  },
+
+  // Order Header Row
+  orderHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vs(4),
+  },
+
+  // Payment Status Badge
+  paymentStatusBadge: {
+    paddingHorizontal: s(10),
+    paddingVertical: vs(4),
+    borderRadius: s(8),
+  },
+
+  paymentStatusText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(11),
+    color: ScreenColors.white,
+    fontWeight: '600',
+  },
+
+  // Overdue Warning Text
+  overdueWarningText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: '#E92B45',
+    fontWeight: '600',
+    marginBottom: vs(8),
   },
 });
 

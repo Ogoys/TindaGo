@@ -2,8 +2,8 @@
  * Payment Success Redirect Screen
  * 
  * This screen is shown when Xendit redirects back after successful payment.
- * It navigates back to the customer home page since the payment listener
- * on the payment screen will handle showing the OrderCompleteModal.
+ * It checks if this is a purchase order payment (store-owner) or customer order,
+ * and redirects accordingly.
  */
 
 import React, { useEffect } from 'react';
@@ -12,15 +12,53 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../src/constants/Colors';
 import { Fonts } from '../../src/constants/Fonts';
 import { s, vs } from '../../src/constants/responsive';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../../FirebaseConfig';
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    // Wait a moment for any animations, then navigate back
+    const handleRedirect = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          console.log('[Payment Success] No user authenticated - redirecting to onboarding');
+          router.replace('/(auth)/onboarding');
+          return;
+        }
+
+        // Check if this is a purchase order payment (store-owner)
+        const pendingNavKey = `pending_purchase_order_navigation_${currentUser.uid}`;
+        const pendingPurchaseOrderId = await AsyncStorage.getItem(pendingNavKey);
+        
+        if (pendingPurchaseOrderId) {
+          console.log('[Payment Success] Purchase order payment detected - redirecting to purchase details');
+          console.log('[Payment Success] Purchase Order ID:', pendingPurchaseOrderId);
+          
+          // Clear the pending navigation
+          await AsyncStorage.removeItem(pendingNavKey);
+          
+          // Redirect to store-owner purchase details page
+          router.replace({
+            pathname: '/(main)/(store-owner)/profile/purchase-details',
+            params: { purchaseOrderId: pendingPurchaseOrderId }
+          });
+        } else {
+          console.log('[Payment Success] Customer order payment - redirecting to customer home');
+          // Navigate back to customer home - the payment listener will show the modal
+          router.replace('/(main)/(customer)/home');
+        }
+      } catch (error) {
+        console.error('[Payment Success] Error handling redirect:', error);
+        // Fallback to customer home
+        router.replace('/(main)/(customer)/home');
+      }
+    };
+
+    // Wait a moment for any animations, then navigate
     const timer = setTimeout(() => {
-      // Navigate back to customer home - the payment listener will show the modal
-      router.replace('/(main)/(customer)/home');
+      handleRedirect();
     }, 1000);
 
     return () => clearTimeout(timer);

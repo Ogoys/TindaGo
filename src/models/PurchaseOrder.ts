@@ -16,11 +16,15 @@ export interface PurchaseOrderItem {
   productName: string;
   productImage?: string;       // Legacy base64 field
   productImageUrl?: string;    // New Cloudinary URL field
+  description?: string;        // Product description
+  category?: string;           // Product category
   quantity: number;
-  costPerUnit: number; // How much you PAID per unit
+  costPerUnit: number; // How much you PAID per unit (supplier price)
+  sellingPrice: number; // How much you will SELL per unit (customer price)
   subtotal: number; // quantity * costPerUnit
   productSize: string;
   unit: string;
+  expiryDate?: string;         // ISO date string for expiry date
 }
 
 export interface PurchaseOrder {

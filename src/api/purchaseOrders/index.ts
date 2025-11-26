@@ -231,10 +231,39 @@ export const markAsReceived = async (
       const productSnapshot = await get(productRef);
 
       if (!productSnapshot.exists()) {
-        console.warn(`[Mark as Received] Product ${item.productName} not found in database, skipping...`);
+        // ✅ FIX: Create product if it doesn't exist (for new products from order-supplies.tsx)
+        console.log(`[Mark as Received] Product ${item.productName} not found, creating it now...`);
+        
+        const newProduct = {
+          id: item.productId,
+          productName: item.productName,
+          description: item.description || '',
+          category: item.category || 'Miscellaneous & Others',
+          price: item.sellingPrice, // Use user-defined selling price
+          quantity: item.quantity, // Set initial quantity from purchase order
+          productSize: item.productSize || '',
+          unit: item.unit || 'pcs',
+          productImage: item.productImage || '',
+          productImageUrl: item.productImageUrl || '',
+          storeOwnerId: purchaseOrder.storeOwnerId,
+          storeName: purchaseOrder.storeName,
+          status: 'available' as const, // Available since we have stock
+          costPrice: item.costPerUnit,
+          expiryDate: item.expiryDate || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastRestocked: new Date().toISOString(),
+        };
+        
+        await set(productRef, newProduct);
+        console.log(`[Mark as Received] ✅ Created new product: ${item.productName} with ${item.quantity} units`);
+        updatedCount++;
         continue;
       }
 
+      // Product exists - update quantity
+      // Note: We don't update the selling price for existing products to avoid
+      // unintended price changes. Only new products get the selling price from the purchase order.
       const product = productSnapshot.val();
       const oldQuantity = product.quantity || 0;
       const newQuantity = oldQuantity + item.quantity;

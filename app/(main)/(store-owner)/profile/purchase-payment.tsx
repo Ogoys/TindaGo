@@ -13,30 +13,30 @@
  * - Debt tracking for unpaid purchases
  */
 
-import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StatusBar,
-  Alert,
-  ActivityIndicator,
-  TextInput,
-} from 'react-native';
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ref, get, update } from 'firebase/database';
-import { database, auth } from '../../../../FirebaseConfig';
-import { s, vs, ms } from '../../../../src/constants/responsive';
+import { get, ref } from 'firebase/database';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { auth, database } from '../../../../FirebaseConfig';
+import { createPurchaseOrder } from '../../../../src/api/purchaseOrders';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
-import { createPurchaseOrder } from '../../../../src/api/purchaseOrders';
+import { s, vs } from '../../../../src/constants/responsive';
 import { PurchaseOrderItem, PurchasePaymentMethod } from '../../../../src/models/PurchaseOrder';
 import { xenditService } from '../../../../src/services/payment/XenditService';
-import * as Linking from 'expo-linking';
 
 interface OrderData {
   supplierName: string;
@@ -80,14 +80,22 @@ const PurchasePaymentScreen = () => {
         const storeData = storeSnapshot.val();
         setStoreName(storeData.storeName || storeData.businessInfo?.storeName || 'My Store');
 
-        // Get phone number from store data or user profile
-        const phoneNumber = storeData.contactInfo?.phoneNumber ||
-                          storeData.phoneNumber ||
-                          currentUser.phoneNumber ||
+        // ✅ Get phone number from ALL possible Firebase paths
+        const phoneNumber = storeData.ownerPhone ||                        // stores/{uid}/ownerPhone
+                          storeData.phone ||                              // stores/{uid}/phone
+                          storeData.personalInfo?.mobile ||               // stores/{uid}/personalInfo/mobile
+                          storeData.contactInfo?.phoneNumber ||           // stores/{uid}/contactInfo/phoneNumber
+                          storeData.phoneNumber ||                        // stores/{uid}/phoneNumber
+                          currentUser.phoneNumber ||                      // Firebase Auth phoneNumber
                           '';
         setStoreOwnerPhone(phoneNumber);
 
-        console.log('[Purchase Payment] Store owner phone:', phoneNumber);
+        console.log('[Purchase Payment] Phone number retrieval debug:');
+        console.log('  - storeData.ownerPhone:', storeData.ownerPhone);
+        console.log('  - storeData.phone:', storeData.phone);
+        console.log('  - storeData.personalInfo?.mobile:', storeData.personalInfo?.mobile);
+        console.log('  - storeData.contactInfo?.phoneNumber:', storeData.contactInfo?.phoneNumber);
+        console.log('  - Final phone number:', phoneNumber);
       }
     } catch (error) {
       console.error('Error fetching store info:', error);
@@ -260,7 +268,7 @@ const PurchasePaymentScreen = () => {
           items: orderData.items,
           purchaseDate: orderData.purchaseDate,
           notes: orderData.notes.trim() || undefined,
-          paymentMethod: selectedPayment,
+          paymentMethod: selectedPayment || undefined, // Convert null to undefined
           paymentStatus: 'unpaid', // Will be updated after Xendit payment
         }
       );
@@ -296,34 +304,49 @@ const PurchasePaymentScreen = () => {
         // ✅ Cleanup: Remove data from AsyncStorage
         await AsyncStorage.removeItem(`purchase_order_payment_${currentUser.uid}`);
 
-        // Open Xendit payment page
-        await Linking.openURL(paymentResult.invoiceUrl);
+        // ✅ Save purchase order ID for redirect after Xendit
+        await AsyncStorage.setItem(
+          `pending_purchase_order_navigation_${currentUser.uid}`,
+          poResult.purchaseOrderId
+        );
 
-        // Navigate to purchase details (payment pending)
-        router.replace({
-          pathname: '/(main)/(store-owner)/profile/purchase-details' as any,
-          params: {
-            purchaseOrderId: poResult.purchaseOrderId,
-            fromPayment: 'true',
-          },
-        });
+        // Alert user they will be redirected to Xendit
+        Alert.alert(
+          'Redirecting to Payment',
+          'You will be redirected to complete your payment. After payment, you will return to the purchase order details.',
+          [
+            {
+              text: 'Continue',
+              onPress: async () => {
+                // Open Xendit payment page directly
+                // When user returns from Xendit, the payment/success.tsx page will
+                // check AsyncStorage for pending purchase order and redirect accordingly
+                await Linking.openURL(paymentResult.invoiceUrl!);
+              }
+            }
+          ]
+        );
       } else {
         // More detailed error message for debugging
         const errorDetails = paymentResult.error || 'Unknown error';
         console.error('[Purchase Payment] Xendit error details:', errorDetails);
         console.error('[Purchase Payment] Full response:', JSON.stringify(paymentResult));
 
+        // ✅ Save purchase order ID for redirect persistence
+        await AsyncStorage.setItem(
+          `pending_purchase_order_navigation_${currentUser.uid}`,
+          poResult.purchaseOrderId
+        );
+
         Alert.alert(
           'Payment Error',
           `Failed to create payment invoice.\n\nError: ${errorDetails}\n\nThe purchase order has been created but payment is pending. You can retry payment from the purchase order details.`
         );
 
-        // Still navigate to details
+        // Still navigate to STORE-OWNER purchase details
         router.replace({
-          pathname: '/(main)/(store-owner)/profile/purchase-details' as any,
-          params: {
-            purchaseOrderId: poResult.purchaseOrderId,
-          },
+          pathname: '/(main)/(store-owner)/profile/purchase-details',
+          params: { purchaseOrderId: poResult.purchaseOrderId }
         });
       }
     } catch (error: any) {
@@ -363,6 +386,12 @@ const PurchasePaymentScreen = () => {
         // ✅ Cleanup: Remove data from AsyncStorage
         await AsyncStorage.removeItem(`purchase_order_payment_${currentUser.uid}`);
 
+        // ✅ Save purchase order ID for redirect persistence
+        await AsyncStorage.setItem(
+          `pending_purchase_order_navigation_${currentUser.uid}`,
+          result.purchaseOrderId
+        );
+
         Alert.alert(
           'Purchase Order Created',
           'Cash payment recorded. Purchase order has been created successfully.',
@@ -370,11 +399,10 @@ const PurchasePaymentScreen = () => {
             {
               text: 'View Details',
               onPress: () => {
+                // Navigate to STORE-OWNER purchase details
                 router.replace({
-                  pathname: '/(main)/(store-owner)/profile/purchase-details' as any,
-                  params: {
-                    purchaseOrderId: result.purchaseOrderId,
-                  },
+                  pathname: '/(main)/(store-owner)/profile/purchase-details',
+                  params: { purchaseOrderId: result.purchaseOrderId }
                 });
               },
             },
@@ -416,6 +444,12 @@ const PurchasePaymentScreen = () => {
         // ✅ Cleanup: Remove data from AsyncStorage
         await AsyncStorage.removeItem(`purchase_order_payment_${currentUser.uid}`);
 
+        // ✅ Save purchase order ID for redirect persistence
+        await AsyncStorage.setItem(
+          `pending_purchase_order_navigation_${currentUser.uid}`,
+          result.purchaseOrderId
+        );
+
         Alert.alert(
           'Purchase Order Created',
           `Debt of ₱${orderData.totalCost.toFixed(2)} has been recorded. Remember to pay the supplier later.`,
@@ -423,11 +457,10 @@ const PurchasePaymentScreen = () => {
             {
               text: 'View Details',
               onPress: () => {
+                // Navigate to STORE-OWNER purchase details
                 router.replace({
-                  pathname: '/(main)/(store-owner)/profile/purchase-details' as any,
-                  params: {
-                    purchaseOrderId: result.purchaseOrderId,
-                  },
+                  pathname: '/(main)/(store-owner)/profile/purchase-details',
+                  params: { purchaseOrderId: result.purchaseOrderId }
                 });
               },
             },

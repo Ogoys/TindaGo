@@ -41,6 +41,7 @@ import { PurchaseOrder, PurchaseOrderItem } from '../../../../src/models/Purchas
 import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 type FilterStatus = 'all' | 'pending' | 'received' | 'cancelled';
+type PaymentFilter = 'all' | 'paid' | 'unpaid' | 'overdue';
 
 const PurchaseOrderHistoryScreen = () => {
   const params = useLocalSearchParams();
@@ -52,7 +53,9 @@ const PurchaseOrderHistoryScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState(supplierParam || '');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
   const [showFilter, setShowFilter] = useState(false);
+  const [showPaymentFilter, setShowPaymentFilter] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
@@ -69,7 +72,7 @@ const PurchaseOrderHistoryScreen = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [purchaseOrders, searchQuery, filterStatus]);
+  }, [purchaseOrders, searchQuery, filterStatus, paymentFilter]);
 
   const fetchPurchaseOrders = async () => {
     try {
@@ -94,6 +97,14 @@ const PurchaseOrderHistoryScreen = () => {
       filtered = filtered.filter(order => order.status === filterStatus);
     }
 
+    // Payment filter
+    if (paymentFilter !== 'all') {
+      filtered = filtered.filter(order => {
+        const paymentStatus = getPaymentStatus(order);
+        return paymentStatus === paymentFilter;
+      });
+    }
+
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -104,6 +115,25 @@ const PurchaseOrderHistoryScreen = () => {
     }
 
     setFilteredOrders(filtered);
+  };
+
+  // Get payment status (paid, unpaid, or overdue)
+  const getPaymentStatus = (order: PurchaseOrder): PaymentFilter => {
+    if (order.paymentStatus === 'paid') return 'paid';
+    if (order.paymentStatus === 'unpaid') {
+      // Check if overdue
+      if (order.debtDueDate) {
+        const dueDate = new Date(order.debtDueDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        dueDate.setHours(0, 0, 0, 0);
+        if (today > dueDate) {
+          return 'overdue';
+        }
+      }
+      return 'unpaid';
+    }
+    return 'paid'; // Default to paid for orders without payment status
   };
 
   const handleRefresh = () => {
@@ -200,6 +230,37 @@ const PurchaseOrderHistoryScreen = () => {
     );
   };
 
+  const handleMarkAsPaid = async (order: PurchaseOrder) => {
+    Alert.alert(
+      'Mark as Paid?',
+      `Mark payment of ₱${order.totalCost.toFixed(2)} to ${order.supplierName || 'supplier'} as paid?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark as Paid',
+          onPress: async () => {
+            try {
+              const { ref, update } = await import('firebase/database');
+              const { database } = await import('../../../../FirebaseConfig');
+              const orderRef = ref(database, `purchase_orders/${order.id}`);
+              await update(orderRef, {
+                paymentStatus: 'paid',
+                'paymentInfo/paidAt': new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              Alert.alert('Success', 'Payment marked as paid');
+              fetchPurchaseOrders();
+              setShowDetailsModal(false);
+            } catch (error) {
+              console.error('Error marking as paid:', error);
+              Alert.alert('Error', 'Failed to update payment status');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -217,6 +278,32 @@ const PurchaseOrderHistoryScreen = () => {
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
+  const getPaymentStatusColor = (paymentStatus: PaymentFilter) => {
+    switch (paymentStatus) {
+      case 'paid':
+        return '#4CAF50';
+      case 'unpaid':
+        return '#FF9800';
+      case 'overdue':
+        return '#E92B45';
+      default:
+        return Colors.textSecondary;
+    }
+  };
+
+  const getPaymentStatusLabel = (paymentStatus: PaymentFilter) => {
+    switch (paymentStatus) {
+      case 'paid':
+        return 'Paid';
+      case 'unpaid':
+        return 'Unpaid';
+      case 'overdue':
+        return 'Overdue';
+      default:
+        return 'Paid';
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -226,6 +313,10 @@ const PurchaseOrderHistoryScreen = () => {
     const totalSpent = filteredOrders.reduce((sum, order) => sum + order.totalCost, 0);
     const pendingCount = filteredOrders.filter(o => o.status === 'pending').length;
     const receivedCount = filteredOrders.filter(o => o.status === 'received').length;
+    const unpaidAmount = filteredOrders
+      .filter(o => o.paymentStatus === 'unpaid')
+      .reduce((sum, order) => sum + order.totalCost, 0);
+    const overdueCount = filteredOrders.filter(o => getPaymentStatus(o) === 'overdue').length;
 
     return (
       <View style={styles.summaryCard}>
@@ -244,11 +335,26 @@ const PurchaseOrderHistoryScreen = () => {
             <Text style={styles.summaryLabel}>Received</Text>
           </View>
         </View>
+        {unpaidAmount > 0 && (
+          <View style={styles.unpaidSection}>
+            <View style={styles.unpaidRow}>
+              <Text style={styles.unpaidLabel}>💳 Unpaid Amount:</Text>
+              <Text style={styles.unpaidAmount}>₱{unpaidAmount.toFixed(2)}</Text>
+            </View>
+            {overdueCount > 0 && (
+              <Text style={styles.overdueWarning}>⚠️ {overdueCount} overdue payment{overdueCount > 1 ? 's' : ''}</Text>
+            )}
+          </View>
+        )}
       </View>
     );
   };
 
   const renderPurchaseOrderCard = (order: PurchaseOrder) => {
+    const paymentStatus = getPaymentStatus(order);
+    const paymentColor = getPaymentStatusColor(paymentStatus);
+    const paymentLabel = getPaymentStatusLabel(paymentStatus);
+
     return (
       <TouchableOpacity
         key={order.id}
@@ -261,8 +367,15 @@ const PurchaseOrderHistoryScreen = () => {
         <View style={styles.orderHeader}>
           <View style={styles.orderHeaderLeft}>
             <Text style={styles.orderNumber}>{order.purchaseOrderNumber}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-              <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
+            <View style={styles.badgeRow}>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
+                <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
+              </View>
+              {order.paymentMethod && (
+                <View style={[styles.paymentBadge, { backgroundColor: paymentColor }]}>
+                  <Text style={styles.paymentBadgeText}>{paymentLabel}</Text>
+                </View>
+              )}
             </View>
           </View>
           <Text style={styles.orderDate}>{formatDate(order.purchaseDate)}</Text>
@@ -273,6 +386,14 @@ const PurchaseOrderHistoryScreen = () => {
             <Text style={styles.supplierLabel}>From: </Text>
             <Text style={styles.supplierName}>{order.supplierName}</Text>
           </View>
+        )}
+
+        {order.debtDueDate && paymentStatus === 'overdue' && (
+          <Text style={styles.overdueText}>⚠️ Payment overdue since {formatDate(order.debtDueDate)}</Text>
+        )}
+
+        {order.debtDueDate && paymentStatus === 'unpaid' && (
+          <Text style={styles.dueText}>Due: {formatDate(order.debtDueDate)}</Text>
         )}
 
         <View style={styles.orderFooter}>
@@ -375,6 +496,16 @@ const PurchaseOrderHistoryScreen = () => {
                 <Text style={styles.totalValue}>₱{selectedOrder.totalCost.toFixed(2)}</Text>
               </View>
 
+              {/* Payment Status */}
+              {selectedOrder.paymentMethod && (
+                <View style={styles.paymentStatusSection}>
+                  <Text style={styles.paymentStatusLabel}>Payment Status:</Text>
+                  <View style={[styles.paymentBadge, { backgroundColor: getPaymentStatusColor(getPaymentStatus(selectedOrder)) }]}>
+                    <Text style={styles.paymentBadgeText}>{getPaymentStatusLabel(getPaymentStatus(selectedOrder))}</Text>
+                  </View>
+                </View>
+              )}
+
               {/* Actions */}
               {selectedOrder.status === 'pending' && (
                 <View style={styles.actionsContainer}>
@@ -394,6 +525,17 @@ const PurchaseOrderHistoryScreen = () => {
                     <Text style={styles.cancelButtonText}>Cancel Order</Text>
                   </TouchableOpacity>
                 </View>
+              )}
+
+              {/* Mark as Paid Button */}
+              {selectedOrder.paymentStatus === 'unpaid' && (
+                <TouchableOpacity
+                  style={styles.markPaidButton}
+                  onPress={() => handleMarkAsPaid(selectedOrder)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.markPaidButtonText}>✅ Mark as Paid</Text>
+                </TouchableOpacity>
               )}
 
               {selectedOrder.status === 'pending' && (
@@ -468,9 +610,18 @@ const PurchaseOrderHistoryScreen = () => {
             </View>
             {filterStatus !== 'all' && <View style={styles.filterBadge} />}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.paymentFilterButton}
+            onPress={() => setShowPaymentFilter(!showPaymentFilter)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.paymentFilterIcon}>💳</Text>
+            {paymentFilter !== 'all' && <View style={styles.filterBadge} />}
+          </TouchableOpacity>
         </View>
 
-        {/* Filter Options */}
+        {/* Status Filter Options */}
         {showFilter && (
           <View style={styles.filterOptions}>
             {(['all', 'pending', 'received', 'cancelled'] as FilterStatus[]).map(status => (
@@ -493,6 +644,35 @@ const PurchaseOrderHistoryScreen = () => {
                   ]}
                 >
                   {status === 'all' ? 'All' : getStatusLabel(status)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Payment Filter Options */}
+        {showPaymentFilter && (
+          <View style={styles.filterOptions}>
+            {(['all', 'paid', 'unpaid', 'overdue'] as PaymentFilter[]).map(payment => (
+              <TouchableOpacity
+                key={payment}
+                style={[
+                  styles.filterOption,
+                  paymentFilter === payment && styles.filterOptionActive
+                ]}
+                onPress={() => {
+                  setPaymentFilter(payment);
+                  setShowPaymentFilter(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterOptionText,
+                    paymentFilter === payment && styles.filterOptionTextActive
+                  ]}
+                >
+                  {payment.charAt(0).toUpperCase() + payment.slice(1)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -1079,6 +1259,127 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: ms(14),
     color: '#EF5350',
+  },
+
+  // Payment Filter Button
+  paymentFilterButton: {
+    width: s(50),
+    height: s(50),
+    backgroundColor: Colors.white,
+    borderRadius: s(12),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: s(10),
+  },
+
+  paymentFilterIcon: {
+    fontSize: ms(24),
+  },
+
+  // Payment Badge
+  badgeRow: {
+    flexDirection: 'row',
+    gap: s(6),
+    flexWrap: 'wrap',
+  },
+
+  paymentBadge: {
+    paddingHorizontal: s(8),
+    paddingVertical: vs(3),
+    borderRadius: s(8),
+  },
+
+  paymentBadgeText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(10),
+    color: Colors.white,
+    fontWeight: '600',
+  },
+
+  // Due Date Text
+  dueText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(11),
+    color: '#FF9800',
+    marginBottom: vs(8),
+  },
+
+  overdueText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(11),
+    color: '#E92B45',
+    fontWeight: '600',
+    marginBottom: vs(8),
+  },
+
+  // Unpaid Section in Summary
+  unpaidSection: {
+    marginTop: vs(15),
+    paddingTop: vs(15),
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+
+  unpaidRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vs(8),
+  },
+
+  unpaidLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    fontWeight: '600',
+  },
+
+  unpaidAmount: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(18),
+    color: '#FF9800',
+    fontWeight: '700',
+  },
+
+  overdueWarning: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: '#E92B45',
+    fontWeight: '500',
+  },
+
+  // Payment Status Section in Modal
+  paymentStatusSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderRadius: s(12),
+    padding: s(12),
+    marginBottom: vs(20),
+  },
+
+  paymentStatusLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    fontWeight: '600',
+  },
+
+  // Mark as Paid Button
+  markPaidButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: s(12),
+    paddingVertical: vs(14),
+    alignItems: 'center',
+    marginBottom: vs(12),
+  },
+
+  markPaidButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(15),
+    color: Colors.white,
   },
 });
 

@@ -94,25 +94,46 @@ export default function MyAccount() {
 
     // Subscribe to real-time store registration updates
     const storeRegRef = ref(database, `store_registrations/${currentUser.uid}`);
+    const storeRef = ref(database, `stores/${currentUser.uid}`); // ✅ Also check stores path
     const userRef = ref(database, `users/${currentUser.uid}`);
 
     const loadStoreData = async () => {
       try {
-        // Fetch store registration data
+        // Fetch store registration data and actual store data
         const storeSnapshot = await get(storeRegRef);
+        const storesSnapshot = await get(storeRef); // ✅ Fetch from stores path
         const userSnapshot = await get(userRef);
 
-        if (storeSnapshot.exists()) {
-          const storeData = storeSnapshot.val();
+        if (storeSnapshot.exists() || storesSnapshot.exists()) {
+          const storeRegData = storeSnapshot.exists() ? storeSnapshot.val() : {};
+          const storeData = storesSnapshot.exists() ? storesSnapshot.val() : {};
           const userData = userSnapshot.exists() ? userSnapshot.val() : {};
 
-          // Map store data to fields
-          const storeNameVal = storeData.businessInfo?.storeName || storeData.storeName || '';
-          const ownerNameVal = userData.name || storeData.personalInfo?.firstName + ' ' + storeData.personalInfo?.lastName || '';
-          const emailVal = userData.email || storeData.businessInfo?.email || currentUser.email || '';
-          const phoneVal = storeData.businessInfo?.contactNumber || storeData.contactNumber || userData.phoneNumber || '';
-          const descriptionVal = storeData.businessInfo?.description || storeData.description || '';
-          const logoVal = storeData.businessInfo?.logo || storeData.logo || null;
+          // Map store data to fields (prioritize stores path over store_registrations)
+          const storeNameVal = storeData.storeName || storeData.businessInfo?.storeName || storeRegData.businessInfo?.storeName || storeRegData.storeName || '';
+          const ownerNameVal = userData.name || storeRegData.personalInfo?.firstName + ' ' + storeRegData.personalInfo?.lastName || '';
+          const emailVal = userData.email || storeRegData.businessInfo?.email || currentUser.email || '';
+          // ✅ Check ALL possible phone number paths in your Firebase database
+          const phoneVal = storeData.ownerPhone ||                        // stores/{uid}/ownerPhone
+                          storeData.phone ||                              // stores/{uid}/phone
+                          storeData.personalInfo?.mobile ||               // stores/{uid}/personalInfo/mobile
+                          storeData.contactInfo?.phoneNumber ||           // stores/{uid}/contactInfo/phoneNumber
+                          storeData.phoneNumber ||                        // stores/{uid}/phoneNumber
+                          storeRegData.personalInfo?.mobile ||            // store_registrations/{uid}/personalInfo/mobile
+                          storeRegData.businessInfo?.contactNumber ||     // store_registrations/{uid}/businessInfo/contactNumber
+                          storeRegData.contactNumber ||                   // store_registrations/{uid}/contactNumber
+                          userData.phoneNumber ||                         // users/{uid}/phoneNumber
+                          currentUser.phoneNumber ||                      // Firebase Auth phoneNumber
+                          '';
+          const descriptionVal = storeData.businessInfo?.description || storeRegData.businessInfo?.description || storeRegData.description || '';
+          const logoVal = storeData.businessInfo?.logo || storeRegData.businessInfo?.logo || storeRegData.logo || null;
+          
+          console.log('[My Account] Phone number retrieval debug:');
+          console.log('  - storeData.ownerPhone:', storeData.ownerPhone);
+          console.log('  - storeData.phone:', storeData.phone);
+          console.log('  - storeData.personalInfo?.mobile:', storeData.personalInfo?.mobile);
+          console.log('  - storeData.contactInfo?.phoneNumber:', storeData.contactInfo?.phoneNumber);
+          console.log('  - Final phoneVal:', phoneVal);
 
           setStoreName(storeNameVal);
           setOwnerName(ownerNameVal);
@@ -358,16 +379,27 @@ export default function MyAccount() {
 
     try {
       const storeRegRef = ref(database, `store_registrations/${currentUser.uid}`);
+      const storeRef = ref(database, `stores/${currentUser.uid}`); // ✅ Also update stores path
       const userRef = ref(database, `users/${currentUser.uid}`);
 
-      // Update store registration
+      // Update store registration and stores data
       if (fieldName === 'storeName') {
         await updateDB(storeRegRef, { 'businessInfo/storeName': value });
+        await updateDB(storeRef, { storeName: value }); // ✅ Also update stores
       } else if (fieldName === 'storeDescription') {
         await updateDB(storeRegRef, { 'businessInfo/description': value });
+        await updateDB(storeRef, { 'businessInfo/description': value }); // ✅ Also update stores
       } else if (fieldName === 'phoneNumber') {
+        // ✅ Update ALL phone number fields to keep database in sync
         await updateDB(storeRegRef, { 'businessInfo/contactNumber': value });
-        await updateDB(userRef, { phoneNumber: value });
+        await updateDB(storeRegRef, { 'personalInfo/mobile': value });
+        await updateDB(storeRef, { ownerPhone: value });                  // stores/{uid}/ownerPhone
+        await updateDB(storeRef, { phone: value });                       // stores/{uid}/phone
+        await updateDB(storeRef, { 'personalInfo/mobile': value });       // stores/{uid}/personalInfo/mobile
+        await updateDB(storeRef, { 'contactInfo/phoneNumber': value });   // stores/{uid}/contactInfo/phoneNumber
+        await updateDB(storeRef, { phoneNumber: value });                 // stores/{uid}/phoneNumber
+        await updateDB(userRef, { phoneNumber: value });                  // users/{uid}/phoneNumber
+        console.log('[My Account] Phone number updated in all paths:', value);
       } else if (fieldName === 'ownerName') {
         await updateDB(userRef, { name: value });
       } else if (fieldName === 'email') {
@@ -454,23 +486,34 @@ export default function MyAccount() {
 
     try {
       const storeRegRef = ref(database, `store_registrations/${currentUser.uid}`);
+      const storeRef = ref(database, `stores/${currentUser.uid}`); // ✅ Also update stores path
       const userRef = ref(database, `users/${currentUser.uid}`);
 
       // Update all changed fields
+      const storeRegUpdates: any = {};
       const storeUpdates: any = {};
       const userUpdates: any = {};
 
       if (storeName !== originalStoreName) {
-        storeUpdates['businessInfo/storeName'] = storeName;
+        storeRegUpdates['businessInfo/storeName'] = storeName;
+        storeUpdates.storeName = storeName; // ✅ Also update stores
       }
 
       if (storeDescription !== originalStoreDescription) {
-        storeUpdates['businessInfo/description'] = storeDescription;
+        storeRegUpdates['businessInfo/description'] = storeDescription;
+        storeUpdates['businessInfo/description'] = storeDescription; // ✅ Also update stores
       }
 
       if (phoneNumber !== originalPhoneNumber) {
-        storeUpdates['businessInfo/contactNumber'] = phoneNumber;
-        userUpdates.phoneNumber = phoneNumber;
+        // ✅ Update ALL phone number fields to keep database in sync
+        storeRegUpdates['businessInfo/contactNumber'] = phoneNumber;
+        storeRegUpdates['personalInfo/mobile'] = phoneNumber;
+        storeUpdates.ownerPhone = phoneNumber;                        // stores/{uid}/ownerPhone
+        storeUpdates.phone = phoneNumber;                             // stores/{uid}/phone
+        storeUpdates['personalInfo/mobile'] = phoneNumber;            // stores/{uid}/personalInfo/mobile
+        storeUpdates['contactInfo/phoneNumber'] = phoneNumber;        // stores/{uid}/contactInfo/phoneNumber
+        storeUpdates.phoneNumber = phoneNumber;                       // stores/{uid}/phoneNumber
+        userUpdates.phoneNumber = phoneNumber;                        // users/{uid}/phoneNumber
       }
 
       if (ownerName !== originalOwnerName) {
@@ -484,8 +527,12 @@ export default function MyAccount() {
       }
 
       // Apply updates
+      if (Object.keys(storeRegUpdates).length > 0) {
+        await updateDB(storeRegRef, storeRegUpdates);
+      }
+
       if (Object.keys(storeUpdates).length > 0) {
-        await updateDB(storeRegRef, storeUpdates);
+        await updateDB(storeRef, storeUpdates); // ✅ Update stores path
       }
 
       if (Object.keys(userUpdates).length > 0) {

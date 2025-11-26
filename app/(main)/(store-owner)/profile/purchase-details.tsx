@@ -33,7 +33,8 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ref, onValue } from 'firebase/database';
-import { database } from '../../../../FirebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
@@ -55,6 +56,17 @@ const PurchaseDetailsScreen = () => {
       setLoading(false);
       return;
     }
+
+    // ✅ Clean up pending navigation flag (from Xendit redirect)
+    const cleanupPendingNavigation = async () => {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const pendingNavKey = `pending_purchase_order_navigation_${currentUser.uid}`;
+        await AsyncStorage.removeItem(pendingNavKey);
+        console.log('[Purchase Details] Cleaned up pending navigation flag');
+      }
+    };
+    cleanupPendingNavigation();
 
     const orderRef = ref(database, `purchase_orders/${purchaseOrderId}`);
     const unsubscribe = onValue(orderRef, (snapshot) => {
