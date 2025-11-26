@@ -24,8 +24,8 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
-import { auth, database } from '@/lib/firebase';
+import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { database, auth } from '../../../../FirebaseConfig';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { s, vs, ms } from '../../../../src/constants/responsive';
@@ -71,7 +71,31 @@ export default function InventoryDashboardScreen() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
+    // ✅ REAL-TIME: Listen to products for automatic updates
+    const user = auth.currentUser;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const productsRef = ref(database, 'products');
+    const userProductsQuery = query(
+      productsRef,
+      orderByChild('storeOwnerId'),
+      equalTo(user.uid)
+    );
+
+    // Real-time listener for products
+    const unsubscribe = onValue(userProductsQuery, async () => {
+      // Fetch all data when products change
+      await fetchInventoryData();
+    });
+
+    // Initial fetch
     fetchInventoryData();
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
 
   const fetchInventoryData = async () => {

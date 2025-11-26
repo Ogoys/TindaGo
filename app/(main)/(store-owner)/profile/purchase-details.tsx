@@ -142,6 +142,13 @@ const PurchaseDetailsScreen = () => {
   const handleMarkAsDelivered = async () => {
     if (!purchaseOrder) return;
 
+    // ✅ DEBUG: Log purchase order items before marking as delivered
+    console.log('[Purchase Details] === DEBUG: Mark as Delivered ===');
+    console.log('[Purchase Details] Purchase Order ID:', purchaseOrder.id);
+    console.log('[Purchase Details] Purchase Order Number:', purchaseOrder.purchaseOrderNumber);
+    console.log('[Purchase Details] Number of items:', purchaseOrder.items.length);
+    console.log('[Purchase Details] Items:', JSON.stringify(purchaseOrder.items, null, 2));
+
     Alert.alert(
       'Mark as Delivered?',
       `This will add ${purchaseOrder.items.length} product(s) to your inventory. Continue?`,
@@ -152,7 +159,10 @@ const PurchaseDetailsScreen = () => {
           onPress: async () => {
             try {
               setUpdating(true);
+              console.log('[Purchase Details] Calling markAsReceived...');
               const result = await markAsReceived(purchaseOrder.id);
+
+              console.log('[Purchase Details] Result:', result);
 
               if (result.success) {
                 Alert.alert('Success', 'Inventory updated successfully!', [
@@ -162,7 +172,7 @@ const PurchaseDetailsScreen = () => {
                 Alert.alert('Error', result.error || 'Failed to update inventory');
               }
             } catch (error) {
-              console.error('Error marking as delivered:', error);
+              console.error('[Purchase Details] Error marking as delivered:', error);
               Alert.alert('Error', 'Failed to update inventory');
             } finally {
               setUpdating(false);

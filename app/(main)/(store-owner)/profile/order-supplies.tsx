@@ -29,6 +29,7 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, push, set, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
@@ -393,9 +394,71 @@ const OrderSuppliesScreen = () => {
             }
           }
 
+          // Check if product exists, if not create it
+          const productName = formatProductName(item.productName);
+          const productsRef = ref(database, 'products');
+          const productsQuery = query(
+            productsRef,
+            orderByChild('storeOwnerId'),
+            equalTo(currentUser.uid)
+          );
+          const productsSnapshot = await get(productsQuery);
+          
+          let productId: string | null = null;
+          
+          // Search for existing product with same name (case-insensitive)
+          if (productsSnapshot.exists()) {
+            const products = productsSnapshot.val();
+            for (const [id, product] of Object.entries<any>(products)) {
+              if (product.name?.toLowerCase() === productName.toLowerCase()) {
+                productId = id;
+                console.log(`[Order Supplies] Found existing product: ${productName} (ID: ${productId})`);
+                break;
+              }
+            }
+          }
+          
+          // If product doesn't exist, create it
+          if (!productId) {
+            console.log(`[Order Supplies] Creating new product: ${productName}`);
+            const newProductRef = push(productsRef);
+            productId = newProductRef.key!;
+            
+            // Create product with initial data
+            const newProduct = {
+              id: productId,
+              name: productName,
+              productName: productName, // Add productName field for consistency
+              description: item.description.trim(),
+              category: item.selectedCategory,
+              categoryId: categories.find(c => c.name === item.selectedCategory)?.id || '10',
+              price: formatPrice(Number(item.supplierPrice) * 1.3), // Default 30% markup
+              costPrice: formatPrice(Number(item.supplierPrice)),
+              storeOwnerId: currentUser.uid, // Use storeOwnerId (not storeId)
+              storeName: storeName,
+              imageUrl: productImageUrl || '',
+              productImageUrl: productImageUrl || '', // Add productImageUrl for consistency
+              stock: 0, // Will be updated when purchase order is marked as received
+              quantity: 0,
+              productSize: item.productSize.trim(), // Add productSize field
+              weight: item.productSize.trim(),
+              unit: item.selectedUnit,
+              status: 'out_of_stock' as const, // Will be updated when order is received
+              isFeatured: false,
+              isBestSelling: false,
+              isPopular: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            
+            await set(newProductRef, newProduct);
+            console.log(`[Order Supplies] ✅ Product created: ${productName} (ID: ${productId})`);
+          }
+
           // Prepare purchase order item data for payment screen
           const purchaseItem = {
-            productName: formatProductName(item.productName),
+            productId: productId, // ✅ ADD productId
+            productName: productName,
             description: item.description.trim(),
             category: item.selectedCategory,
             costPerUnit: formatPrice(Number(item.supplierPrice)),
@@ -418,16 +481,29 @@ const OrderSuppliesScreen = () => {
 
       // Navigate to payment screen (don't save to DB yet - save after payment confirmation)
       if (savedCount > 0 && errors.length === 0) {
-        router.push({
-          pathname: '/(main)/(store-owner)/profile/purchase-payment' as any,
-          params: {
-            supplierName: supplierName.trim(),
-            supplierContact: supplierContactParam || '',
-            purchaseDate: new Date().toISOString().split('T')[0],
-            items: JSON.stringify(purchaseOrderItems),
-            notes: '',
-          },
-        });
+        // ✅ FIX: Save to AsyncStorage instead of URL params
+        const orderDataForPayment = {
+          supplierName: supplierName.trim(),
+          supplierContact: supplierContactParam || '',
+          purchaseDate: new Date().toISOString().split('T')[0],
+          items: purchaseOrderItems,
+          notes: '',
+        };
+
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          Alert.alert('Error', 'User not authenticated');
+          setIsSaving(false);
+          setSavingProgress({ current: 0, total: 0 });
+          return;
+        }
+
+        console.log('[Order Supplies] Saving to AsyncStorage...');
+        const storageKey = `purchase_order_payment_${currentUser.uid}`;
+        await AsyncStorage.setItem(storageKey, JSON.stringify(orderDataForPayment));
+        console.log('[Order Supplies] Data saved to AsyncStorage');
+
+        router.push('/(main)/(store-owner)/profile/purchase-payment' as any);
       } else if (savedCount > 0 && errors.length > 0) {
         Alert.alert(
           'Partial Success',

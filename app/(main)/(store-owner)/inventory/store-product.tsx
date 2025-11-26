@@ -29,7 +29,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ref, get, query, orderByChild, equalTo, update } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo, update, onValue } from 'firebase/database';
 import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
@@ -297,6 +297,7 @@ const StoreProductScreen = () => {
     }
 
     try {
+      // ✅ CHANGED: Using get() for manual refresh only (pull-to-refresh)
       const productsRef = ref(database, 'products');
       const userProductsQuery = query(
         productsRef,
@@ -346,7 +347,54 @@ const StoreProductScreen = () => {
   };
 
   useEffect(() => {
-    fetchProducts();
+    // ✅ REAL-TIME: Listen to products for automatic updates
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    const productsRef = ref(database, 'products');
+    const userProductsQuery = query(
+      productsRef,
+      orderByChild('storeOwnerId'),
+      equalTo(currentUser.uid)
+    );
+
+    const unsubscribe = onValue(userProductsQuery, (snapshot) => {
+      try {
+        if (snapshot.exists()) {
+          const productsData: Product[] = [];
+          snapshot.forEach((childSnapshot) => {
+            const product = childSnapshot.val();
+            productsData.push({
+              id: childSnapshot.key!,
+              ...product,
+            });
+          });
+
+          // Sort by creation date (newest first)
+          productsData.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;
+          });
+
+          setProducts(productsData);
+          console.log(`[Store Product] Loaded ${productsData.length} products (real-time)`);
+        } else {
+          setProducts([]);
+        }
+      } catch (error) {
+        console.error('[Store Product] Error processing products:', error);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    });
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -391,10 +439,19 @@ const StoreProductScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerSpacer} />
+        {/* Back Button - Navigate to Inventory Tab */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.push('/(main)/(store-owner)/inventory')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+
         <Text style={styles.headerTitle}>Store Product</Text>
-        <TouchableOpacity 
-          style={styles.refreshButton} 
+
+        <TouchableOpacity
+          style={styles.refreshButton}
           onPress={onRefresh}
           activeOpacity={0.7}
         >
@@ -882,8 +939,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundGray,
   },
 
-  headerSpacer: {
+  backButton: {
     width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  backIcon: {
+    fontSize: s(20),
+    color: Colors.darkGray,
+    fontWeight: 'bold',
   },
 
   headerTitle: {

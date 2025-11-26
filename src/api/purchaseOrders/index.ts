@@ -19,9 +19,23 @@ export const createPurchaseOrder = async (
   orderData: PurchaseOrderInput
 ): Promise<{ success: boolean; purchaseOrderId?: string; purchaseOrderNumber?: string; error?: string }> => {
   try {
+    console.log('[Create PO API] === DEBUG: Create Purchase Order ===');
+    console.log('[Create PO API] Store Owner ID:', storeOwnerId);
+    console.log('[Create PO API] Number of items:', orderData.items?.length);
+    console.log('[Create PO API] Items received:', JSON.stringify(orderData.items, null, 2));
+
     // Validate items
     if (!orderData.items || orderData.items.length === 0) {
       return { success: false, error: 'No items in purchase order' };
+    }
+
+    // ✅ CHECK: Do items have productId?
+    const missingProductIds = orderData.items.filter(item => !item.productId);
+    if (missingProductIds.length > 0) {
+      console.error('[Create PO API] ❌ Items missing productId:', missingProductIds);
+      console.error('[Create PO API] This will cause inventory update to FAIL!');
+    } else {
+      console.log('[Create PO API] ✅ All items have productId');
     }
 
     // Validate purchase date
@@ -189,30 +203,44 @@ export const markAsReceived = async (
   orderId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    console.log('[Mark as Received] Starting process for order:', orderId);
+
     // Get purchase order details
     const purchaseOrder = await getPurchaseOrderById(orderId);
-    
+
     if (!purchaseOrder) {
+      console.error('[Mark as Received] Purchase order not found:', orderId);
       return { success: false, error: 'Purchase order not found' };
     }
 
+    console.log('[Mark as Received] Purchase order found:', purchaseOrder.purchaseOrderNumber);
+    console.log('[Mark as Received] Current status:', purchaseOrder.status);
+    console.log('[Mark as Received] Items to update:', purchaseOrder.items.length);
+
     if (purchaseOrder.status === 'received') {
+      console.warn('[Mark as Received] Already received');
       return { success: false, error: 'Purchase order already received' };
     }
 
     // Update inventory for each item
+    let updatedCount = 0;
     for (const item of purchaseOrder.items) {
+      console.log(`[Mark as Received] Processing item: ${item.productName} (ID: ${item.productId})`);
+
       const productRef = ref(database, `products/${item.productId}`);
       const productSnapshot = await get(productRef);
-      
+
       if (!productSnapshot.exists()) {
-        console.warn(`Product ${item.productName} not found, skipping...`);
+        console.warn(`[Mark as Received] Product ${item.productName} not found in database, skipping...`);
         continue;
       }
 
       const product = productSnapshot.val();
-      const newQuantity = (product.quantity || 0) + item.quantity;
-      
+      const oldQuantity = product.quantity || 0;
+      const newQuantity = oldQuantity + item.quantity;
+
+      console.log(`[Mark as Received] ${item.productName}: ${oldQuantity} → ${newQuantity} (+${item.quantity})`);
+
       // Update product with new quantity and cost price
       await update(productRef, {
         quantity: newQuantity,
@@ -222,15 +250,20 @@ export const markAsReceived = async (
         updatedAt: new Date().toISOString(),
       });
 
-      console.log(`Updated ${item.productName}: +${item.quantity} units (total: ${newQuantity})`);
+      console.log(`[Mark as Received] ✅ Updated ${item.productName}: +${item.quantity} units (total: ${newQuantity})`);
+      updatedCount++;
     }
 
+    console.log(`[Mark as Received] Updated ${updatedCount} out of ${purchaseOrder.items.length} products`);
+
     // Update purchase order status to received
+    console.log('[Mark as Received] Updating purchase order status to received...');
     await updatePurchaseOrderStatus(orderId, 'received');
 
+    console.log('[Mark as Received] ✅ Process completed successfully');
     return { success: true };
   } catch (error) {
-    console.error('Error marking purchase order as received:', error);
+    console.error('[Mark as Received] ❌ Error:', error);
     return { success: false, error: 'Failed to update inventory' };
   }
 };

@@ -60,6 +60,8 @@ interface SelectedProduct extends Product {
 }
 
 const RecordPurchaseOrderScreen = () => {
+  console.log('[Record PO Component] ✅ Component loaded with fixed handleRecordPurchase function');
+
   const params = useLocalSearchParams();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -334,47 +336,82 @@ const RecordPurchaseOrderScreen = () => {
     );
   };
 
-  const handleRecordPurchase = () => {
-    if (selectedProducts.length === 0) {
-      Alert.alert('No Products', 'Please add at least one product to the purchase order.');
-      return;
-    }
+  const handleRecordPurchase = async () => {
+    try {
+      console.log('[Record PO] ========== FUNCTION CALLED ==========');
+      console.log('[Record PO] Selected products:', selectedProducts.length);
 
-    // Validate costs
-    const hasInvalidCost = selectedProducts.some(p => p.costPerUnit <= 0);
-    if (hasInvalidCost) {
-      Alert.alert('Invalid Cost', 'Please enter valid cost per unit for all products.');
-      return;
-    }
+      if (selectedProducts.length === 0) {
+        Alert.alert('No Products', 'Please add at least one product to the purchase order.');
+        return;
+      }
 
-    // Prepare items for navigation to payment screen
-    const items: PurchaseOrderItem[] = selectedProducts.map(p => ({
-      productId: p.id,
-      productName: p.productName,
-      productImage: p.productImage,
-      productImageUrl: p.productImageUrl,
-      quantity: p.purchaseQuantity,
-      costPerUnit: p.costPerUnit,
-      subtotal: p.subtotal,
-      productSize: p.productSize,
-      unit: p.unit,
-    }));
+      // Validate costs
+      const hasInvalidCost = selectedProducts.some(p => p.costPerUnit <= 0);
+      if (hasInvalidCost) {
+        Alert.alert('Invalid Cost', 'Please enter valid cost per unit for all products.');
+        return;
+      }
 
-    // Clear cart from storage since user is proceeding to payment
-    clearCartFromStorage();
+      console.log('[Record PO] Validation passed, preparing items...');
 
-    // Navigate to payment screen with order data
-    router.push({
-      pathname: '/(main)/(store-owner)/profile/purchase-payment' as any,
-      params: {
+      // Prepare items for navigation to payment screen
+      const items: PurchaseOrderItem[] = selectedProducts.map(p => ({
+        productId: p.id,
+        productName: p.productName,
+        productImage: p.productImage,
+        productImageUrl: p.productImageUrl,
+        quantity: p.purchaseQuantity,
+        costPerUnit: p.costPerUnit,
+        subtotal: p.subtotal,
+        productSize: p.productSize,
+        unit: p.unit,
+      }));
+
+      // ✅ DEBUG: Log items before navigation
+      console.log('[Record PO] === DEBUG: Proceed to Payment ===');
+      console.log('[Record PO] Selected products count:', selectedProducts.length);
+      console.log('[Record PO] Prepared items:', JSON.stringify(items, null, 2));
+      console.log('[Record PO] Do all items have productId?', items.every(item => item.productId));
+
+      // ✅ FIX: Save to AsyncStorage instead of URL params (URL params can strip fields)
+      const orderDataForPayment = {
         supplierName: supplierName.trim(),
         supplierContact: supplierContact.trim(),
         purchaseDate,
-        items: JSON.stringify(items),
+        items,
         notes: notes.trim(),
-      },
-    });
-  };
+      };
+
+      // Save order data to AsyncStorage
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      console.log('[Record PO] Saving to AsyncStorage...');
+      const storageKey = `purchase_order_payment_${currentUser.uid}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(orderDataForPayment));
+
+      // ✅ VERIFY: Confirm data was saved
+      const verifyData = await AsyncStorage.getItem(storageKey);
+      console.log('[Record PO] Data saved to AsyncStorage:', !!verifyData);
+      console.log('[Record PO] Storage key:', storageKey);
+
+      // Clear cart from storage since user is proceeding to payment
+      clearCartFromStorage();
+
+      console.log('[Record PO] Navigating to payment screen...');
+      // Navigate to payment screen (data loaded from AsyncStorage there)
+      router.push('/(main)/(store-owner)/profile/purchase-payment' as any);
+      console.log('[Record PO] Navigation called');
+  } catch (error) {
+    console.error('[Record PO] ❌ ERROR in handleRecordPurchase:', error);
+    console.error('[Record PO] Error stack:', error instanceof Error ? error.stack : 'No stack');
+    Alert.alert('Error', 'Failed to proceed to payment. Please try again.');
+  }
+};
 
   return (
     <View style={styles.container}>

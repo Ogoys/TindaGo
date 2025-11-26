@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -65,6 +66,8 @@ const PurchasePaymentScreen = () => {
     parseOrderData();
   }, []);
 
+  const [storeOwnerPhone, setStoreOwnerPhone] = useState('');
+
   const fetchStoreInfo = async () => {
     try {
       const currentUser = auth.currentUser;
@@ -76,26 +79,63 @@ const PurchasePaymentScreen = () => {
       if (storeSnapshot.exists()) {
         const storeData = storeSnapshot.val();
         setStoreName(storeData.storeName || storeData.businessInfo?.storeName || 'My Store');
+
+        // Get phone number from store data or user profile
+        const phoneNumber = storeData.contactInfo?.phoneNumber ||
+                          storeData.phoneNumber ||
+                          currentUser.phoneNumber ||
+                          '';
+        setStoreOwnerPhone(phoneNumber);
+
+        console.log('[Purchase Payment] Store owner phone:', phoneNumber);
       }
     } catch (error) {
       console.error('Error fetching store info:', error);
     }
   };
 
-  const parseOrderData = () => {
+  const parseOrderData = async () => {
     try {
-      // Parse items from params
-      const itemsString = typeof params.items === 'string' ? params.items : '';
-      const items: PurchaseOrderItem[] = itemsString ? JSON.parse(itemsString) : [];
+      // ✅ FIX: Load from AsyncStorage instead of URL params
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.error('[Purchase Payment] No current user');
+        setLoading(false);
+        return;
+      }
+
+      const storageKey = `purchase_order_payment_${currentUser.uid}`;
+      console.log('[Purchase Payment] === DEBUG: Parse Order Data ===');
+      console.log('[Purchase Payment] Current user ID:', currentUser.uid);
+      console.log('[Purchase Payment] Storage key:', storageKey);
+
+      const storedData = await AsyncStorage.getItem(storageKey);
+      console.log('[Purchase Payment] Loaded from AsyncStorage:', !!storedData);
+      console.log('[Purchase Payment] Data length:', storedData?.length || 0);
+
+      if (!storedData) {
+        console.error('[Purchase Payment] No data in AsyncStorage');
+        console.error('[Purchase Payment] This might happen if you navigated directly or app reloaded');
+        Alert.alert('Error', 'Order data not found. Please go back and try again.');
+        setLoading(false);
+        return;
+      }
+
+      const orderDataFromStorage = JSON.parse(storedData);
+      const items: PurchaseOrderItem[] = orderDataFromStorage.items || [];
+
+      console.log('[Purchase Payment] Parsed items count:', items.length);
+      console.log('[Purchase Payment] First item:', JSON.stringify(items[0], null, 2));
+      console.log('[Purchase Payment] First item has productId?', !!items[0]?.productId);
 
       const totalCost = items.reduce((sum, item) => sum + item.subtotal, 0);
 
       setOrderData({
-        supplierName: typeof params.supplierName === 'string' ? params.supplierName : '',
-        supplierContact: typeof params.supplierContact === 'string' ? params.supplierContact : '',
-        purchaseDate: typeof params.purchaseDate === 'string' ? params.purchaseDate : new Date().toISOString().split('T')[0],
+        supplierName: orderDataFromStorage.supplierName || '',
+        supplierContact: orderDataFromStorage.supplierContact || '',
+        purchaseDate: orderDataFromStorage.purchaseDate || new Date().toISOString().split('T')[0],
         items,
-        notes: typeof params.notes === 'string' ? params.notes : '',
+        notes: orderDataFromStorage.notes || '',
         totalCost,
       });
     } catch (error) {
@@ -170,6 +210,46 @@ const PurchasePaymentScreen = () => {
     try {
       if (!orderData) return;
 
+      // Validate phone number for GCash/PayMaya (Xendit requirement)
+      if (!storeOwnerPhone || storeOwnerPhone.trim() === '') {
+        Alert.alert(
+          'Phone Number Required',
+          'GCash and PayMaya payments require a valid phone number. Please update your store contact information in Profile > My Account.',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => setProcessing(false),
+            },
+            {
+              text: 'Go to Profile',
+              onPress: () => {
+                setProcessing(false);
+                router.push('/(main)/(store-owner)/profile/my-account' as any);
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // Ensure phone number is in valid format (Philippine format)
+      let formattedPhone = storeOwnerPhone.trim();
+
+      // Add +63 prefix if missing (Philippine country code)
+      if (!formattedPhone.startsWith('+')) {
+        if (formattedPhone.startsWith('0')) {
+          // Replace leading 0 with +63
+          formattedPhone = '+63' + formattedPhone.substring(1);
+        } else if (formattedPhone.startsWith('63')) {
+          formattedPhone = '+' + formattedPhone;
+        } else {
+          formattedPhone = '+63' + formattedPhone;
+        }
+      }
+
+      console.log('[Purchase Payment] Using phone number:', formattedPhone);
+
       // First create the purchase order with pending payment
       const poResult = await createPurchaseOrder(
         currentUser.uid,
@@ -198,7 +278,7 @@ const PurchasePaymentScreen = () => {
         amount: orderData.totalCost,
         storeOwnerEmail: currentUser.email || 'storeowner@tindago.com',
         storeOwnerName: storeName,
-        storeOwnerPhone: currentUser.phoneNumber || '',
+        storeOwnerPhone: formattedPhone, // ✅ Use formatted phone number
         storeId: currentUser.uid,
         storeName: storeName,
         supplierName: orderData.supplierName || 'Supplier',
@@ -213,6 +293,9 @@ const PurchasePaymentScreen = () => {
       setProcessing(false);
 
       if (paymentResult.success && paymentResult.invoiceUrl) {
+        // ✅ Cleanup: Remove data from AsyncStorage
+        await AsyncStorage.removeItem(`purchase_order_payment_${currentUser.uid}`);
+
         // Open Xendit payment page
         await Linking.openURL(paymentResult.invoiceUrl);
 
@@ -277,6 +360,9 @@ const PurchasePaymentScreen = () => {
       setProcessing(false);
 
       if (result.success && result.purchaseOrderId) {
+        // ✅ Cleanup: Remove data from AsyncStorage
+        await AsyncStorage.removeItem(`purchase_order_payment_${currentUser.uid}`);
+
         Alert.alert(
           'Purchase Order Created',
           'Cash payment recorded. Purchase order has been created successfully.',
@@ -327,6 +413,9 @@ const PurchasePaymentScreen = () => {
       setProcessing(false);
 
       if (result.success && result.purchaseOrderId) {
+        // ✅ Cleanup: Remove data from AsyncStorage
+        await AsyncStorage.removeItem(`purchase_order_payment_${currentUser.uid}`);
+
         Alert.alert(
           'Purchase Order Created',
           `Debt of ₱${orderData.totalCost.toFixed(2)} has been recorded. Remember to pay the supplier later.`,

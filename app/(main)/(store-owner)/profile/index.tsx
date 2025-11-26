@@ -143,7 +143,8 @@ export default function ProfileScreen() {
   };
 
   const handleInventoryDashboard = () => {
-    router.push('/(main)/(store-owner)/profile/inventory-dashboard');
+    // Navigate to Inventory tab (bottom navigation)
+    router.push('/(main)/(store-owner)/inventory');
   };
 
   const handleRecordWalkInSale = () => {
