@@ -32,7 +32,7 @@ import {
   Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { database, auth } from '../../../../FirebaseConfig';
 import { s, vs, ms } from '../../../../src/constants/responsive';
@@ -195,6 +195,42 @@ const PurchaseDetailsScreen = () => {
     );
   };
 
+  const handleMarkAsPaid = async () => {
+    if (!purchaseOrder) return;
+
+    const supplierName = purchaseOrder.supplierName || 'supplier';
+    const amount = purchaseOrder.totalCost || 0;
+
+    Alert.alert(
+      'Mark as Paid?',
+      `Confirm payment of ₱${amount.toFixed(2)} to ${supplierName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark as Paid',
+          onPress: async () => {
+            try {
+              setUpdating(true);
+              const orderRef = ref(database, `purchase_orders/${purchaseOrder.id}`);
+              await update(orderRef, {
+                paymentStatus: 'paid',
+                'paymentInfo/paidAt': new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+
+              Alert.alert('Success', 'Payment marked as paid!');
+            } catch (error) {
+              console.error('[Purchase Details] Error marking as paid:', error);
+              Alert.alert('Error', 'Failed to update payment status');
+            } finally {
+              setUpdating(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderStatusTimeline = (order: PurchaseOrder) => {
     // Define progress steps for purchase orders
     const steps = [
@@ -330,6 +366,62 @@ const PurchaseDetailsScreen = () => {
             </View>
           )}
         </View>
+
+        {/* UNPAID DELIVERY WARNING - Shows when delivered but unpaid */}
+        {purchaseOrder.status === 'received' &&
+         purchaseOrder.paymentStatus === 'unpaid' &&
+         purchaseOrder.paymentMethod === 'debt' && (
+          <View style={styles.unpaidDeliveryWarning}>
+            <View style={styles.warningHeader}>
+              <Text style={styles.warningIcon}>⚠️</Text>
+              <Text style={styles.warningTitle}>UNPAID DELIVERY WARNING</Text>
+            </View>
+            <Text style={styles.warningMessage}>
+              You owe <Text style={styles.warningAmount}>₱{formatCurrency(purchaseOrder.totalCost)}</Text> to {purchaseOrder.supplierName || 'supplier'}
+            </Text>
+            {purchaseOrder.debtDueDate && (
+              <Text style={styles.warningDueDate}>
+                Due: {formatDate(purchaseOrder.debtDueDate)}
+              </Text>
+            )}
+            <Text style={styles.warningNote}>
+              Please pay this supplier soon to maintain good business relationship.
+            </Text>
+          </View>
+        )}
+
+        {/* OVERDUE WARNING - Shows when payment is overdue */}
+        {purchaseOrder.paymentStatus === 'unpaid' &&
+         purchaseOrder.debtDueDate &&
+         new Date() > new Date(purchaseOrder.debtDueDate) && (
+          <View style={styles.overdueWarning}>
+            <View style={styles.warningHeader}>
+              <Text style={styles.warningIcon}>🔴</Text>
+              <Text style={styles.overdueTitle}>PAYMENT OVERDUE!</Text>
+            </View>
+            <Text style={styles.overdueMessage}>
+              You owe <Text style={styles.overdueAmount}>₱{formatCurrency(purchaseOrder.totalCost)}</Text> to {purchaseOrder.supplierName || 'supplier'}
+            </Text>
+            <Text style={styles.overdueDueDate}>
+              Due date PASSED: {formatDate(purchaseOrder.debtDueDate)}
+            </Text>
+            {(() => {
+              const dueDate = new Date(purchaseOrder.debtDueDate);
+              const today = new Date();
+              dueDate.setHours(0, 0, 0, 0);
+              today.setHours(0, 0, 0, 0);
+              const diffDays = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+              return (
+                <Text style={styles.overdueDays}>
+                  Overdue by: {diffDays} day{diffDays > 1 ? 's' : ''}
+                </Text>
+              );
+            })()}
+            <Text style={styles.overdueUrgent}>
+              ⚠️ Pay immediately to avoid supplier issues
+            </Text>
+          </View>
+        )}
 
         {/* Supplier Information Card */}
         {purchaseOrder.supplierName && (
@@ -493,6 +585,24 @@ const PurchaseDetailsScreen = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionButtonsContainer}>
+          {/* Mark as Paid Button - Only for unpaid debt orders that have been delivered */}
+          {purchaseOrder.status === 'received' &&
+           purchaseOrder.paymentStatus === 'unpaid' &&
+           purchaseOrder.paymentMethod === 'debt' && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.markPaidButton]}
+              onPress={handleMarkAsPaid}
+              activeOpacity={0.7}
+              disabled={updating}
+            >
+              {updating ? (
+                <ActivityIndicator size="small" color={Colors.white} />
+              ) : (
+                <Text style={styles.actionButtonText}>💳 Mark as Paid</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
           {/* Mark as Delivered Button - Only for pending orders */}
           {purchaseOrder.status === 'pending' && (
             <TouchableOpacity
@@ -504,7 +614,7 @@ const PurchaseDetailsScreen = () => {
               {updating ? (
                 <ActivityIndicator size="small" color={Colors.white} />
               ) : (
-                <Text style={styles.actionButtonText}>Mark as Delivered</Text>
+                <Text style={styles.actionButtonText}>📦 Mark as Delivered</Text>
               )}
             </TouchableOpacity>
           )}
@@ -522,7 +632,7 @@ const PurchaseDetailsScreen = () => {
             }}
             activeOpacity={0.7}
           >
-            <Text style={styles.viewInvoiceButtonText}>View Invoice</Text>
+            <Text style={styles.viewInvoiceButtonText}>📄 View Invoice</Text>
           </TouchableOpacity>
         </View>
 
@@ -1147,11 +1257,137 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
 
+  markPaidButton: {
+    backgroundColor: Colors.primary,
+  },
+
   actionButtonText: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(16),
     color: Colors.white,
+  },
+
+  // UNPAID DELIVERY WARNING STYLES
+  unpaidDeliveryWarning: {
+    width: s(400),
+    backgroundColor: '#FFF3E0',
+    borderRadius: s(16),
+    padding: s(20),
+    marginBottom: vs(20),
+    borderWidth: 2,
+    borderColor: '#FF9800',
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: vs(12),
+  },
+
+  warningIcon: {
+    fontSize: ms(24),
+    marginRight: s(10),
+  },
+
+  warningTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: '#FF9800',
+  },
+
+  warningMessage: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: '#1E1E1E',
+    marginBottom: vs(8),
+  },
+
+  warningAmount: {
+    fontWeight: '700',
+    color: '#FF9800',
+  },
+
+  warningDueDate: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: '#64748B',
+    marginBottom: vs(8),
+  },
+
+  warningNote: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: '#64748B',
+    fontStyle: 'italic',
+  },
+
+  // OVERDUE WARNING STYLES
+  overdueWarning: {
+    width: s(400),
+    backgroundColor: '#FFEBEE',
+    borderRadius: s(16),
+    padding: s(20),
+    marginBottom: vs(20),
+    borderWidth: 2,
+    borderColor: '#E92B45',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  overdueTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: '#E92B45',
+  },
+
+  overdueMessage: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: '#1E1E1E',
+    marginBottom: vs(8),
+  },
+
+  overdueAmount: {
+    fontWeight: '700',
+    color: '#E92B45',
+    fontSize: ms(18),
+  },
+
+  overdueDueDate: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: '#64748B',
+    marginBottom: vs(4),
+  },
+
+  overdueDays: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: '#E92B45',
+    fontWeight: '600',
+    marginBottom: vs(8),
+  },
+
+  overdueUrgent: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: '#E92B45',
+    fontWeight: '700',
+    backgroundColor: '#FFFFFF',
+    padding: s(10),
+    borderRadius: s(8),
+    textAlign: 'center',
   },
 
   viewInvoiceButton: {

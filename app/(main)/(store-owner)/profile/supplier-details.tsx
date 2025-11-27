@@ -365,7 +365,7 @@ const SupplierDetailsScreen = () => {
             <Text style={styles.unpaidWarningIcon}>💳</Text>
             <View style={styles.unpaidWarningContent}>
               <Text style={styles.unpaidWarningTitle}>Unpaid to Supplier</Text>
-              <Text style={styles.unpaidWarningAmount}>₱{formatCurrency(supplierData.unpaidAmount)}</Text>
+              <Text style={styles.unpaidWarningAmount}>{formatCurrency(supplierData.unpaidAmount)}</Text>
               {supplierData.overdueCount > 0 && (
                 <Text style={styles.unpaidWarningOverdue}>
                   ⚠️ {supplierData.overdueCount} overdue payment{supplierData.overdueCount > 1 ? 's' : ''}

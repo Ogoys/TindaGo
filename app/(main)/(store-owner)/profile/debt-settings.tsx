@@ -270,7 +270,10 @@ export default function DebtSettingsScreen() {
             <View style={styles.settingCard}>
               <View style={styles.settingHeader}>
                 <View style={[styles.settingIconCircle, { backgroundColor: '#E3F2FD' }]}>
-                  <Text style={styles.settingIcon}>🗓️</Text>
+                  <Image
+                    source={require('../../../../src/assets/images/store-owner-purchase-payment/calendar-icon.png')}
+                    style={styles.settingIconImage}
+                  />
                 </View>
                 <View style={styles.settingInfo}>
                   <Text style={styles.settingTitle}>Maximum Due Date</Text>
@@ -458,6 +461,10 @@ const styles = StyleSheet.create({
   },
   settingIcon: {
     fontSize: ms(22),
+  },
+  settingIconImage: {
+    width: s(24),
+    height: s(24),
   },
   settingInfo: {
     flex: 1,

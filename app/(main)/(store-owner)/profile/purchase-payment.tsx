@@ -37,6 +37,7 @@ import { Fonts } from '../../../../src/constants/Fonts';
 import { s, vs } from '../../../../src/constants/responsive';
 import { PurchaseOrderItem, PurchasePaymentMethod } from '../../../../src/models/PurchaseOrder';
 import { xenditService } from '../../../../src/services/payment/XenditService';
+import { CalendarDatePickerModal } from '../../../../src/components/ui/CalendarDatePickerModal';
 
 interface OrderData {
   supplierName: string;
@@ -60,6 +61,7 @@ const PurchasePaymentScreen = () => {
   const [debtDueDate, setDebtDueDate] = useState(
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Default: 30 days from now
   );
+  const [showDebtDueDatePicker, setShowDebtDueDatePicker] = useState(false);
 
   useEffect(() => {
     fetchStoreInfo();
@@ -173,6 +175,19 @@ const PurchasePaymentScreen = () => {
     } catch {
       return dateString;
     }
+  };
+
+  const handleDebtDueDateConfirm = (date: Date) => {
+    setShowDebtDueDatePicker(false);
+    const formattedDate = date.toISOString().split('T')[0];
+    setDebtDueDate(formattedDate);
+  };
+
+  const handleDebtDueDateClear = () => {
+    setShowDebtDueDatePicker(false);
+    // Reset to default (30 days from now)
+    const defaultDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    setDebtDueDate(defaultDate);
   };
 
   const handleProceedToCheckout = async () => {
@@ -709,13 +724,13 @@ const PurchasePaymentScreen = () => {
               {/* Due Date Input */}
               <View style={styles.debtDueDateSection}>
                 <Text style={styles.debtDueDateLabel}>When will you pay this debt?</Text>
-                <TextInput
+                <TouchableOpacity
                   style={styles.debtDueDateInput}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor="rgba(30, 30, 30, 0.5)"
-                  value={debtDueDate}
-                  onChangeText={setDebtDueDate}
-                />
+                  onPress={() => setShowDebtDueDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.debtDueDateText}>{formatDate(debtDueDate)}</Text>
+                </TouchableOpacity>
                 <Text style={styles.debtDueDateHint}>
                   Set a payment deadline to track when you need to pay the supplier
                 </Text>
@@ -753,6 +768,19 @@ const PurchasePaymentScreen = () => {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Debt Due Date Picker Modal */}
+      <CalendarDatePickerModal
+        visible={showDebtDueDatePicker}
+        onClose={() => setShowDebtDueDatePicker(false)}
+        onConfirm={handleDebtDueDateConfirm}
+        onClear={handleDebtDueDateClear}
+        initialDate={new Date(debtDueDate)}
+        minDate={new Date()} // Can't set due date in the past
+        title="Set Payment Due Date"
+        description="When will you pay this debt to the supplier?"
+        infoText="Select a future date when you plan to pay this debt"
+      />
     </View>
   );
 };
@@ -1174,9 +1202,6 @@ const styles = StyleSheet.create({
   },
 
   debtDueDateInput: {
-    fontFamily: Fonts.primary,
-    fontSize: s(16),
-    color: Colors.darkGray,
     backgroundColor: Colors.white,
     borderRadius: s(12),
     paddingVertical: vs(12),
@@ -1184,6 +1209,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#FF8D2F',
     marginBottom: vs(8),
+  },
+
+  debtDueDateText: {
+    fontFamily: Fonts.primary,
+    fontSize: s(16),
+    fontWeight: '500',
+    color: Colors.darkGray,
   },
 
   debtDueDateHint: {
