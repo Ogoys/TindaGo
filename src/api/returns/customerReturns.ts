@@ -28,10 +28,9 @@ export interface CustomerReturnRequest {
     unit?: string;
     returnReason: ReturnReason;
   }>;
-  refundMethod: 'cash' | 'gcash' | 'paymaya' | 'loan';
+  refundMethod: 'cash' | 'replace_product' | 'no_refund';
   additionalDetails?: string;
   photoUrls?: string[];
-  loanPaymentDate?: string; // ISO string - date customer will repurchase (for loan refund method)
 }
 
 /**
@@ -56,13 +55,18 @@ export const submitCustomerReturnRequest = async (
       quantity: item.quantity, // Original ordered quantity
       quantityReturned: item.quantityReturned, // Actual quantity being returned
       price: item.price,
-      refundAmount: item.quantityReturned * item.price, // Calculate based on quantity returned
+      // Refund amount calculation:
+      // - Cash refund: Customer gets money back
+      // - Replace product: Track product value as financial loss
+      // - No refund: No financial impact (goodwill)
+      refundAmount: request.refundMethod === 'no_refund' ? 0 : item.quantityReturned * item.price,
       productSize: item.weight || '',
       unit: item.unit || '',
       reason: item.returnReason,
       condition: 'sellable', // Customer assumes sellable; store owner will verify
       notes: '',
       restoreToInventory: false, // Store owner will decide after inspection
+      isReplacement: request.refundMethod === 'replace_product',
     }));
 
     // Calculate total refund
@@ -91,7 +95,6 @@ export const submitCustomerReturnRequest = async (
       status: 'pending', // Pending store owner review
       additionalDetails: request.additionalDetails || '',
       photoUrls: request.photoUrls || [],
-      loanPaymentDate: request.loanPaymentDate, // Include loan payment date if provided
       createdAt: new Date().toISOString(),
       processedBy: '',
       notes: `Customer return request for order ${request.orderNumber}`,

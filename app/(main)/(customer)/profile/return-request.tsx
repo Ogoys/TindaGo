@@ -30,6 +30,7 @@ import {
   Alert,
   TextInput,
   FlatList,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -42,8 +43,6 @@ import { Fonts } from "../../../../src/constants/Fonts";
 import { useUser } from '../../../../src/contexts/UserContext';
 import { Dropdown, DropdownOption } from '../../../../src/components/ui/Dropdown';
 import { QuantitySelector } from '../../../../src/components/ui/QuantitySelector';
-import { RefundMethodSelector, RefundMethodType } from '../../../../src/components/ui/RefundMethodSelector';
-import { LoanPaymentDateModal } from '../../../../src/components/ui/LoanPaymentDateModal';
 import type { Order, OrderItem } from '../../../../src/models/Order';
 import type { ReturnReason, RefundMethod } from '../../../../src/models/Return';
 import { RETURN_REASONS, REFUND_METHODS } from '../../../../src/models/Return';
@@ -65,13 +64,10 @@ export default function ReturnRequestScreen() {
   const [selectedItems, setSelectedItems] = useState<Map<string, SelectedReturnItem>>(new Map());
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [photoUris, setPhotoUris] = useState<string[]>([]);
-  const [refundMethod, setRefundMethod] = useState<RefundMethodType>('cash');
+  const [refundMethod, setRefundMethod] = useState<RefundMethod>('cash');
+  const [showRefundSelector, setShowRefundSelector] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  // Loan payment date state
-  const [loanPaymentDate, setLoanPaymentDate] = useState<Date | null>(null);
-  const [showLoanModal, setShowLoanModal] = useState(false);
 
   // Custom reason state per product
   const [customReasons, setCustomReasons] = useState<Map<string, string>>(new Map());
@@ -227,27 +223,6 @@ export default function ReturnRequestScreen() {
     });
   };
 
-  // Handle refund method change
-  useEffect(() => {
-    if (refundMethod === 'loan' && !loanPaymentDate) {
-      setShowLoanModal(true);
-    }
-  }, [refundMethod]);
-
-  // Handle loan date confirmation
-  const handleLoanDateConfirm = (date: Date) => {
-    setLoanPaymentDate(date);
-    setShowLoanModal(false);
-  };
-
-  // Handle loan modal close
-  const handleLoanModalClose = () => {
-    // If user closes modal without selecting date, revert to gcash
-    if (!loanPaymentDate) {
-      setRefundMethod('gcash');
-    }
-    setShowLoanModal(false);
-  };
 
   // Submit return request
   const handleSubmitReturn = async () => {
@@ -290,13 +265,6 @@ export default function ReturnRequestScreen() {
       }
     }
 
-    // Validate loan payment date if loan is selected
-    if (refundMethod === 'loan' && !loanPaymentDate) {
-      Alert.alert("Error", "Please select a payment date for the loan");
-      setShowLoanModal(true);
-      return;
-    }
-
     if (!user || !order) {
       Alert.alert("Error", "Unable to submit return request");
       return;
@@ -336,8 +304,8 @@ export default function ReturnRequestScreen() {
         };
       });
 
-      // Submit return request with loan payment date if applicable
-      const submitData: any = {
+      // Submit return request
+      const submitData = {
         orderId,
         orderNumber: order.orderNumber,
         customerId: user.id,
@@ -345,15 +313,10 @@ export default function ReturnRequestScreen() {
         storeId: order.storeId,
         storeName: order.storeName,
         items: returnItems,
-        refundMethod: refundMethod as 'cash' | 'gcash' | 'paymaya' | 'loan',
+        refundMethod: refundMethod,
         additionalDetails: additionalDetails.trim(),
         photoUrls: uploadedPhotoUrls,
       };
-
-      // Add loan payment date if loan is selected
-      if (refundMethod === 'loan' && loanPaymentDate) {
-        submitData.loanPaymentDate = loanPaymentDate.toISOString();
-      }
 
       const result = await submitCustomerReturnRequest(submitData);
 
@@ -633,34 +596,25 @@ export default function ReturnRequestScreen() {
 
             {/* Refund Method Selector */}
             <View style={styles.sectionCard}>
-              <RefundMethodSelector
-                label="Refund Method"
-                selectedMethod={refundMethod}
-                onMethodSelect={(method) => setRefundMethod(method)}
-              />
-
-              {/* Show selected loan payment date */}
-              {refundMethod === 'loan' && loanPaymentDate && (
-                <View style={styles.loanDateDisplay}>
-                  <View style={styles.loanDateTextContainer}>
-                    <Text style={styles.loanDateLabel}>Payment Date</Text>
-                    <Text style={styles.loanDateValue}>
-                      {loanPaymentDate.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.changeDateButton}
-                    onPress={() => setShowLoanModal(true)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.changeDateButtonText}>Change</Text>
-                  </TouchableOpacity>
+              <Text style={styles.sectionLabel}>Refund Method</Text>
+              <Text style={styles.sectionHint}>
+                Choose how you want to handle this return
+              </Text>
+              <TouchableOpacity
+                style={styles.refundMethodCard}
+                onPress={() => setShowRefundSelector(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.refundMethodDisplay}>
+                  <Text style={styles.refundMethodText}>
+                    {REFUND_METHODS.find(m => m.value === refundMethod)?.label || 'Cash Refund'}
+                  </Text>
+                  <Text style={styles.refundMethodArrow}>▼</Text>
                 </View>
-              )}
+                <Text style={styles.refundMethodDesc}>
+                  {REFUND_METHODS.find(m => m.value === refundMethod)?.description || ''}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Summary */}
@@ -721,13 +675,43 @@ export default function ReturnRequestScreen() {
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {/* Loan Payment Date Modal */}
-      <LoanPaymentDateModal
-        visible={showLoanModal}
-        onClose={handleLoanModalClose}
-        onConfirm={handleLoanDateConfirm}
-        selectedDate={loanPaymentDate ?? undefined}
-      />
+      {/* Refund Method Selector Modal */}
+      <Modal
+        visible={showRefundSelector}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRefundSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.refundMethodSelectorModal}>
+            <Text style={styles.modalTitle}>Select Refund Method</Text>
+            {REFUND_METHODS.map((method) => (
+              <TouchableOpacity
+                key={method.value}
+                style={[
+                  styles.refundMethodOption,
+                  refundMethod === method.value && styles.refundMethodOptionSelected
+                ]}
+                onPress={() => {
+                  setRefundMethod(method.value);
+                  setShowRefundSelector(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.refundMethodOptionContent}>
+                  <Text style={styles.refundMethodOptionTitle}>{method.label}</Text>
+                  <Text style={styles.refundMethodOptionDesc}>{method.description}</Text>
+                </View>
+                {refundMethod === method.value && (
+                  <View style={styles.selectedCheckmark}>
+                    <Text style={styles.selectedCheckmarkText}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1086,48 +1070,117 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
   },
 
-  // Loan Date Display
-  loanDateDisplay: {
+  // Refund Method Card
+  refundMethodCard: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: s(10),
+    padding: s(15),
+  },
+
+  refundMethodDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.lightGreen,
-    borderRadius: s(15),
-    padding: s(15),
-    marginTop: vs(20),
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
+    justifyContent: 'space-between',
+    marginBottom: vs(8),
   },
 
-  loanDateTextContainer: {
-    flex: 1,
-  },
-
-  loanDateLabel: {
-    fontFamily: Fonts.primary,
-    fontWeight: '500',
-    fontSize: ms(12),
-    color: 'rgba(30, 30, 30, 0.6)',
-    marginBottom: vs(2),
-  },
-
-  loanDateValue: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(14),
-    color: Colors.darkGray,
-  },
-
-  changeDateButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: s(8),
-    paddingHorizontal: s(12),
-    paddingVertical: vs(8),
-  },
-
-  changeDateButtonText: {
+  refundMethodText: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
+    fontSize: ms(15),
+    color: '#1E1E1E',
+  },
+
+  refundMethodArrow: {
     fontSize: ms(12),
+    color: Colors.primary,
+  },
+
+  refundMethodDesc: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: 'rgba(30, 30, 30, 0.6)',
+  },
+
+  // Modal Overlay
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Refund Method Selector Modal
+  refundMethodSelectorModal: {
+    backgroundColor: Colors.white,
+    borderRadius: s(20),
+    marginHorizontal: s(30),
+    padding: s(20),
+    width: '85%',
+  },
+
+  modalTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(20),
+    color: '#1E1E1E',
+    marginBottom: vs(20),
+    textAlign: 'center',
+  },
+
+  refundMethodOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: vs(16),
+    paddingHorizontal: s(15),
+    borderRadius: s(12),
+    backgroundColor: Colors.white,
+    marginBottom: vs(12),
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+
+  refundMethodOptionSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(59, 183, 126, 0.08)',
+  },
+
+  refundMethodOptionContent: {
+    flex: 1,
+    marginRight: s(10),
+  },
+
+  refundMethodOptionTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: '#1E1E1E',
+    marginBottom: vs(4),
+  },
+
+  refundMethodOptionDesc: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: 'rgba(30, 30, 30, 0.6)',
+    lineHeight: vs(18),
+  },
+
+  selectedCheckmark: {
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  selectedCheckmarkText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    fontWeight: '700',
     color: Colors.white,
   },
 

@@ -8,9 +8,13 @@
  * - Product selection from inventory
  * - Return reason selection
  * - Sellable/Unsellable condition toggle
- * - Refund method selection (cash, wallet, store credit, none)
+ * - Refund method selection (cash refund, replace product, no refund)
  * - Optional customer name and order number
- * - Automatic inventory restoration for sellable items
+ * - Automatic inventory updates:
+ *   • Cash refund (sellable): Stock +1 (item restored)
+ *   • Cash refund (unsellable): Stock unchanged (item discarded)
+ *   • Replace product: Stock -1 (new item given, defective not restored)
+ *   • No refund (sellable): Stock +1 (item restored as goodwill)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -315,6 +319,10 @@ const RecordReturnScreen = () => {
         productImageUrl: p.productImageUrl,
         quantity: p.returnQuantity,
         price: p.price,
+        // Refund amount logic:
+        // - Cash refund: Full product value (customer gets money)
+        // - Replace product: Full product value (store loses inventory value)
+        // - No refund: 0 (goodwill gesture, no financial loss)
         refundAmount: refundMethod === 'no_refund' ? 0 : p.refundAmount,
         productSize: p.productSize,
         unit: p.unit,
@@ -349,13 +357,22 @@ const RecordReturnScreen = () => {
             message += 'No items restored (all unsellable).';
           }
         } else if (refundMethod === 'replace_product') {
-          message += `Replacement Given: ${selectedProducts.length} product(s)\n`;
-          message += 'Stock updated automatically.';
+          const totalQty = selectedProducts.reduce((sum, p) => sum + p.returnQuantity, 0);
+          message += `Replacement Given: ${totalQty} product(s)\n`;
+          message += `Product Value Lost: ₱${totalRefund.toFixed(2)}\n`;
+          message += `Stock decreased by ${totalQty} (replacement given).`;
         } else if (refundMethod === 'no_refund') {
           message += 'Return accepted without refund (Goodwill).\n';
           const sellableCount = selectedProducts.filter(p => p.condition === 'sellable').length;
+          const unsellableCount = selectedProducts.filter(p => p.condition === 'unsellable').length;
           if (sellableCount > 0) {
-            message += `${sellableCount} sellable item(s) restored to inventory.`;
+            message += `${sellableCount} sellable item(s) restored to inventory.\n`;
+          }
+          if (unsellableCount > 0) {
+            message += `${unsellableCount} unsellable item(s) discarded.`;
+          }
+          if (sellableCount === 0 && unsellableCount === 0) {
+            message += 'All items processed.';
           }
         }
 

@@ -98,10 +98,18 @@ export const createReturn = async (
 
         // Handle different refund methods
         if (returnData.refundMethod === 'replace_product' && item.isReplacement) {
-          // REPLACEMENT: Deduct 1 from stock (giving replacement), add returned item back
-          // Net effect: Quantity stays the same (removed defective, gave new one)
-          // But we mark the transaction for tracking
-          console.log(`[Return] Product replacement: ${item.productName} - Stock remains at ${newQuantity}`);
+          // REPLACEMENT: Give customer new product, remove defective one
+          // Inventory: Stock DECREASES (defective item is trash, not restored)
+          // Financials: totalRefund tracks the product value lost
+          newQuantity = newQuantity - item.quantity;
+
+          await update(productRef, {
+            quantity: newQuantity,
+            status: newQuantity > 0 ? 'available' : 'out_of_stock',
+            updatedAt: new Date().toISOString(),
+          });
+
+          console.log(`[Return] Product replacement: ${item.productName} - Stock decreased from ${newQuantity + item.quantity} to ${newQuantity}`);
 
           // Mark replacement as given
           await update(ref(database, `returns/${returnId}/items/${returnData.items.indexOf(item)}`), {
@@ -122,8 +130,21 @@ export const createReturn = async (
 
         } else if (item.condition === 'unsellable') {
           // UNSELLABLE item: Item is damaged/expired, don't restore to inventory
-          // No quantity change needed
+          // Applies to: Cash refund (unsellable) or No refund (unsellable)
+          // No quantity change - item is discarded
           console.log(`[Return] Unsellable item not restored: ${item.productName}`);
+        } else if (returnData.refundMethod === 'no_refund' && item.condition === 'sellable') {
+          // NO REFUND with SELLABLE item: Customer returned item as goodwill
+          // Store accepts without giving anything back, but gets sellable item
+          newQuantity = newQuantity + item.quantity;
+
+          await update(productRef, {
+            quantity: newQuantity,
+            status: 'available',
+            updatedAt: new Date().toISOString(),
+          });
+
+          console.log(`[Return] No refund - Sellable item restored: ${item.productName} - New stock: ${newQuantity}`);
         }
       }
     }

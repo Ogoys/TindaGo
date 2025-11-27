@@ -7,7 +7,20 @@
  *
  * Displays detailed information about a customer return request for store owner review.
  * Shows all returned items, status, refund details, photos, and customer information.
- * Allows store owner to approve or reject the return request.
+ * 
+ * Store Owner Actions:
+ * - Inspect each product physically when customer brings it to store
+ * - Mark each item as Sellable or Unsellable (tap to toggle)
+ * - Approve request (processes refund and updates inventory based on conditions)
+ * - Reject request (customer does not receive refund)
+ * 
+ * Inventory Logic:
+ * - Cash Refund + Sellable: Restore to inventory
+ * - Cash Refund + Unsellable: Discard (don't restore)
+ * - Replace Product: Deduct 1 from stock (give new item, discard defective)
+ * - No Refund + Sellable: Restore to inventory (free product for store)
+ * - No Refund + Unsellable: Discard
+ * 
  * Status synchronizes with customer return details view in real-time via Firebase.
  */
 
@@ -37,7 +50,7 @@ import { Colors } from "../../../../src/constants/Colors";
 import { Fonts } from "../../../../src/constants/Fonts";
 import { s, vs, ms } from "../../../../src/constants/responsive";
 
-type ItemCondition = 'sellable' | 'damaged';
+type ItemCondition = 'sellable' | 'unsellable';
 
 export default function StoreReturnDetailsScreen() {
   const params = useLocalSearchParams();
@@ -67,9 +80,9 @@ export default function StoreReturnDetailsScreen() {
           const initialConditions: Record<string, ItemCondition> = {};
           data.items.forEach((item, index) => {
             const itemKey = `${item.productId}_${index}`;
-            // Automatically mark as damaged if reason is expired or defective
-            if (item.reason === 'expired' || item.reason === 'defective' || item.reason === 'damaged') {
-              initialConditions[itemKey] = 'damaged';
+            // Automatically mark as unsellable if reason is expired or defective
+            if (item.reason === 'expired' || item.reason === 'defective' || item.reason === 'quality_issues') {
+              initialConditions[itemKey] = 'unsellable';
             } else {
               // Default to sellable for other reasons (wrong item, changed mind, etc.)
               initialConditions[itemKey] = 'sellable';
@@ -99,20 +112,20 @@ export default function StoreReturnDetailsScreen() {
   const handleToggleItemCondition = (itemKey: string) => {
     setItemConditions(prev => ({
       ...prev,
-      [itemKey]: prev[itemKey] === 'sellable' ? 'damaged' : 'sellable'
+      [itemKey]: prev[itemKey] === 'sellable' ? 'unsellable' : 'sellable'
     }));
   };
 
   const handleApproveReturn = async () => {
     if (!returnData || !user) return;
 
-    // Count sellable and damaged items
+    // Count sellable and unsellable items
     const sellableCount = Object.values(itemConditions).filter(c => c === 'sellable').length;
-    const damagedCount = Object.values(itemConditions).filter(c => c === 'damaged').length;
+    const unsellableCount = Object.values(itemConditions).filter(c => c === 'unsellable').length;
 
     const message = `Confirm approval of return request ${returnData.returnNumber}?\n\n` +
-      `• Sellable items: ${sellableCount} (will be added to Return List for restocking)\n` +
-      `• Damaged items: ${damagedCount} (will be marked as damaged, not restockable)\n\n` +
+      `• Sellable items: ${sellableCount} (will be restored to inventory)\n` +
+      `• Unsellable items: ${unsellableCount} (will be discarded, not restocked)\n\n` +
       `Total refund: ₱${formatCurrency(returnData.totalRefund)}`;
 
     Alert.alert(
@@ -129,14 +142,14 @@ export default function StoreReturnDetailsScreen() {
               // Update items with their conditions
               const updatedItems = returnData.items.map((item, index) => ({
                 ...item,
-                condition: itemConditions[`${item.productId}_${index}`] || 'damaged'
+                condition: itemConditions[`${item.productId}_${index}`] || 'unsellable'
               }));
 
               const result = await processReturnRequest(returnId, user.id, updatedItems);
               if (result.success) {
                 Alert.alert(
                   "Success",
-                  `Return approved!\n\n${sellableCount} sellable item(s) added to Return List.\n${damagedCount} damaged item(s) marked as unsellable.`,
+                  `Return approved!\n\n${sellableCount} sellable item(s) restored to inventory.\n${unsellableCount} unsellable item(s) discarded.`,
                   [{ text: "OK", onPress: () => router.back() }]
                 );
               } else {
@@ -332,14 +345,6 @@ export default function StoreReturnDetailsScreen() {
             </View>
           )}
 
-          {/* Loan Payment Date (if loan refund method) */}
-          {returnData.refundMethod === 'loan' && returnData.loanPaymentDate && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Payment Date (Loan)</Text>
-              <Text style={styles.infoValue}>{formatDate(returnData.loanPaymentDate)}</Text>
-            </View>
-          )}
-
           {/* Refund Method */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Refund Method</Text>
@@ -364,7 +369,7 @@ export default function StoreReturnDetailsScreen() {
           }, 'small');
 
           const itemKey = `${item.productId}_${index}`;
-          const condition = itemConditions[itemKey] || 'damaged';
+          const condition = itemConditions[itemKey] || 'unsellable';
           const isPending = returnData.status === 'pending';
 
           return (
@@ -396,13 +401,13 @@ export default function StoreReturnDetailsScreen() {
                   <TouchableOpacity
                     style={[
                       styles.conditionBadge,
-                      condition === 'sellable' ? styles.conditionSellable : styles.conditionDamaged
+                      condition === 'sellable' ? styles.conditionSellable : styles.conditionUnsellable
                     ]}
                     onPress={() => handleToggleItemCondition(itemKey)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.conditionText}>
-                      {condition === 'sellable' ? '✓ Sellable' : '✗ Damaged'}
+                      {condition === 'sellable' ? '✓ Sellable' : '✗ Unsellable'}
                     </Text>
                     <Text style={styles.conditionHint}>Tap to change</Text>
                   </TouchableOpacity>
@@ -413,11 +418,11 @@ export default function StoreReturnDetailsScreen() {
                   <View
                     style={[
                       styles.conditionBadgeReadonly,
-                      item.condition === 'sellable' ? styles.conditionSellable : styles.conditionDamaged
+                      item.condition === 'sellable' ? styles.conditionSellable : styles.conditionUnsellable
                     ]}
                   >
                     <Text style={styles.conditionText}>
-                      {item.condition === 'sellable' ? '✓ Sellable' : '✗ Damaged'}
+                      {item.condition === 'sellable' ? '✓ Sellable' : '✗ Unsellable'}
                     </Text>
                   </View>
                 )}
@@ -700,7 +705,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.primary,
   },
-  conditionDamaged: {
+  conditionUnsellable: {
     backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#E92B45',
