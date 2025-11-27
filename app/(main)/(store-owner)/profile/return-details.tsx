@@ -37,6 +37,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
+import { ref, get } from 'firebase/database';
+import { database } from '../../../../FirebaseConfig';
 import { useUser } from '../../../../src/contexts/UserContext';
 import type { Return } from '../../../../src/models/Return';
 import { getReturnById } from '../../../../src/api/returns/customerReturns';
@@ -52,6 +54,11 @@ import { s, vs, ms } from "../../../../src/constants/responsive";
 
 type ItemCondition = 'sellable' | 'unsellable';
 
+interface StockInfo {
+  available: number;
+  sufficient: boolean;
+}
+
 export default function StoreReturnDetailsScreen() {
   const params = useLocalSearchParams();
   const returnId = params.returnId as string;
@@ -60,6 +67,7 @@ export default function StoreReturnDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [itemConditions, setItemConditions] = useState<Record<string, ItemCondition>>({});
+  const [stockInfo, setStockInfo] = useState<Record<string, StockInfo>>({});
 
   // Fetch return details from Firebase
   useEffect(() => {
@@ -89,6 +97,33 @@ export default function StoreReturnDetailsScreen() {
             }
           });
           setItemConditions(initialConditions);
+
+          // For Replace Product refunds, fetch stock availability
+          if (data.refundMethod === 'replace_product') {
+            const stockInfoMap: Record<string, StockInfo> = {};
+            
+            for (const item of data.items) {
+              try {
+                const productRef = ref(database, `products/${item.productId}`);
+                const productSnapshot = await get(productRef);
+                
+                if (productSnapshot.exists()) {
+                  const product = productSnapshot.val();
+                  const availableStock = product.quantity || 0;
+                  const quantityNeeded = item.quantityReturned || item.quantity;
+                  
+                  stockInfoMap[item.productId] = {
+                    available: availableStock,
+                    sufficient: availableStock >= quantityNeeded
+                  };
+                }
+              } catch (error) {
+                console.error(`Error fetching stock for ${item.productId}:`, error);
+              }
+            }
+            
+            setStockInfo(stockInfoMap);
+          }
         } else {
           Alert.alert("Error", "Return request not found");
           router.back();
@@ -119,52 +154,120 @@ export default function StoreReturnDetailsScreen() {
   const handleApproveReturn = async () => {
     if (!returnData || !user) return;
 
-    // Count sellable and unsellable items
-    const sellableCount = Object.values(itemConditions).filter(c => c === 'sellable').length;
-    const unsellableCount = Object.values(itemConditions).filter(c => c === 'unsellable').length;
+    // For Replace Product refunds, check stock availability
+    if (returnData.refundMethod === 'replace_product') {
+      const insufficientStockItems: string[] = [];
+      
+      for (const item of returnData.items) {
+        const stock = stockInfo[item.productId];
+        if (stock && !stock.sufficient) {
+          insufficientStockItems.push(`${item.productName} (Available: ${stock.available}, Needed: ${item.quantityReturned || item.quantity})`);
+        }
+      }
 
-    const message = `Confirm approval of return request ${returnData.returnNumber}?\n\n` +
-      `• Sellable items: ${sellableCount} (will be restored to inventory)\n` +
-      `• Unsellable items: ${unsellableCount} (will be discarded, not restocked)\n\n` +
-      `Total refund: ₱${formatCurrency(returnData.totalRefund)}`;
+      if (insufficientStockItems.length > 0) {
+        Alert.alert(
+          "Insufficient Stock",
+          `Cannot approve replacement. The following products don't have enough stock:\n\n${insufficientStockItems.join('\n')}`
+        );
+        return;
+      }
 
-    Alert.alert(
-      "Approve Return Request",
-      message,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Approve",
-          style: "default",
-          onPress: async () => {
-            setProcessing(true);
-            try {
-              // Update items with their conditions
-              const updatedItems = returnData.items.map((item, index) => ({
-                ...item,
-                condition: itemConditions[`${item.productId}_${index}`] || 'unsellable'
-              }));
+      // Confirmation message for Replace Product
+      const message = `Confirm approval of return request ${returnData.returnNumber}?\n\n` +
+        `Refund Method: Replace Product\n` +
+        `Items: ${returnData.items.length}\n\n` +
+        `⚠️ New products will be given to customer\n` +
+        `⚠️ Old products will be discarded\n` +
+        `⚠️ Stock will decrease by ${returnData.items.reduce((sum, i) => sum + (i.quantityReturned || i.quantity), 0)} unit(s)`;
 
-              const result = await processReturnRequest(returnId, user.id, updatedItems);
-              if (result.success) {
-                Alert.alert(
-                  "Success",
-                  `Return approved!\n\n${sellableCount} sellable item(s) restored to inventory.\n${unsellableCount} unsellable item(s) discarded.`,
-                  [{ text: "OK", onPress: () => router.back() }]
-                );
-              } else {
-                Alert.alert("Error", result.error || "Failed to process return request");
+      Alert.alert(
+        "Approve Return Request",
+        message,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Approve",
+            style: "default",
+            onPress: async () => {
+              setProcessing(true);
+              try {
+                // For replace product, condition doesn't matter
+                const updatedItems = returnData.items.map((item, index) => ({
+                  ...item,
+                  condition: 'unsellable' // Always unsellable for replace product
+                }));
+
+                const result = await processReturnRequest(returnId, user.id, updatedItems);
+                if (result.success) {
+                  Alert.alert(
+                    "Success",
+                    `Return approved! New products given to customer. Stock has been updated.`,
+                    [{ text: "OK", onPress: () => router.back() }]
+                  );
+                } else {
+                  Alert.alert("Error", result.error || "Failed to process return request");
+                }
+              } catch (error) {
+                console.error("Error approving return:", error);
+                Alert.alert("Error", "Failed to approve return request");
+              } finally {
+                setProcessing(false);
               }
-            } catch (error) {
-              console.error("Error approving return:", error);
-              Alert.alert("Error", "Failed to approve return request");
-            } finally {
-              setProcessing(false);
-            }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } else {
+      // Count sellable and unsellable items for Cash Refund and No Refund
+      const sellableCount = Object.values(itemConditions).filter(c => c === 'sellable').length;
+      const unsellableCount = Object.values(itemConditions).filter(c => c === 'unsellable').length;
+
+      const refundMethodLabel = returnData.refundMethod === 'cash' ? 'Cash Refund' : 'No Refund';
+      const message = `Confirm approval of return request ${returnData.returnNumber}?\n\n` +
+        `Refund Method: ${refundMethodLabel}\n` +
+        `• Sellable items: ${sellableCount} (will be restored to inventory)\n` +
+        `• Unsellable items: ${unsellableCount} (will be discarded)\n\n` +
+        `Total refund: ₱${formatCurrency(returnData.totalRefund)}`;
+
+      Alert.alert(
+        "Approve Return Request",
+        message,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Approve",
+            style: "default",
+            onPress: async () => {
+              setProcessing(true);
+              try {
+                // Update items with their conditions
+                const updatedItems = returnData.items.map((item, index) => ({
+                  ...item,
+                  condition: itemConditions[`${item.productId}_${index}`] || 'unsellable'
+                }));
+
+                const result = await processReturnRequest(returnId, user.id, updatedItems);
+                if (result.success) {
+                  Alert.alert(
+                    "Success",
+                    `Return approved!\n\n${sellableCount} sellable item(s) restored to inventory.\n${unsellableCount} unsellable item(s) discarded.`,
+                    [{ text: "OK", onPress: () => router.back() }]
+                  );
+                } else {
+                  Alert.alert("Error", result.error || "Failed to process return request");
+                }
+              } catch (error) {
+                console.error("Error approving return:", error);
+                Alert.alert("Error", "Failed to approve return request");
+              } finally {
+                setProcessing(false);
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleRejectReturn = async () => {
@@ -396,8 +499,29 @@ export default function StoreReturnDetailsScreen() {
                   Qty: {item.quantityReturned || item.quantity}
                 </Text>
 
-                {/* Condition Toggle (only for pending returns) */}
-                {isPending && (
+                {/* For Replace Product: Show special message instead of condition toggle */}
+                {isPending && returnData.refundMethod === 'replace_product' && (
+                  <View style={styles.replacementInfoBox}>
+                    <Text style={styles.replacementInfoText}>
+                      → Customer will receive NEW product
+                    </Text>
+                    <Text style={styles.replacementInfoText}>
+                      → Old product will be discarded
+                    </Text>
+                    {stockInfo[item.productId] && (
+                      <Text style={[
+                        styles.stockInfoText,
+                        !stockInfo[item.productId].sufficient && styles.stockInfoTextWarning
+                      ]}>
+                        Stock: {stockInfo[item.productId].available} available
+                        {!stockInfo[item.productId].sufficient && ' ⚠️ INSUFFICIENT'}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {/* Condition Toggle (only for pending Cash Refund and No Refund) */}
+                {isPending && returnData.refundMethod !== 'replace_product' && (
                   <TouchableOpacity
                     style={[
                       styles.conditionBadge,
@@ -414,7 +538,7 @@ export default function StoreReturnDetailsScreen() {
                 )}
 
                 {/* Show condition for non-pending returns */}
-                {!isPending && item.condition && (
+                {!isPending && item.condition && returnData.refundMethod !== 'replace_product' && (
                   <View
                     style={[
                       styles.conditionBadgeReadonly,
@@ -862,5 +986,33 @@ const styles = StyleSheet.create({
   // Bottom Padding
   bottomPadding: {
     height: vs(40),
+  },
+  // Replacement Info Box
+  replacementInfoBox: {
+    marginTop: vs(10),
+    paddingVertical: vs(10),
+    paddingHorizontal: s(12),
+    borderRadius: s(10),
+    backgroundColor: '#FFF8E1',
+    borderWidth: 1,
+    borderColor: '#FFA000',
+  },
+  replacementInfoText: {
+    fontSize: ms(11),
+    fontFamily: Fonts.primary,
+    fontWeight: '500',
+    color: '#1E1E1E',
+    marginBottom: vs(3),
+  },
+  stockInfoText: {
+    fontSize: ms(11),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginTop: vs(5),
+  },
+  stockInfoTextWarning: {
+    color: '#E92B45',
+    fontWeight: '700',
   },
 });

@@ -3,11 +3,11 @@
  *
  * Features:
  * - Real-time inventory statistics and insights
- * - Inventory List Table: Product Name, Total, Stock, Sold, Damage, Return, Debt
- *   - Total: Sum of all states (Stock + Sold + Damage + Returns)
+ * - Inventory List Table: Product Name, Total, Stock, Unavail, Damage, Return, Debt
+ *   - Total: Sum of all states (Stock + Unavail + Damage + Returns)
  *   - Stock: Currently available in inventory
- *   - Sold: Units sold/ordered by customers (from completed/picked_up orders)
- *   - Damage: Units damaged/spoiled
+ *   - Unavail: Units unavailable (sellable returned items + customer orders)
+ *   - Damage: Units damaged (unsellable returned items + manual damages)
  *   - Return: Units in customer returns (pending resolution)
  *   - Debt: Units sold on debt/credit payment
  * - Return List Table: Product Name, Total Available, Damage, Action Button
@@ -93,7 +93,7 @@ interface ProductInventory {
   productImageUrl?: string;
   total: number; // Total quantity across all states
   available: number; // In stock and sellable
-  unavail: number; // Units unavailable (ordered by customers - pending, preparing, completed, picked_up)
+  unavail: number; // Units unavailable (defective/returned items + ordered by customers)
   damage: number; // Damaged/spoiled quantity
   returns: number; // In customer returns (pending resolution)
   debt: number; // In debt transactions
@@ -188,6 +188,8 @@ export default function InventoryDashboardScreen() {
       Object.keys(products).forEach(productId => {
         const product = products[productId];
         const currentQuantity = product.quantity || 0;
+        const quantityUnavailable = product.quantityUnavailable || 0; // Defective/returned items
+        const quantityDamaged = product.quantityDamaged || 0; // Damaged items from returns
         productInventoryMap[productId] = {
           productId,
           productName: product.productName || 'Unknown Product',
@@ -195,8 +197,8 @@ export default function InventoryDashboardScreen() {
           productImageUrl: product.productImageUrl,
           total: currentQuantity,
           available: currentQuantity,
-          unavail: 0, // Will be calculated from orders
-          damage: 0,
+          unavail: quantityUnavailable, // Start with defective/returned items, will add orders
+          damage: quantityDamaged, // Start with damaged items from returns, will add manual damages
           returns: 0,
           debt: 0,
           price: product.price || 0,

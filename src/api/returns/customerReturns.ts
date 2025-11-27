@@ -102,6 +102,54 @@ export const submitCustomerReturnRequest = async (
 
     await set(newReturnRef, { ...returnRecord, id: returnId });
 
+    // Update the order to mark items as pending return
+    try {
+      const ordersRef = ref(database, 'orders');
+      const ordersSnapshot = await get(ordersRef);
+      
+      if (ordersSnapshot.exists()) {
+        let orderToUpdate: { id: string; data: any } | null = null;
+        
+        ordersSnapshot.forEach((childSnapshot) => {
+          const orderData = childSnapshot.val();
+          if (orderData.orderNumber === request.orderNumber) {
+            orderToUpdate = { id: childSnapshot.key!, data: orderData };
+          }
+        });
+
+        if (orderToUpdate) {
+          const orderRef = ref(database, `orders/${orderToUpdate.id}`);
+          const orderData = orderToUpdate.data;
+          
+          // Mark returned items as pending
+          const updatedItems = orderData.items.map((orderItem: any) => {
+            const returnItem = request.items.find(ri => ri.productId === orderItem.productId);
+            
+            if (returnItem) {
+              return {
+                ...orderItem,
+                returnStatus: 'pending',
+                returnRequestId: returnId,
+                returnRequestedAt: new Date().toISOString(),
+              };
+            }
+            
+            return orderItem;
+          });
+
+          await update(orderRef, {
+            items: updatedItems,
+            hasReturns: true,
+          });
+
+          console.log(`Order ${request.orderNumber} updated with pending return`);
+        }
+      }
+    } catch (orderUpdateError) {
+      console.error('Error updating order with pending return:', orderUpdateError);
+      // Don't fail the return submission if order update fails
+    }
+
     return { success: true, returnId, returnNumber };
   } catch (error) {
     console.error('Error submitting customer return request:', error);

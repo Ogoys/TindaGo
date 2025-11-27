@@ -54,41 +54,63 @@ export default function DebtSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [storeId, setStoreId] = useState<string | null>(null);
+  const [storeNotFound, setStoreNotFound] = useState(false);
 
   // Fetch current settings from Firebase
   useEffect(() => {
     const fetchSettings = async () => {
       if (!user?.id) {
+        console.log('[DebtSettings] No user ID found');
         setLoading(false);
         return;
       }
 
       try {
+        console.log('[DebtSettings] Fetching store for user:', user.id);
+        
         // First get store ID
         const storesRef = ref(database, 'stores');
         const storesSnapshot = await get(storesRef);
 
         if (storesSnapshot.exists()) {
           const stores = storesSnapshot.val();
+          console.log('[DebtSettings] Total stores found:', Object.keys(stores).length);
+          
+          // Try multiple possible owner field names
           const userStore = Object.entries(stores).find(
-            ([_, store]: [string, any]) => store.ownerId === user.id
+            ([_, store]: [string, any]) => {
+              // Check multiple possible field names for owner ID
+              return store.storeOwnerId === user.id || 
+                     store.ownerId === user.id ||
+                     store.userId === user.id;
+            }
           );
 
           if (userStore) {
             const [id, storeData] = userStore as [string, any];
+            console.log('[DebtSettings] Store found:', id, storeData.storeName);
             setStoreId(id);
 
             if (storeData.debtSettings) {
+              console.log('[DebtSettings] Loading existing settings:', storeData.debtSettings);
               setSettings({
                 ...DEFAULT_SETTINGS,
                 ...storeData.debtSettings,
               });
+            } else {
+              console.log('[DebtSettings] No existing settings, using defaults');
             }
+          } else {
+            console.log('[DebtSettings] Store not found for user:', user.id);
+            setStoreNotFound(true);
           }
+        } else {
+          console.log('[DebtSettings] No stores in database');
+          Alert.alert('Error', 'No stores found in database');
         }
       } catch (error) {
-        console.error('Error fetching debt settings:', error);
-        Alert.alert('Error', 'Failed to load debt settings');
+        console.error('[DebtSettings] Error fetching debt settings:', error);
+        Alert.alert('Error', 'Failed to load debt settings. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -100,24 +122,58 @@ export default function DebtSettingsScreen() {
   // Save settings to Firebase
   const handleSave = async () => {
     if (!storeId) {
-      Alert.alert('Error', 'Store not found');
+      console.log('[DebtSettings] Save failed: No store ID');
+      Alert.alert(
+        'Error',
+        'Store not found. Please go back and try again.',
+        [{ text: 'OK' }]
+      );
       return;
     }
+
+    // Validation
+    if (settings.debtLimit < 0) {
+      Alert.alert('Invalid Input', 'Debt limit cannot be negative');
+      return;
+    }
+
+    if (settings.maxDaysUntilDue < 1) {
+      Alert.alert('Invalid Input', 'Maximum due date must be at least 1 day');
+      return;
+    }
+
+    console.log('[DebtSettings] Saving settings for store:', storeId);
+    console.log('[DebtSettings] Settings:', settings);
 
     setSaving(true);
     try {
       const storeRef = ref(database, `stores/${storeId}`);
+      
+      // Verify store exists before updating
+      const storeSnapshot = await get(storeRef);
+      if (!storeSnapshot.exists()) {
+        console.log('[DebtSettings] Store not found in database:', storeId);
+        Alert.alert('Error', 'Store not found in database. Please contact support.');
+        setSaving(false);
+        return;
+      }
+
       await update(storeRef, {
         debtSettings: settings,
         updatedAt: new Date().toISOString(),
       });
 
+      console.log('[DebtSettings] Settings saved successfully');
       Alert.alert('Success', 'Debt settings saved successfully', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch (error) {
-      console.error('Error saving debt settings:', error);
-      Alert.alert('Error', 'Failed to save debt settings');
+    } catch (error: any) {
+      console.error('[DebtSettings] Error saving debt settings:', error);
+      Alert.alert(
+        'Error',
+        `Failed to save debt settings: ${error.message || 'Unknown error'}`,
+        [{ text: 'OK' }]
+      );
     } finally {
       setSaving(false);
     }
@@ -137,6 +193,43 @@ export default function DebtSettingsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Loading settings...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // No Store Found State
+  if (storeNotFound) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F4F6F6" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Image
+              source={require('../../../../src/assets/images/store-owner-supplier-details/chevron-left.png')}
+              style={styles.backIcon}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          <Text style={styles.title}>Debt Settings</Text>
+        </View>
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyStateIcon}>🏪</Text>
+          <Text style={styles.emptyStateTitle}>Store Not Found</Text>
+          <Text style={styles.emptyStateText}>
+            Could not find your store. Please make sure you have completed store registration.
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyStateButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.emptyStateButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -610,5 +703,45 @@ const styles = StyleSheet.create({
 
   bottomPadding: {
     height: vs(40),
+  },
+
+  // Empty State
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: s(40),
+  },
+  emptyStateIcon: {
+    fontSize: ms(80),
+    marginBottom: vs(20),
+  },
+  emptyStateTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(24),
+    color: Colors.darkGray,
+    marginBottom: vs(12),
+    textAlign: 'center',
+  },
+  emptyStateText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(15),
+    color: 'rgba(30, 30, 30, 0.6)',
+    textAlign: 'center',
+    lineHeight: ms(15) * 1.5,
+    marginBottom: vs(30),
+  },
+  emptyStateButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: s(40),
+    paddingVertical: vs(14),
+    borderRadius: s(20),
+  },
+  emptyStateButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: '#FFFFFF',
   },
 });

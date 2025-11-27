@@ -39,6 +39,11 @@ export interface Order {
   feedbackGiven?: boolean;    // Flag to prevent OrderProcessCompleteModal from showing again
   reviewId?: string;          // Firebase review document ID
   reviewedAt?: string;        // ISO string - when review was submitted
+
+  // Return tracking (optional)
+  hasReturns?: boolean;
+  allItemsReturned?: boolean;
+  returnRequestIds?: string[];
 }
 
 export interface OrderItem {
@@ -51,6 +56,13 @@ export interface OrderItem {
   unit?: string;
   subtotal: number;
   notes?: string;
+
+  // Return tracking (optional)
+  returnStatus?: 'none' | 'pending' | 'approved' | 'rejected';
+  quantityReturned?: number; // cumulative approved returned qty for this item
+  returnRequestId?: string;  // latest return request id involving this item
+  returnRequestedAt?: string;
+  returnProcessedAt?: string;
 }
 
 export type OrderStatus =

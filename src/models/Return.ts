@@ -109,17 +109,17 @@ export const REFUND_METHODS: { value: RefundMethod; label: string; description: 
   {
     value: 'cash',
     label: 'Cash Refund',
-    description: 'Give cash back to customer'
+    description: 'Get your money back'
   },
   {
     value: 'replace_product',
     label: 'Replace Product',
-    description: 'Exchange with new product from stock'
+    description: 'Exchange for a new item'
   },
   {
     value: 'no_refund',
     label: 'No Refund (Goodwill)',
-    description: 'Accept return without refund'
+    description: 'Return without refund'
   },
 ];
 

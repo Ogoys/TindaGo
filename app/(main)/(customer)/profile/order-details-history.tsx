@@ -26,7 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { ref, get } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
-import type { Order } from '../../../../src/models/Order';
+import type { Order, OrderItem } from '../../../../src/models/Order';
 import { s, vs, ms } from "../../../../src/constants/responsive";
 import { Colors } from "../../../../src/constants/Colors";
 import { Fonts } from "../../../../src/constants/Fonts";
@@ -333,6 +333,11 @@ export default function OrderDetailsHistoryScreen() {
                   productImage: item.productImage
                 }, 'small');
 
+                // Calculate remaining quantity (original - returned)
+                const quantityReturned = item.quantityReturned || 0;
+                const hasReturns = quantityReturned > 0;
+                const hasPendingReturn = item.returnStatus === 'pending';
+
                 return (
                   <View key={item.productId || index} style={styles.modernItemRow}>
                     {/* Item Info Section */}
@@ -344,6 +349,17 @@ export default function OrderDetailsHistoryScreen() {
                           style={styles.productImage}
                           resizeMode="cover"
                         />
+                        {/* Return Status Indicator Badge */}
+                        {(hasReturns || hasPendingReturn) && (
+                          <View style={[
+                            styles.returnStatusBadge,
+                            hasPendingReturn ? styles.returnStatusPending : styles.returnStatusReturned
+                          ]}>
+                            <Text style={styles.returnStatusText}>
+                              {hasPendingReturn ? '⏱' : '↩'}
+                            </Text>
+                          </View>
+                        )}
                       </View>
 
                       {/* Product Details */}
@@ -359,6 +375,17 @@ export default function OrderDetailsHistoryScreen() {
                         <Text style={styles.itemPrice}>
                           ₱{formatCurrency(item.price)} each
                         </Text>
+                        {/* Return Status Text */}
+                        {hasReturns && (
+                          <Text style={styles.returnedLabel}>
+                            Returned: {quantityReturned} of {item.quantity}
+                          </Text>
+                        )}
+                        {hasPendingReturn && !hasReturns && (
+                          <Text style={styles.pendingReturnLabel}>
+                            Return Pending
+                          </Text>
+                        )}
                       </View>
                     </View>
 
@@ -485,13 +512,23 @@ export default function OrderDetailsHistoryScreen() {
         </View>
 
         {/* REQUEST RETURN BUTTON */}
-        <TouchableOpacity
-          style={styles.returnButton}
-          activeOpacity={0.7}
-          onPress={() => router.push(`/(main)/(customer)/profile/return-request?orderId=${orderId}`)}
-        >
-          <Text style={styles.returnButtonText}>Request Return</Text>
-        </TouchableOpacity>
+        {/* Only show if there are items that haven't been fully returned */}
+        {safeOrder.items.some(item => (item.quantityReturned || 0) < item.quantity) && (
+          <TouchableOpacity
+            style={styles.returnButton}
+            activeOpacity={0.7}
+            onPress={() => router.push(`/(main)/(customer)/profile/return-request?orderId=${orderId}`)}
+          >
+            <Text style={styles.returnButtonText}>Request Return</Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* All items returned message */}
+        {safeOrder.allItemsReturned && (
+          <View style={styles.allReturnedCard}>
+            <Text style={styles.allReturnedText}>✓ All items from this order have been returned</Text>
+          </View>
+        )}
 
         {/* REORDER BUTTON - Figma: 903:5855, x:20, y:839, width:400, height:50 */}
         <TouchableOpacity
@@ -1039,6 +1076,71 @@ const styles = StyleSheet.create({
     lineHeight: ms(20) * 1.1,
     textAlign: "center",
     color: "#FFFFFF", // Figma: fill_4RZIIB
+  },
+
+  // Return Status Badge on Product Image
+  returnStatusBadge: {
+    position: 'absolute',
+    top: -s(4),
+    right: -s(4),
+    width: s(20),
+    height: s(20),
+    borderRadius: s(10),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+
+  returnStatusReturned: {
+    backgroundColor: Colors.primary,
+  },
+
+  returnStatusPending: {
+    backgroundColor: '#FFA500',
+  },
+
+  returnStatusText: {
+    fontSize: ms(10),
+    color: '#FFFFFF',
+  },
+
+  // Return Status Labels
+  returnedLabel: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(11),
+    color: Colors.primary,
+    marginTop: vs(2),
+  },
+
+  pendingReturnLabel: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(11),
+    color: '#FFA500',
+    marginTop: vs(2),
+  },
+
+  // All Items Returned Card
+  allReturnedCard: {
+    position: 'absolute',
+    left: s(20),
+    top: vs(998),
+    width: s(400),
+    backgroundColor: '#E8F5E9',
+    borderRadius: s(15),
+    padding: s(15),
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+
+  allReturnedText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: Colors.primary,
+    textAlign: 'center',
   },
 
   // Bottom Padding

@@ -18,6 +18,8 @@ export interface Product {
   images?: string[];          // Multiple product images
   stock: number;              // Customer-facing field
   quantity?: number;          // Store owner field (same as stock, kept for compatibility)
+  quantityUnavailable?: number; // Defective/returned items that can't be sold
+  quantityDamaged?: number;   // Damaged/unsellable items from returns
   weight?: string;            // "500g", "1kg", etc.
   unit?: string;              // "kg", "g", "pcs", "pack"
   rating?: number;            // 0-5 stars

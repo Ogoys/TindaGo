@@ -88,6 +88,27 @@ export default function ReturnRequestScreen() {
 
         if (snapshot.exists()) {
           const orderData = { ...snapshot.val(), id: orderId };
+          
+          // Check if all items are fully returned
+          const allItemsFullyReturned = orderData.items.every((item: any) => {
+            const quantityReturned = item.quantityReturned || 0;
+            return quantityReturned >= item.quantity;
+          });
+
+          if (allItemsFullyReturned) {
+            Alert.alert(
+              "Cannot Request Return",
+              "All items from this order have already been returned.",
+              [
+                {
+                  text: "OK",
+                  onPress: () => router.back()
+                }
+              ]
+            );
+            return;
+          }
+
           setOrder(orderData);
         } else {
           Alert.alert("Error", "Order not found");
@@ -234,10 +255,17 @@ export default function ReturnRequestScreen() {
 
     // Check all selected items have valid quantity and reason
     for (const [productId, item] of selectedItems.entries()) {
-      if (item.quantityToReturn < 1 || item.quantityToReturn > item.quantity) {
+      // Get the order item to check available quantity
+      const orderItem = order.items.find(i => i.productId === productId);
+      if (!orderItem) continue;
+      
+      const quantityReturned = orderItem.quantityReturned || 0;
+      const availableForReturn = orderItem.quantity - quantityReturned;
+      
+      if (item.quantityToReturn < 1 || item.quantityToReturn > availableForReturn) {
         Alert.alert(
           "Error",
-          `Invalid quantity for ${item.productName}. Please select between 1 and ${item.quantity}.`
+          `Invalid quantity for ${item.productName}. You can only return up to ${availableForReturn} items (${quantityReturned} already returned).`
         );
         return;
       }
@@ -431,6 +459,14 @@ export default function ReturnRequestScreen() {
         {/* Products List */}
         <View style={styles.productsContainer}>
           {order.items.map((item, index) => {
+            // Calculate available quantity for return (original - already returned)
+            const quantityReturned = item.quantityReturned || 0;
+            const availableForReturn = item.quantity - quantityReturned;
+            const hasPendingReturn = item.returnStatus === 'pending';
+            
+            // Skip items that are fully returned
+            if (availableForReturn <= 0) return null;
+
             const isSelected = selectedItems.has(item.productId);
             const selectedItem = selectedItems.get(item.productId);
             const imageSource = getProductImageSource({
@@ -473,6 +509,16 @@ export default function ReturnRequestScreen() {
                     <Text style={styles.productInfo}>
                       {item.weight} {item.unit} • Ordered: {item.quantity}
                     </Text>
+                    {quantityReturned > 0 && (
+                      <Text style={styles.returnedInfo}>
+                        Already returned: {quantityReturned}
+                      </Text>
+                    )}
+                    {hasPendingReturn && (
+                      <Text style={styles.pendingReturnInfo}>
+                        ⏱ Return pending approval
+                      </Text>
+                    )}
                     <Text style={styles.productPrice}>
                       ₱{formatCurrency(item.price)} each
                     </Text>
@@ -487,9 +533,12 @@ export default function ReturnRequestScreen() {
                       label="Quantity to Return"
                       value={selectedItem.quantityToReturn}
                       min={1}
-                      max={item.quantity}
+                      max={availableForReturn}
                       onChange={(value) => updateQuantityToReturn(item.productId, value)}
                     />
+                    <Text style={styles.availableQuantityHint}>
+                      Available for return: {availableForReturn} of {item.quantity}
+                    </Text>
 
                     {/* Return Reason - Textbox with Dropdown Button on Side */}
                     <View style={styles.mergedReasonContainer}>
@@ -890,6 +939,32 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: ms(14),
     color: Colors.primary,
+  },
+
+  // Return Info Styles
+  returnedInfo: {
+    fontFamily: Fonts.primary,
+    fontWeight: "600",
+    fontSize: ms(12),
+    color: Colors.primary,
+    marginBottom: vs(2),
+  },
+
+  pendingReturnInfo: {
+    fontFamily: Fonts.primary,
+    fontWeight: "600",
+    fontSize: ms(12),
+    color: '#FFA500',
+    marginBottom: vs(2),
+  },
+
+  availableQuantityHint: {
+    fontFamily: Fonts.primary,
+    fontWeight: "400",
+    fontSize: ms(12),
+    color: "rgba(30, 30, 30, 0.6)",
+    marginTop: vs(5),
+    fontStyle: 'italic',
   },
 
   // Return Details Container
