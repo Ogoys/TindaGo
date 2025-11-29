@@ -84,6 +84,17 @@ const PaymentScreen = () => {
   });
   const [showDebtDatePicker, setShowDebtDatePicker] = useState(false);
 
+  // Store debt settings and per-customer toggle
+  const [storeDebtSettings, setStoreDebtSettings] = useState<{
+    allowDebt: boolean;
+    debtLimit: number;
+    requirePreviousDebtPayment: boolean;
+    maxDaysUntilDue: number;
+    reminderDaysBefore: number;
+  } | null>(null);
+  const [isDebtDisabledForCustomer, setIsDebtDisabledForCustomer] = useState(false);
+  const [debtDisabledReason, setDebtDisabledReason] = useState<string | undefined>(undefined);
+
   // Load order summary from cart or params
   useEffect(() => {
     loadOrderSummary();
@@ -168,6 +179,55 @@ const PaymentScreen = () => {
           discount,
           grandTotal: subtotal - discount, // No tax added (sari-sari stores include tax in prices)
         });
+
+        // Fetch store debt settings and per-customer toggle for the first item's store
+        if (items.length > 0) {
+          const firstItem = items[0] as any;
+          const sid = firstItem.storeId || 'unknown';
+          try {
+            const storeRef = ref(database, `stores/${sid}`);
+            const storeSnap = await get(storeRef);
+            if (storeSnap.exists()) {
+              const storeData = storeSnap.val();
+              const ds = storeData.debtSettings || null;
+              if (ds) {
+                setStoreDebtSettings(ds);
+                // Clamp current default due date if beyond maxDaysUntilDue
+                if (ds.maxDaysUntilDue && ds.maxDaysUntilDue > 0) {
+                  const maxDue = new Date();
+                  maxDue.setDate(maxDue.getDate() + ds.maxDaysUntilDue);
+                  if (debtDueDate > maxDue) setDebtDueDate(maxDue);
+                }
+              } else {
+                setStoreDebtSettings(null);
+              }
+
+              // Evaluate if debt should be disabled and why
+              let disabled = false;
+              let reason: string | undefined = undefined;
+              if (ds && ds.allowDebt === false) {
+                disabled = true;
+                reason = 'Store doesn’t allow Pay Later';
+              }
+
+              // Per-customer debt toggle
+              const custRef = ref(database, `stores/${sid}/customerDebtSettings/${user.id}`);
+              const custSnap = await get(custRef);
+              if (custSnap.exists()) {
+                const custSetting = custSnap.val();
+                if (custSetting.debtEnabled === false) {
+                  disabled = true;
+                  reason = 'Disabled for your account';
+                }
+              }
+
+              setIsDebtDisabledForCustomer(disabled);
+              setDebtDisabledReason(reason);
+            }
+          } catch (err) {
+            // Keep defaults on error; do not block
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading order summary:', error);
@@ -314,6 +374,17 @@ const PaymentScreen = () => {
           setErrorMessage(debtRestriction.message);
           setShowErrorModal(true);
           return;
+        }
+        // Enforce maximum due date from store settings
+        if (storeDebtSettings?.maxDaysUntilDue && storeDebtSettings.maxDaysUntilDue > 0) {
+          const maxDue = new Date();
+          maxDue.setDate(maxDue.getDate() + storeDebtSettings.maxDaysUntilDue);
+          if (debtDueDate > maxDue) {
+            setProcessing(false);
+            setErrorMessage(`The selected due date exceeds this store’s limit of ${storeDebtSettings.maxDaysUntilDue} day(s). Please pick an earlier date.`);
+            setShowErrorModal(true);
+            return;
+          }
         }
       }
 
@@ -545,6 +616,29 @@ const PaymentScreen = () => {
         });
 
         if (orderId) {
+          // Optionally schedule a due-date reminder (server can process scheduledReminders)
+          try {
+            if (storeDebtSettings?.reminderDaysBefore && storeDebtSettings.reminderDaysBefore > 0) {
+              const reminderAt = new Date(debtDueDate);
+              reminderAt.setDate(reminderAt.getDate() - storeDebtSettings.reminderDaysBefore);
+              if (!isNaN(reminderAt.getTime()) && reminderAt > new Date()) {
+                await update(ref(database), {
+                  [`scheduledReminders/${orderId}`]: {
+                    userId: user.id,
+                    orderId,
+                    storeId,
+                    triggerAt: reminderAt.toISOString(),
+                    createdAt: new Date().toISOString(),
+                    type: 'debt_due_reminder',
+                    reminderDaysBefore: storeDebtSettings.reminderDaysBefore,
+                  },
+                });
+              }
+            }
+          } catch (e) {
+            // Non-blocking; continue
+          }
+
           // Deduct stock for Debt orders
           for (const item of cartItems) {
             const productId = item.productId;
@@ -774,10 +868,12 @@ const PaymentScreen = () => {
 
             {/* Payment Methods - Using reusable component */}
             <View style={styles.paymentMethodsContainer}>
-              <PaymentMethodSelector
+            <PaymentMethodSelector
                 selectedPayment={selectedPayment}
                 onPaymentSelect={handlePaymentMethodSelect}
                 disabled={processing}
+                debtDisabled={!!debtDisabledReason}
+                debtDisabledReason={debtDisabledReason}
               />
             </View>
 
@@ -875,7 +971,11 @@ const PaymentScreen = () => {
         initialDate={debtDueDate}
         title="Select Payment Due Date"
         minDate={new Date()} // Can't select past dates
-        maxDate={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)} // Max 90 days
+        maxDate={
+          storeDebtSettings?.maxDaysUntilDue && storeDebtSettings.maxDaysUntilDue > 0
+            ? new Date(Date.now() + storeDebtSettings.maxDaysUntilDue * 24 * 60 * 60 * 1000)
+            : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+        } // Max due date per store
       />
     </SafeAreaView>
   );

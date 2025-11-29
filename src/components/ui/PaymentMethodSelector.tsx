@@ -18,12 +18,16 @@ interface PaymentMethodSelectorProps {
   selectedPayment: PaymentMethod;
   onPaymentSelect: (method: PaymentMethod) => void;
   disabled?: boolean;
+  debtDisabled?: boolean;
+  debtDisabledReason?: string;
 }
 
 export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   selectedPayment,
   onPaymentSelect,
   disabled = false,
+  debtDisabled = false,
+  debtDisabledReason,
 }) => {
   return (
     <View style={styles.container}>
@@ -84,11 +88,12 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         style={[
           styles.paymentOption,
           styles.debtPaymentOption,
+          debtDisabled && styles.paymentOptionDisabled,
           selectedPayment === 'debt' && styles.paymentOptionSelected,
           selectedPayment === 'debt' && styles.debtPaymentOptionSelected,
         ]}
         onPress={() => onPaymentSelect('debt')}
-        disabled={disabled}
+        disabled={disabled || debtDisabled}
         activeOpacity={0.7}
       >
         <View style={styles.paymentOptionContent}>
@@ -97,7 +102,11 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           </View>
           <View>
             <Text style={styles.paymentMethodText}>Debt (Pay Later)</Text>
-            <Text style={styles.debtSubtext}>Set repayment date</Text>
+            {debtDisabled ? (
+              <Text style={styles.debtDisabledText}>{debtDisabledReason || 'Not available'}</Text>
+            ) : (
+              <Text style={styles.debtSubtext}>Set repayment date</Text>
+            )}
           </View>
         </View>
         <View style={[
@@ -140,6 +149,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 5,
+  },
+  paymentOptionDisabled: {
+    opacity: 0.6,
   },
 
   paymentOptionContent: {
@@ -222,6 +234,13 @@ const styles = StyleSheet.create({
     fontSize: ms(12),
     fontWeight: '400',
     color: '#FF8D2F', // Orange text
+    marginTop: vs(2),
+  },
+  debtDisabledText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    fontWeight: '400',
+    color: 'rgba(30, 30, 30, 0.5)',
     marginTop: vs(2),
   },
 });
