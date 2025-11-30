@@ -57,6 +57,16 @@ export default function LocationPicker({
   const [address, setAddress] = useState<string>('Loading address...');
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const [isLoadingGPS, setIsLoadingGPS] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+
+  // Mark map as ready after a small delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMapReady(true);
+      console.log('✅ LocationPicker map ready');
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Fetch address whenever center coordinates change
   useEffect(() => {
@@ -154,6 +164,12 @@ export default function LocationPicker({
         onRegionChangeComplete={handleRegionChangeComplete}
         showsUserLocation
         showsMyLocationButton={false}
+        loadingEnabled
+        loadingIndicatorColor="#0066FF"
+        onMapReady={() => {
+          setMapReady(true);
+          console.log('✅ LocationPicker map fully loaded');
+        }}
       />
 
       {/* Fixed Center Pin */}

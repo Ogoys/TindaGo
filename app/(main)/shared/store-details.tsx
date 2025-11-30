@@ -120,8 +120,23 @@ export default function StoreDetailsScreen() {
 
         // Fetch store products
         const storeProducts = await fetchProductsByStore(actualStoreId) as any[];
-        const availableProducts = storeProducts.filter(p => p.status === 'available');
+        // Filter for available products - ensure we match both status and stock
+        const availableProducts = storeProducts.filter(p => {
+          // Must have available status
+          if (p.status !== 'available') return false;
+          
+          // Must have stock (quantity > 0 OR stock > 0)
+          const hasStock = (p.quantity && p.quantity > 0) || (p.stock && p.stock > 0);
+          if (!hasStock) {
+            console.log(`⚠️ Product ${p.productName} has no stock (qty: ${p.quantity}, stock: ${p.stock})`);
+            return false;
+          }
+          
+          console.log(`✅ Product available: ${p.productName} (qty: ${p.quantity || p.stock})`);
+          return true;
+        });
         setProducts(availableProducts as Product[]);
+        console.log(`📦 ${availableProducts.length} products available for display out of ${storeProducts.length} total`);
 
         // Fetch store rating
         const rating = await getStoreRating(actualStoreId);
@@ -398,6 +413,7 @@ export default function StoreDetailsScreen() {
                   }}
                   title={store.storeName}
                   description={store.location.address || store.address}
+                  pinColor="#E92B45"
                 />
               </MapView>
               <TouchableOpacity 

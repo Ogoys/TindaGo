@@ -88,6 +88,7 @@ export default function ProductDetailsScreen() {
   const [store, setStore] = useState<Store | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [otherStores, setOtherStores] = useState<Store[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]); // For counting products per store
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -208,11 +209,37 @@ export default function ProductDetailsScreen() {
           }
         }
 
+        // Fetch all products for counting (same logic as home.tsx)
+        const productsRef = ref(database, 'products');
+        const productsSnapshot = await get(productsRef);
+        let allProductsList: Product[] = [];
+        if (productsSnapshot.exists()) {
+          const data = productsSnapshot.val();
+          allProductsList = Object.keys(data)
+            .map(key => ({
+              id: key,
+              ...data[key],
+            }))
+            .filter(p => {
+              // Same filtering as home.tsx
+              if (p.status !== 'available') return false;
+              const hasStock = (p.quantity && p.quantity > 0) || (p.stock && p.stock > 0);
+              if (!hasStock) return false;
+              return true;
+            });
+        }
+        setAllProducts(allProductsList);
+
         // Fetch other featured stores (limit to 4)
         const stores = await fetchFeaturedStores() as any[];
+        // Normalize storeId: use storeId if present, otherwise use storeOwnerId
+        const currentStoreId = productData.storeId || productData.storeOwnerId;
         const filteredStores = stores
-          .filter(s => s.id !== productData.storeId) // Exclude current store
+          .filter(s => s.id !== currentStoreId) // Exclude current store by matching either storeId or storeOwnerId
           .slice(0, 4);
+        
+        console.log(`🛍️ Current product from store: ${currentStoreId}`);
+        console.log(`🏪 Showing ${filteredStores.length} other stores (excluded current store)`);
 
         // Debug: Log store data to verify logo and coverImage are retrieved
         console.log('📦 Other Stores Retrieved:', filteredStores.length);
@@ -696,7 +723,7 @@ export default function ProductDetailsScreen() {
         {/* Other Store Section - Same design as customer home Featured Stores */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Other Store</Text>
-          <TouchableOpacity onPress={() => router.push(`/(main)/(customer)/stores-list?excludeStoreId=${product.storeId}`)}>
+          <TouchableOpacity onPress={() => router.push(`/(main)/(customer)/stores-list?excludeStoreId=${product.storeId || product.storeOwnerId}`)}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
@@ -755,8 +782,15 @@ export default function ProductDetailsScreen() {
                     source={require('../../../src/assets/images/customer-home/stores/star-icon.png')}
                     style={styles.storeStarIcon}
                   />
-                  <Text style={styles.storeRatingText}>5.0</Text>
-                  <Text style={styles.storeDistance}>• 1.3 km</Text>
+                  <Text style={styles.storeRatingText}>
+                    {(otherStore as any).rating ? (otherStore as any).rating.toFixed(1) : '0.0'}
+                  </Text>
+                  <Text style={styles.storeDistance}>
+                    ({(otherStore as any).totalReviews || 0} {(otherStore as any).totalReviews === 1 ? 'review' : 'reviews'})
+                  </Text>
+                  <Text style={styles.storeDistance}>
+                    • {allProducts.filter(p => p.storeId === otherStore.id || p.storeOwnerId === otherStore.id).length} products
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}

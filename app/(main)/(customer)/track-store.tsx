@@ -434,23 +434,16 @@ export default function TrackStoreScreen() {
               <Marker
                 coordinate={customerLocation}
                 title="Your Location"
-                pinColor="blue"
-              >
-                <View style={styles.customerMarker}>
-                  <Ionicons name="person" size={20} color="#FFFFFF" />
-                </View>
-              </Marker>
+                pinColor="#0066FF"
+              />
 
               {/* Store Marker */}
               <Marker
                 coordinate={storeLocation}
                 title={order?.storeName || 'Store'}
-                pinColor="red"
-              >
-                <View style={styles.storeMarker}>
-                  <Ionicons name="storefront" size={20} color="#FFFFFF" />
-                </View>
-              </Marker>
+                description="Store Location"
+                pinColor="#E92B45"
+              />
 
               {/* Route Polyline */}
               {showRoute && routeCoordinates.length > 0 && (

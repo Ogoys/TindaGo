@@ -20,37 +20,10 @@ export default function ViewStoreLocationScreen() {
     address: string;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mapKey, setMapKey] = useState(0);
 
   // Load store location from Firebase
   useEffect(() => {
-    const loadLocation = async () => {
-      try {
-        if (!auth.currentUser) return;
-
-        const userId = auth.currentUser.uid;
-        const storeRef = ref(database, `stores/${userId}/location`);
-        const snapshot = await get(storeRef);
-
-        if (snapshot.exists()) {
-          const locationData = snapshot.val();
-          if (locationData.coordinates) {
-            setLocation({
-              latitude: locationData.coordinates.latitude,
-              longitude: locationData.coordinates.longitude,
-              address: locationData.address || 'Store Location',
-            });
-            console.log('📍 Loaded store location for viewing');
-          }
-        } else {
-          console.log('⚠️ No location set for this store');
-        }
-      } catch (error) {
-        console.error('Error loading location:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadLocation();
   }, []);
 
@@ -60,6 +33,41 @@ export default function ViewStoreLocationScreen() {
 
   const handleEdit = () => {
     router.push('/(main)/(store-owner)/profile/edit-store-location');
+  };
+
+  const handleRefresh = () => {
+    console.log('🔄 Refreshing map...');
+    setMapKey((prev) => prev + 1);
+    setIsLoading(true);
+    loadLocation();
+  };
+
+  const loadLocation = async () => {
+    try {
+      if (!auth.currentUser) return;
+
+      const userId = auth.currentUser.uid;
+      const storeRef = ref(database, `stores/${userId}/location`);
+      const snapshot = await get(storeRef);
+
+      if (snapshot.exists()) {
+        const locationData = snapshot.val();
+        if (locationData.coordinates) {
+          setLocation({
+            latitude: locationData.coordinates.latitude,
+            longitude: locationData.coordinates.longitude,
+            address: locationData.address || 'Store Location',
+          });
+          console.log('📍 Loaded store location for viewing');
+        }
+      } else {
+        console.log('⚠️ No location set for this store');
+      }
+    } catch (error) {
+      console.error('Error loading location:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -80,7 +88,9 @@ export default function ViewStoreLocationScreen() {
             <Ionicons name="arrow-back" size={24} color="#1E1E1E" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Store Location</Text>
-          <View style={styles.backButton} />
+          <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
+            <Ionicons name="refresh" size={20} color="#3BB77E" />
+          </TouchableOpacity>
         </View>
 
         {/* No Location Set */}
@@ -102,19 +112,25 @@ export default function ViewStoreLocationScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Ionicons name="arrow-back" size={24} color="#1E1E1E" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Store Location</Text>
-        <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
-          <Ionicons name="pencil" size={20} color="#3BB77E" />
-        </TouchableOpacity>
-      </View>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Ionicons name="arrow-back" size={24} color="#1E1E1E" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Store Location</Text>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
+              <Ionicons name="refresh" size={20} color="#3BB77E" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
+              <Ionicons name="pencil" size={20} color="#3BB77E" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
       {/* Map (Read-Only) */}
       <View style={styles.mapContainer}>
         <MapView
+          key={mapKey}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           initialRegion={{
@@ -127,6 +143,8 @@ export default function ViewStoreLocationScreen() {
           zoomEnabled={true}
           rotateEnabled={false}
           pitchEnabled={false}
+          loadingEnabled
+          loadingIndicatorColor="#3BB77E"
         >
           {/* Store Marker */}
           <Marker
@@ -136,11 +154,8 @@ export default function ViewStoreLocationScreen() {
             }}
             title="Your Store"
             description={location.address}
-          >
-            <View style={styles.markerContainer}>
-              <Ionicons name="storefront" size={32} color="#3BB77E" />
-            </View>
-          </Marker>
+            pinColor="#3BB77E"
+          />
         </MapView>
       </View>
 
@@ -188,6 +203,16 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E5E5',
   },
   backButton: {
+    width: s(40),
+    height: s(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: s(8),
+  },
+  refreshButton: {
     width: s(40),
     height: s(40),
     justifyContent: 'center',

@@ -26,6 +26,7 @@ export default function EditStoreLocationScreen() {
   const [existingLocation, setExistingLocation] = useState<{ latitude: number; longitude: number } | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [mapKey, setMapKey] = useState(0);
 
   // Load existing location from Firebase
   useEffect(() => {
@@ -125,6 +126,11 @@ export default function EditStoreLocationScreen() {
     }
   };
 
+  const handleRefresh = () => {
+    console.log('🔄 Refreshing map...');
+    setMapKey((prev) => prev + 1);
+  };
+
   const handleBack = () => {
     if (selectedLocation && existingLocation) {
       // Check if location changed
@@ -164,7 +170,9 @@ export default function EditStoreLocationScreen() {
           <Ionicons name="arrow-back" size={24} color="#1E1E1E" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Store Location</Text>
-        <View style={styles.backButton} />
+        <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
+          <Ionicons name="refresh" size={20} color="#3BB77E" />
+        </TouchableOpacity>
       </View>
 
       {/* Info Banner */}
@@ -180,6 +188,7 @@ export default function EditStoreLocationScreen() {
       {/* Location Picker */}
       <View style={styles.mapContainer}>
         <LocationPicker
+          key={mapKey}
           onLocationSelect={handleLocationSelect}
           initialLocation={existingLocation}
         />
@@ -238,6 +247,12 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E5E5',
   },
   backButton: {
+    width: s(40),
+    height: s(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshButton: {
     width: s(40),
     height: s(40),
     justifyContent: 'center',

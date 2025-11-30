@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ref, get, query, orderByChild, equalTo } from "firebase/database";
+import { ref, get, query, orderByChild, equalTo, onValue, off } from "firebase/database";
 import { database } from "../../../FirebaseConfig";
 import { s, vs, ms } from "../../../src/constants/responsive";
 import { BottomNavigation, Toast, ProductCard } from "../../../src/components/ui";
@@ -210,54 +210,67 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  // Fetch products and stores from Firebase (one-time load)
-  const loadData = React.useCallback(async (cancelled: { current: boolean }) => {
-    try {
-      console.log('🔥 Loading products and stores from Firebase...');
-
-      // 1) PRODUCTS (single read)
-      const productsSnap = await get(ref(database, 'products'));
-      if (!cancelled.current && productsSnap.exists()) {
-        const data = productsSnap.val();
+  // Real-time Firebase listeners for products and stores
+  // This ensures data updates when stores add products or get reviews
+  useEffect(() => {
+    console.log('🔥 Setting up real-time Firebase listeners...');
+    
+    // Products listener - updates when stores add/remove/update products
+    const productsRef = ref(database, 'products');
+    const productsUnsubscribe = onValue(productsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
         const productsList: Product[] = Object.keys(data)
           .map(key => ({
             id: key,
             ...data[key],
           }))
           .filter(product => {
-            // Only show available products from OPEN stores
-            if (product.status !== 'available') return false;
-            if (product.storeIsOpen === false) return false;
+            // Log every product for debugging
+            const productInfo = {
+              name: product.productName || product.id,
+              store: product.storeName || 'Unknown',
+              storeId: product.storeId || product.storeOwnerId,
+              status: product.status,
+              quantity: product.quantity,
+              stock: product.stock,
+            };
             
-            // IMPORTANT: Also check quantity to handle legacy data where status wasn't updated
-            if (product.quantity === 0) return false;
-
-            // Log products with missing data
-            if (!product.productName || !product.price || !product.storeName) {
-              console.warn(`⚠️ Product ${product.id} has incomplete data:`, {
-                productName: product.productName || 'MISSING',
-                price: product.price || 'MISSING',
-                storeName: product.storeName || 'MISSING',
-                productSize: product.productSize || 'MISSING',
-                unit: product.unit || 'MISSING',
-              });
+            // Must have status field - if not 'available', exclude
+            if (product.status !== 'available') {
+              console.log(`🚫 FILTERED OUT - Not available:`, productInfo);
+              return false;
+            }
+            
+            // Must have quantity > 0 OR stock > 0 (matching store-details logic)
+            const hasStock = (product.quantity && product.quantity > 0) || (product.stock && product.stock > 0);
+            if (!hasStock) {
+              console.log(`🚫 FILTERED OUT - No stock:`, productInfo);
               return false;
             }
 
+            console.log(`✅ INCLUDED:`, productInfo);
             return true;
           });
 
-        console.log(`✅ Fetched ${productsList.length} complete available products`);
+        console.log(`🔄 Products updated: ${productsList.length} available products`);
         setAllProducts(productsList);
-      } else if (!cancelled.current) {
+        setLoading(false);
+      } else {
         console.log('⚠️ No products found');
         setAllProducts([]);
+        setLoading(false);
       }
+    }, (error) => {
+      console.error('❌ Products listener error:', error);
+      setLoading(false);
+    });
 
-      // 2) STORES (single read)
-      const storesSnap = await get(ref(database, 'stores'));
-      if (!cancelled.current && storesSnap.exists()) {
-        const data = storesSnap.val();
+    // Stores listener - updates when stores update info, ratings, or reviews
+    const storesRef = ref(database, 'stores');
+    const storesUnsubscribe = onValue(storesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
         const storesList: Store[] = Object.keys(data)
           .map(key => {
             const storeData = data[key];
@@ -270,7 +283,7 @@ export default function HomeScreen() {
             const city = storeData.city || storeData.businessInfo?.city || '';
             const description = storeData.description || storeData.businessInfo?.description || '';
 
-            return {
+            const storeInfo = {
               id: key,
               storeName,
               ownerName,
@@ -284,6 +297,19 @@ export default function HomeScreen() {
               rating: storeData.rating || 0,
               totalReviews: storeData.totalReviews || 0,
             };
+            
+            // Debug log for each store
+            console.log(`🏪 Store loaded: ${storeName}`, {
+              id: key.substring(0, 8),
+              status: storeInfo.status,
+              isOpen: storeInfo.isOpen,
+              rating: storeInfo.rating,
+              totalReviews: storeInfo.totalReviews,
+              hasRating: !!storeData.rating,
+              hasReviews: !!storeData.totalReviews,
+            });
+            
+            return storeInfo;
           })
           .filter(store => {
             const isActiveStore = store.status === 'approved' || store.status === 'active';
@@ -298,43 +324,46 @@ export default function HomeScreen() {
             return isActiveStore && isOpenStore;
           });
 
-        console.log(`✅ Fetched ${storesList.length} open stores (filtered by isOpen status)`);
-
-        storesList.forEach(store => {
-          console.log(`📦 Store: ${store.storeName}`);
-          console.log(`   - Logo: ${store.logo ? '✓ Has logo' : '✗ No logo'}`);
-          console.log(`   - Cover: ${store.coverImage ? '✓ Has cover' : '✗ No cover'}`);
-          if (store.logo) {
-            console.log(`   - Logo URL (first 100 chars): ${store.logo.substring(0, 100)}...`);
-          }
-          if (store.coverImage) {
-            console.log(`   - Cover URL (first 100 chars): ${store.coverImage.substring(0, 100)}...`);
-          }
-        });
-
+        console.log(`🔄 Stores updated: ${storesList.length} open stores`);
         setAllStores(storesList);
-      } else if (!cancelled.current) {
+      } else {
         console.log('⚠️ No stores found');
         setAllStores([]);
       }
-    } catch (error) {
-      console.error('Error loading home data:', error);
+    }, (error) => {
+      console.error('❌ Stores listener error:', error);
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      console.log('🧹 Cleaning up Firebase listeners');
+      off(productsRef, 'value', productsUnsubscribe);
+      off(storesRef, 'value', storesUnsubscribe);
+    };
+  }, []); // Empty dependency array - set up once on mount
+
+  // Legacy load function kept for manual refresh compatibility
+  const loadData = React.useCallback(async (cancelled: { current: boolean }) => {
+    try {
+      console.log('🔥 Manual refresh triggered...');
+      setLoading(true);
+      
+      // The real-time listeners will update the data
+      // This just triggers a loading state for user feedback
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       if (!cancelled.current) {
-        setAllProducts([]);
-        setAllStores([]);
+        setLoading(false);
+        console.log('✅ Manual refresh complete');
       }
-    } finally {
+    } catch (error) {
+      console.error('Error during manual refresh:', error);
       if (!cancelled.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    const cancelled = { current: false };
-    loadData(cancelled);
-    return () => {
-      cancelled.current = true;
-    };
-  }, [loadData]);
+  // Remove the initial load effect since real-time listeners handle it
+  // useEffect with loadData is no longer needed
 
   // Pull to refresh - now actually reloads data
   const onRefresh = async () => {
@@ -544,7 +573,23 @@ export default function HomeScreen() {
 
   const selectedStoreProducts = React.useMemo(() => {
     if (!selectedStoreId) return [] as Product[];
-    return allProducts.filter(p => p.storeId === selectedStoreId).slice(0, 12);
+    
+    // Get ALL products from the selected store (no limit)
+    const storeProducts = allProducts.filter(p => {
+      // Match by storeId OR storeOwnerId (legacy support)
+      const matchesStore = p.storeId === selectedStoreId || p.storeOwnerId === selectedStoreId;
+      
+      if (matchesStore) {
+        console.log(`🏪 Product from selected store: ${p.productName}`);
+      }
+      
+      return matchesStore;
+    });
+    
+    console.log(`📊 Selected store (${selectedStoreId}) has ${storeProducts.length} products`);
+    
+    // Return up to 10 products for home page display
+    return storeProducts.slice(0, 10);
   }, [allProducts, selectedStoreId]);
 
   // Best Selling Products - Show recently added products (newest first)
@@ -621,7 +666,12 @@ export default function HomeScreen() {
    */
   const StoreCard = ({ store }: { store: Store }) => {
     // Calculate number of products for this store
-    const productCount = allProducts.filter(p => p.storeId === store.id).length;
+    // Match by storeId OR storeOwnerId for legacy support
+    const productCount = allProducts.filter(p => 
+      p.storeId === store.id || p.storeOwnerId === store.id
+    ).length;
+    
+    console.log(`🏪 Store ${store.storeName}: ${productCount} products, ${store.totalReviews || 0} reviews, rating ${store.rating || 0}`);
 
     return (
       <TouchableOpacity

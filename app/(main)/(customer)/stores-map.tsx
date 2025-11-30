@@ -33,6 +33,7 @@ interface StoreLocation {
   logo?: string;
   distance?: number;
   isOpen?: boolean;
+  status?: string;
 }
 
 const DAVAO_CITY_DEFAULT = {
@@ -196,25 +197,73 @@ export default function StoresMapScreen() {
           const storesData = snapshot.val();
           const storesList: StoreLocation[] = [];
 
+          console.log('📊 [StoresMap] Total stores in Firebase:', Object.keys(storesData).length);
+          
           Object.keys(storesData).forEach((storeId) => {
             const store = storesData[storeId];
 
-            // Only include active stores with location set
-            if (
-              store.status === 'active' &&
-              store.location?.coordinates?.latitude &&
-              store.location?.coordinates?.longitude
-            ) {
-              const storeLocation: StoreLocation = {
-                id: storeId,
-                storeName: store.businessInfo?.storeName || 'Unnamed Store',
-                address: store.location.address || 'Address not available',
-                coordinates: {
+            // Check for location in multiple possible structures
+            const hasLocationNew = store.location?.coordinates?.latitude && store.location?.coordinates?.longitude;
+            const hasLocationLegacy = store.coordinates?.latitude && store.coordinates?.longitude;
+            const hasLocationCoords = store.locationCoordinates?.latitude && store.locationCoordinates?.longitude;
+            
+            const storeName = store.businessInfo?.storeName || store.storeName || 'Unnamed Store';
+            
+            // Debug logging for each store
+            console.log(`🏪 [Store ${storeId.substring(0, 8)}...] ${storeName}`, {
+              status: store.status,
+              hasLocationNew,
+              hasLocationLegacy,
+              hasLocationCoords,
+              locationStructure: store.location ? Object.keys(store.location) : 'no location object',
+            });
+
+            // Include stores with location (active or pending with location)
+            // This allows newly registered stores to appear on map before admin approval
+            const hasLocation = hasLocationNew || hasLocationLegacy || hasLocationCoords;
+            const canShowOnMap = store.status === 'active' || store.status === 'pending' || store.status === 'pending_documents';
+            
+            if (!hasLocation && canShowOnMap) {
+              console.warn(`⚠️ [Store ${storeName}] Has status '${store.status}' but NO LOCATION DATA!`);
+              console.warn('   Store keys:', Object.keys(store));
+              if (store.businessInfo) {
+                console.warn('   businessInfo keys:', Object.keys(store.businessInfo));
+              }
+            }
+            
+            if (hasLocation && canShowOnMap) {
+              // Get coordinates from whichever structure exists
+              let coordinates;
+              let address;
+              
+              if (hasLocationNew) {
+                coordinates = {
                   latitude: store.location.coordinates.latitude,
                   longitude: store.location.coordinates.longitude,
-                },
-                logo: store.businessInfo?.logo,
+                };
+                address = store.location.address || store.location.formattedAddress || 'Address not available';
+              } else if (hasLocationLegacy) {
+                coordinates = {
+                  latitude: store.coordinates.latitude,
+                  longitude: store.coordinates.longitude,
+                };
+                address = store.address || store.businessInfo?.address || 'Address not available';
+              } else if (hasLocationCoords) {
+                coordinates = {
+                  latitude: store.locationCoordinates.latitude,
+                  longitude: store.locationCoordinates.longitude,
+                };
+                address = store.address || store.businessInfo?.address || 'Address not available';
+              }
+              
+              const storeLocation: StoreLocation = {
+                id: storeId,
+                storeName,
+                address,
+                coordinates,
+                logo: store.businessInfo?.logo || store.logo,
                 isOpen: store.isOpen ?? true,
+                status: store.status,
               };
 
               // Calculate distance from user if location available
@@ -230,6 +279,7 @@ export default function StoresMapScreen() {
               }
 
               storesList.push(storeLocation);
+              console.log(`✅ [Store ${storeName}] Added to map (${storeLocation.distance?.toFixed(2) || '?'} km away)`);
             }
           });
 
@@ -240,7 +290,10 @@ export default function StoresMapScreen() {
             setStores(storesList);
             setFilteredStores(storesList);
 
-            console.log(`✅ Loaded ${storesList.length} active stores with location`);
+            console.log(`✅ Loaded ${storesList.length} stores with location`);
+            storesList.forEach(s => {
+              console.log(`  - ${s.storeName}: ${s.status} (${s.distance?.toFixed(2) || '?'} km)`);
+            });
 
             // Suggest nearest open store on first launch when none selected
             try {
@@ -534,7 +587,9 @@ export default function StoresMapScreen() {
           <Ionicons name="arrow-back" size={24} color="#1E1E1E" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nearby Stores</Text>
-        <View style={styles.backButton} />
+        <TouchableOpacity style={styles.refreshButton} onPress={handleRetry}>
+          <Ionicons name="refresh" size={24} color="#3BB77E" />
+        </TouchableOpacity>
       </View>
 
       {/* Distance Filter */}
@@ -579,22 +634,24 @@ export default function StoresMapScreen() {
           moveOnMarkerPress={false}
         >
         {/* Store Markers - only show when map fully loaded */}
+        {mapFullyLoaded && (() => {
+          console.log(`📍 [Markers] Rendering ${filteredStores.length} markers. Map loaded: ${mapFullyLoaded}`);
+          filteredStores.forEach(s => console.log(`  Marker: ${s.storeName} at ${s.coordinates.latitude}, ${s.coordinates.longitude}`));
+          return null;
+        })()}
         {mapFullyLoaded && filteredStores.map((store) => (
           <Marker
             key={store.id}
             coordinate={store.coordinates}
             onPress={() => handleMarkerPress(store)}
-            tracksViewChanges={false}
-          >
-            <View style={styles.markerContainer}>
-              {store.logo ? (
-                <Image source={{ uri: store.logo }} style={styles.markerLogo} />
-              ) : (
-                <Ionicons name="storefront" size={24} color="#3BB77E" />
-              )}
-              {!store.isOpen && <View style={styles.closedOverlay} />}
-            </View>
-          </Marker>
+            title={store.storeName}
+            description={store.distance ? `${store.distance.toFixed(2)} km away` : 'Distance unknown'}
+            pinColor={
+              !store.isOpen ? '#666666' : 
+              store.status === 'pending' ? '#FF9500' : 
+              '#E92B45'
+            }
+          />
         ))}
         
         {/* Static Route Polyline - only renders after map fully loaded */}
@@ -617,6 +674,7 @@ export default function StoresMapScreen() {
         </TouchableOpacity>
       )}
 
+
       {/* Store Info Card */}
       {selectedStore && (
         <View style={styles.infoCard}>
@@ -630,9 +688,14 @@ export default function StoresMapScreen() {
             )}
             <View style={styles.infoDetails}>
               <Text style={styles.infoStoreName}>{selectedStore.storeName}</Text>
-              <Text style={[styles.infoStatus, selectedStore.isOpen === false ? styles.closed : styles.open]}>
-                {selectedStore.isOpen === false ? 'Closed' : 'Open now'}
-              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <Text style={[styles.infoStatus, selectedStore.isOpen === false ? styles.closed : styles.open]}>
+                  {selectedStore.isOpen === false ? 'Closed' : 'Open now'}
+                </Text>
+                {selectedStore.status === 'pending' && (
+                  <Text style={styles.pendingBadge}>⌛ Pending Approval</Text>
+                )}
+              </View>
               <Text style={styles.infoAddress} numberOfLines={1}>
                 {selectedStore.address}
               </Text>
@@ -769,6 +832,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  refreshButton: {
+    width: s(40),
+    height: s(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: s(20),
     fontWeight: '600',
@@ -815,31 +884,48 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   markerContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  markerIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E92B45',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
     borderWidth: 3,
-    borderColor: '#3BB77E',
+    borderColor: '#FFF',
   },
-  markerLogo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  markerClosed: {
+    backgroundColor: '#666',
   },
-  closedOverlay: {
-    position: 'absolute',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  markerPending: {
+    backgroundColor: '#FF9500',
+  },
+  markerPin: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 12,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#E92B45',
+    marginTop: -2,
+  },
+  markerPinClosed: {
+    borderTopColor: '#666',
+  },
+  markerPinPending: {
+    borderTopColor: '#FF9500',
   },
   centerButton: {
     position: 'absolute',
@@ -913,6 +999,15 @@ const styles = StyleSheet.create({
   },
   open: { color: '#3BB77E', fontWeight: '600' },
   closed: { color: '#E92B45', fontWeight: '600' },
+  pendingBadge: {
+    fontSize: s(10),
+    color: '#FF9500',
+    fontWeight: '600',
+    backgroundColor: 'rgba(255, 149, 0, 0.1)',
+    paddingHorizontal: s(6),
+    paddingVertical: vs(2),
+    borderRadius: s(4),
+  },
   infoDistance: {
     fontSize: s(14),
     color: '#3BB77E',

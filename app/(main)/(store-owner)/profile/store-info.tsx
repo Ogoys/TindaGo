@@ -20,6 +20,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, database } from '@/lib/firebase';
@@ -321,18 +322,53 @@ export default function StoreInfoScreen() {
             )}
           </View>
 
-          {/* Map Button */}
-          <TouchableOpacity
-            style={styles.mapContainer}
-            onPress={handleViewOnMap}
-          >
-            <View style={styles.mapPlaceholder}>
-              <Ionicons name="map" size={40} color={Colors.primary} />
-              <Text style={styles.mapText}>
-                {storeData.coordinates ? 'Tap to view on map' : 'No location set - Tap to add'}
-              </Text>
-            </View>
-          </TouchableOpacity>
+          {/* Map Preview */}
+          {storeData.coordinates ? (
+            <TouchableOpacity
+              style={styles.mapContainer}
+              onPress={handleViewOnMap}
+              activeOpacity={0.9}
+            >
+              <MapView
+                provider={PROVIDER_GOOGLE}
+                style={styles.mapView}
+                initialRegion={{
+                  latitude: storeData.coordinates.latitude,
+                  longitude: storeData.coordinates.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+                pointerEvents="none"
+              >
+                <Marker
+                  coordinate={{
+                    latitude: storeData.coordinates.latitude,
+                    longitude: storeData.coordinates.longitude,
+                  }}
+                  title={storeData.storeName}
+                  description={storeData.address}
+                  pinColor="#E92B45"
+                />
+              </MapView>
+              <View style={styles.mapOverlay}>
+                <Text style={styles.mapOverlayText}>Tap to view full map</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.mapContainer}
+              onPress={handleViewOnMap}
+            >
+              <View style={styles.mapPlaceholder}>
+                <Ionicons name="map" size={40} color={Colors.primary} />
+                <Text style={styles.mapText}>No location set - Tap to add</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Bottom Spacing */}
@@ -540,10 +576,28 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     width: '100%',
-    height: 150,
+    height: 200,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#F0F9F4',
+    position: 'relative',
+  },
+  mapView: {
+    flex: 1,
+  },
+  mapOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  mapOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   mapPlaceholder: {
     flex: 1,
