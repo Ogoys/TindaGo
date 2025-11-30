@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NotificationService } from '@/services/notifications';
 
 export type UserRole = 'customer' | 'store-owner';
 
@@ -38,6 +39,22 @@ export function UserProvider({ children }: UserProviderProps) {
   useEffect(() => {
     loadUserData();
   }, []);
+
+  // Setup push notifications when user logs in
+  useEffect(() => {
+    if (user?.id) {
+      // Register push token for debt reminders and notifications
+      NotificationService.setupPushNotifications()
+        .then((token) => {
+          if (token) {
+            console.log('✅ Push notifications registered for user:', user.id);
+          }
+        })
+        .catch((error) => {
+          console.log('⚠️ Push notifications setup failed:', error);
+        });
+    }
+  }, [user?.id]);
 
   const loadUserData = async () => {
     try {
