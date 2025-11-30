@@ -41,7 +41,7 @@ export default function PaymentSuccessScreen() {
           
           // Redirect to store-owner purchase details page
           router.replace({
-            pathname: '/(main)/(store-owner)/profile/purchase-details',
+            pathname: '/(main)/(store-owner)/suppliers/purchase-details',
             params: { purchaseOrderId: pendingPurchaseOrderId }
           });
         } else {

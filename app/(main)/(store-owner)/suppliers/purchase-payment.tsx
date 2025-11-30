@@ -248,7 +248,7 @@ const PurchasePaymentScreen = () => {
               text: 'Go to Profile',
               onPress: () => {
                 setProcessing(false);
-                router.push('/(main)/(store-owner)/profile/my-account' as any);
+                router.push('/(main)/(store-owner)/profile/my-account');
               },
             },
           ]
@@ -560,7 +560,7 @@ const PurchasePaymentScreen = () => {
                 }
                 // Show preview - navigate with preview=true flag
                 router.push({
-                  pathname: '/(main)/(store-owner)/suppliers/purchase-invoice' as any,
+                  pathname: '/(main)/(store-owner)/suppliers/purchase-invoice',
                   params: {
                     preview: 'true',
                     supplierName: orderData.supplierName,

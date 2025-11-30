@@ -474,7 +474,7 @@ const RestockFromSupplierScreen = () => {
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Cost per {product.unit}</Text>
+                    <Text style={styles.inputLabel}>Supplier Price</Text>
                     <TextInput
                       style={styles.input}
                       placeholder="0.00"

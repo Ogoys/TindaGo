@@ -231,13 +231,13 @@ const SupplierDetailsScreen = () => {
   };
 
   const handleBack = () => {
-    router.back();
+    router.push('/(main)/(store-owner)/suppliers/supplier-dashboard');
   };
 
   const handleBuyProduct = () => {
     // Navigate to order supplies screen with supplier pre-selected
     router.push({
-      pathname: '/(main)/(store-owner)/profile/order-supplies',
+      pathname: '/(main)/(store-owner)/suppliers/order-supplies',
       params: {
         supplierName: supplierName,
         supplierContact: supplierData?.contact || '',
@@ -437,7 +437,7 @@ const SupplierDetailsScreen = () => {
                 key={order.id}
                 style={styles.purchaseOrderCard}
                 onPress={() => router.push({
-                  pathname: '/profile/purchase-details',
+                  pathname: '/(main)/(store-owner)/suppliers/purchase-details',
                   params: { 
                     purchaseOrderId: order.id,
                     fromSupplier: supplierData.name

@@ -113,13 +113,13 @@ const PurchaseDetailsScreen = () => {
     // If we have supplier info, go back to supplier details
     if (fromSupplier) {
       router.push({
-        pathname: '/(main)/(store-owner)/suppliers/supplier-details' as any,
+        pathname: '/(main)/(store-owner)/suppliers/supplier-details',
         params: { supplier: fromSupplier }
       });
     }
     // If we came from purchase history, go back to it
     else if (fromHistory) {
-      router.push('/(main)/(store-owner)/suppliers/purchase-order-history' as any);
+      router.push('/(main)/(store-owner)/suppliers/purchase-order-history');
     }
     // Default: use router.back()
     else {
@@ -644,7 +644,7 @@ const PurchaseDetailsScreen = () => {
             style={[styles.actionButton, styles.viewInvoiceButton]}
             onPress={() => {
               router.push({
-                pathname: '/(main)/(store-owner)/profile/purchase-invoice' as any,
+                pathname: '/(main)/(store-owner)/suppliers/purchase-invoice',
                 params: {
                   id: purchaseOrder.id,
                 },
