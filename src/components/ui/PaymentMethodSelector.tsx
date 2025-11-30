@@ -20,6 +20,7 @@ interface PaymentMethodSelectorProps {
   disabled?: boolean;
   debtDisabled?: boolean;
   debtDisabledReason?: string;
+  showDebtOption?: boolean;
 }
 
 export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
@@ -28,6 +29,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   disabled = false,
   debtDisabled = false,
   debtDisabledReason,
+  showDebtOption = true,
 }) => {
   return (
     <View style={styles.container}>
@@ -84,38 +86,40 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       </TouchableOpacity>
 
       {/* Debt/Loan - Third option */}
-      <TouchableOpacity
-        style={[
-          styles.paymentOption,
-          styles.debtPaymentOption,
-          debtDisabled && styles.paymentOptionDisabled,
-          selectedPayment === 'debt' && styles.paymentOptionSelected,
-          selectedPayment === 'debt' && styles.debtPaymentOptionSelected,
-        ]}
-        onPress={() => onPaymentSelect('debt')}
-        disabled={disabled || debtDisabled}
-        activeOpacity={0.7}
-      >
-        <View style={styles.paymentOptionContent}>
-          <View style={styles.debtIconCircle}>
-            <Text style={styles.debtIconText}>💳</Text>
+      {showDebtOption && (
+        <TouchableOpacity
+          style={[
+            styles.paymentOption,
+            styles.debtPaymentOption,
+            debtDisabled && styles.paymentOptionDisabled,
+            selectedPayment === 'debt' && styles.paymentOptionSelected,
+            selectedPayment === 'debt' && styles.debtPaymentOptionSelected,
+          ]}
+          onPress={() => onPaymentSelect('debt')}
+          disabled={disabled || debtDisabled}
+          activeOpacity={0.7}
+        >
+          <View style={styles.paymentOptionContent}>
+            <View style={styles.debtIconCircle}>
+              <Text style={styles.debtIconText}>💳</Text>
+            </View>
+            <View>
+              <Text style={styles.paymentMethodText}>Debt (Pay Later)</Text>
+              {debtDisabled ? (
+                <Text style={styles.debtDisabledText}>{debtDisabledReason || 'Not available'}</Text>
+              ) : (
+                <Text style={styles.debtSubtext}>Set repayment date</Text>
+              )}
+            </View>
           </View>
-          <View>
-            <Text style={styles.paymentMethodText}>Debt (Pay Later)</Text>
-            {debtDisabled ? (
-              <Text style={styles.debtDisabledText}>{debtDisabledReason || 'Not available'}</Text>
-            ) : (
-              <Text style={styles.debtSubtext}>Set repayment date</Text>
-            )}
+          <View style={[
+            styles.radioCircle,
+            selectedPayment === 'debt' && styles.radioCircleSelected
+          ]}>
+            {selectedPayment === 'debt' && <View style={styles.radioCircleInner} />}
           </View>
-        </View>
-        <View style={[
-          styles.radioCircle,
-          selectedPayment === 'debt' && styles.radioCircleSelected
-        ]}>
-          {selectedPayment === 'debt' && <View style={styles.radioCircleInner} />}
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

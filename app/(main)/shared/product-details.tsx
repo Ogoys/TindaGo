@@ -285,12 +285,15 @@ export default function ProductDetailsScreen() {
     }
 
     try {
+      // Normalize storeId: use storeId if present, otherwise use storeOwnerId
+      const normalizedStoreId = product.storeId || product.storeOwnerId;
+      
       const cartItem: CartItem = {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
         productImageUrl: product.productImageUrl,
-        storeId: product.storeId,
+        storeId: normalizedStoreId,
         storeName: product.storeName,
         quantity: quantity,
         price: product.price,
@@ -370,12 +373,15 @@ export default function ProductDetailsScreen() {
     try {
       setAddingRelatedId(relatedProduct.id);
 
+      // Normalize storeId: use storeId if present, otherwise use storeOwnerId
+      const normalizedStoreId = relatedProduct.storeId || relatedProduct.storeOwnerId;
+      
       const cartItem: CartItem = {
         productId: relatedProduct.id,
         productName: relatedProduct.productName,
         productImage: relatedProduct.productImage,
         productImageUrl: relatedProduct.productImageUrl,
-        storeId: relatedProduct.storeId,
+        storeId: normalizedStoreId,
         storeName: relatedProduct.storeName,
         quantity: 1,
         price: relatedProduct.price,

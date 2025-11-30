@@ -44,7 +44,23 @@ export async function checkCartStore(userId: string, newStoreId: string): Promis
     const currentStoreId = cart.storeId;
 
     // If cart has items from a different store
+    // Also check if newStoreId might be comparing against items with storeOwnerId
     if (currentStoreId && currentStoreId !== newStoreId) {
+      // Additional check: verify against actual cart items to handle storeId/storeOwnerId inconsistency
+      const cartItemsRef = ref(database, `carts/${userId}/items`);
+      const itemsSnapshot = await get(cartItemsRef);
+      
+      if (itemsSnapshot.exists()) {
+        const items = Object.values(itemsSnapshot.val()) as any[];
+        // Check if any item in cart matches the new store (using their storeId)
+        const hasSameStore = items.some(item => item.storeId === newStoreId);
+        
+        if (hasSameStore) {
+          // Same store, no conflict
+          return null;
+        }
+      }
+      
       return {
         storeId: currentStoreId,
         storeName: cart.storeName || 'Unknown Store'
@@ -154,9 +170,12 @@ export async function removeFromCart(userId: string, productId: string): Promise
 export async function updateCartQuantity(userId: string, productId: string, quantity: number): Promise<boolean> {
   try {
     const cartItemRef = ref(database, `carts/${userId}/items/${productId}`);
+    const snap = await get(cartItemRef);
+    const current = snap.exists() ? (snap.val() as any) : {};
+    const price = Number(current.price || 0);
     await update(cartItemRef, {
       quantity,
-      subtotal: quantity * (await get(cartItemRef)).val().price,
+      subtotal: quantity * price,
     });
 
     // Update cart metadata
@@ -291,14 +310,16 @@ async function updateCartMetadata(userId: string, storeId?: string, storeName?: 
       const finalStoreName = storeName || (items.length > 0 ? items[0].storeName : undefined);
 
       const cartRef = ref(database, `carts/${userId}`);
-      await update(cartRef, {
-        storeId: finalStoreId,
-        storeName: finalStoreName,
+      const payload: any = {
         subtotal,
         total: subtotal,
         itemCount,
         updatedAt: new Date().toISOString(),
-      });
+      };
+      // Avoid writing undefined values to Firebase (it throws)
+      if (finalStoreId !== undefined) payload.storeId = finalStoreId;
+      if (finalStoreName !== undefined) payload.storeName = finalStoreName;
+      await update(cartRef, payload);
     } else {
       // Cart is empty, clear store info
       const cartRef = ref(database, `carts/${userId}`);

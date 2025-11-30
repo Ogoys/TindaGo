@@ -56,6 +56,11 @@ const PaymentScreen = () => {
   const { user } = useUser();
   const params = useLocalSearchParams();
 
+  // Debt settlement mode (pay existing debt order online)
+  const settleOrderIdParam = (params?.orderId as string) || '';
+  const isDebtSettlementMode = !!settleOrderIdParam;
+  const [settlementOrder, setSettlementOrder] = useState<any | null>(null);
+
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -97,8 +102,42 @@ const PaymentScreen = () => {
 
   // Load order summary from cart or params
   useEffect(() => {
-    loadOrderSummary();
-  }, [user]);
+    // If paying an existing debt, load that order; otherwise load cart summary
+    if (isDebtSettlementMode) {
+      (async () => {
+        setLoading(true);
+        try {
+          const orderRef = ref(database, `orders/${settleOrderIdParam}`);
+          const snap = await get(orderRef);
+          if (snap.exists()) {
+            const ord = { id: settleOrderIdParam, ...snap.val() } as any;
+            setSettlementOrder(ord);
+            setOrderSummary({
+              items: ord.items?.length || 0,
+              subtotal: ord.subtotal || 0,
+              discount: 0,
+              grandTotal: ord.total || 0,
+            });
+            // Fetch store settings for this order
+            const sid = ord.storeId;
+            if (sid) {
+              const storeSnap = await get(ref(database, `stores/${sid}`));
+              if (storeSnap.exists()) {
+                const ds = storeSnap.val()?.debtSettings || null;
+                setStoreDebtSettings(ds);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error loading settlement order:', e);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    } else {
+      loadOrderSummary();
+    }
+  }, [user, isDebtSettlementMode, settleOrderIdParam]);
 
   // Listen for app state changes (foreground/background)
   useEffect(() => {
@@ -218,6 +257,29 @@ const PaymentScreen = () => {
                 if (custSetting.debtEnabled === false) {
                   disabled = true;
                   reason = 'Disabled for your account';
+                }
+              }
+
+              // If requirePreviousDebtPayment and the customer has any unpaid debt at this store, disable upfront
+              if (!disabled && ds?.requirePreviousDebtPayment) {
+                // Scan user's orders and find unpaid debt for this store (same logic as checkDebtRestrictions)
+                const ordersRef = ref(database, 'orders');
+                const userOrdersQuery = query(ordersRef, orderByChild('customerId'), equalTo(user.id));
+                const ordersSnap = await get(userOrdersQuery);
+                if (ordersSnap.exists()) {
+                  let hasUnpaid = false;
+                  let existingDebtAmount = 0;
+                  const orders = ordersSnap.val();
+                  Object.values(orders).forEach((o: any) => {
+                    if (o.storeId === sid && o.paymentMethod === 'debt' && o.debtStatus !== 'paid') {
+                      hasUnpaid = true;
+                      existingDebtAmount += o.total || 0;
+                    }
+                  });
+                  if (hasUnpaid) {
+                    disabled = true;
+                    reason = `You have an unpaid debt of ₱${existingDebtAmount.toFixed(2)}`;
+                  }
                 }
               }
 
@@ -361,13 +423,21 @@ const PaymentScreen = () => {
     setProcessing(true);
 
     try {
-      // Get first item's store info (all items should be from same store)
-      const firstItem = cartItems[0];
-      const storeId = firstItem.storeId || 'unknown';
-      const storeName = firstItem.storeName || 'Unknown Store';
+      // Determine store context
+      let storeId = 'unknown';
+      let storeName = 'Unknown Store';
 
-      // Check debt restrictions if debt payment is selected
-      if (selectedPayment === 'debt') {
+      if (isDebtSettlementMode && settlementOrder) {
+        storeId = settlementOrder.storeId || 'unknown';
+        storeName = settlementOrder.storeName || 'Unknown Store';
+      } else {
+        const firstItem = cartItems[0];
+        storeId = firstItem.storeId || 'unknown';
+        storeName = firstItem.storeName || 'Unknown Store';
+      }
+
+      // Check debt restrictions if debt payment is selected (only for new debt at checkout)
+      if (!isDebtSettlementMode && selectedPayment === 'debt') {
         const debtRestriction = await checkDebtRestrictions(storeId, user.id, orderSummary.grandTotal);
         if (!debtRestriction.allowed) {
           setProcessing(false);
@@ -388,7 +458,93 @@ const PaymentScreen = () => {
         }
       }
 
-      // Generate order number
+      // If settling existing debt via Xendit (gcash/paymaya), skip cart/createOrder and reuse existing orderId
+      if (isDebtSettlementMode && (selectedPayment === 'gcash' || selectedPayment === 'paymaya')) {
+        const ord = settlementOrder;
+        if (!ord) {
+          setProcessing(false);
+          setErrorMessage('Debt order not found.');
+          setShowErrorModal(true);
+          return;
+        }
+
+        // Create Xendit invoice for existing order
+        const paymentResponse = await xenditService.createPayment({
+          orderId: ord.id,
+          orderNumber: ord.orderNumber || `ORD-${new Date(ord.createdAt || Date.now()).getFullYear()}-${ord.id}`,
+          amount: ord.total,
+          customerEmail: user.email || `${user.id}@tindago.com`,
+          customerName: user.name || user.email || 'Customer',
+          customerPhone: user.phoneNumber || '',
+          storeId,
+          storeName,
+          items: (ord.items || []).map((item: any) => ({
+            name: item.productName,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          paymentMethod: selectedPayment,
+        });
+
+        if (!paymentResponse.success || !paymentResponse.invoiceUrl) {
+          setProcessing(false);
+          setErrorMessage(`Failed to create payment:\n${paymentResponse.error || 'Unknown error'}`);
+          setShowErrorModal(true);
+          return;
+        }
+
+        // Update order with invoice details
+        await update(ref(database, `orders/${ord.id}`), {
+          xenditInvoiceId: paymentResponse.invoiceId,
+          platformCommission: paymentResponse.platformCommission,
+          storeAmount: paymentResponse.storeAmount,
+          // explicitly tag this as debt settlement via online payment
+          paymentMethod: selectedPayment,
+        });
+
+        // Open Xendit invoice
+        const supported = await Linking.canOpenURL(paymentResponse.invoiceUrl);
+        if (supported) {
+          await Linking.openURL(paymentResponse.invoiceUrl);
+
+          // Listen for payment status updates on this order
+          const orderRef = ref(database, `orders/${ord.id}`);
+          const unsubscribe = onValue(orderRef, async (snapshot) => {
+            if (snapshot.exists()) {
+              const updated = snapshot.val();
+              if (updated?.paymentStatus === 'PAID' || updated?.paymentStatus === 'SETTLED') {
+                // Ensure debt fields are set to paid (webhook may also do this)
+                try {
+                  await update(orderRef, {
+                    debtStatus: 'paid',
+                    debtPaidDate: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  });
+                } catch {}
+
+                // Show success modal
+                setCompletedOrderId(ord.id);
+                setShowSuccessModal(true);
+                setProcessing(false);
+                // Stop listening
+                unsubscribe();
+              }
+            }
+          });
+
+          // Store unsubscribe function for cleanup
+          unsubscribeRef.current = unsubscribe;
+          setPendingOrderNumber(ord.orderNumber || ord.id);
+          return; // Exit; rest of flow is for cart-based orders
+        } else {
+          setProcessing(false);
+          setErrorMessage('Cannot open payment page.\nPlease check your internet connection.');
+          setShowErrorModal(true);
+          return;
+        }
+      }
+
+      // Generate order number (new orders only)
       const now = new Date();
       const year = now.getFullYear();
       const orderNumber = `ORD-${year}-${Date.now()}`;
@@ -874,11 +1030,12 @@ const PaymentScreen = () => {
                 disabled={processing}
                 debtDisabled={!!debtDisabledReason}
                 debtDisabledReason={debtDisabledReason}
+                showDebtOption={!isDebtSettlementMode}
               />
             </View>
 
             {/* Debt Payment Due Date Section */}
-            {selectedPayment === 'debt' && (
+            {!isDebtSettlementMode && selectedPayment === 'debt' && (
               <View style={styles.debtDueDateSection}>
                 <View style={styles.debtDueDateHeader}>
                   <Text style={styles.debtDueDateLabel}>💳 Payment Due Date</Text>

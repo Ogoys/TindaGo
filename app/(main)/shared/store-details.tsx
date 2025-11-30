@@ -172,12 +172,15 @@ export default function StoreDetailsScreen() {
     setAddingProductId(product.id);
 
     try {
+      // Normalize storeId: use storeId if present, otherwise use storeOwnerId
+      const normalizedStoreId = product.storeId || (product as any).storeOwnerId;
+      
       const result = await addToCartWithValidation(user.id, {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
         productImageUrl: product.productImageUrl,
-        storeId: product.storeId,
+        storeId: normalizedStoreId,
         storeName: product.storeName,
         quantity: 1,
         price: product.price,
@@ -198,12 +201,13 @@ export default function StoreDetailsScreen() {
               text: 'Replace cart',
               style: 'destructive',
               onPress: async () => {
+                const normalizedStoreId = product.storeId || (product as any).storeOwnerId;
                 const forced = await addToCartWithValidation(user.id, {
                   productId: product.id,
                   productName: product.productName,
                   productImage: product.productImage,
                   productImageUrl: product.productImageUrl,
-                  storeId: product.storeId,
+                  storeId: normalizedStoreId,
                   storeName: product.storeName,
                   quantity: 1,
                   price: product.price,

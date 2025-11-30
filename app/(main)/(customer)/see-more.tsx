@@ -198,12 +198,15 @@ export default function SeeMoreScreen() {
       setAddingToCart(product.id);
 
       // Create cart item object matching CartItem interface
+      // Normalize storeId: use storeId if present, otherwise use storeOwnerId
+      const normalizedStoreId = product.storeId || (product as any).storeOwnerId;
+      
       const cartItem = {
         productId: product.id,
         productName: product.productName,
         productImage: product.productImage,
         productImageUrl: product.productImageUrl,
-        storeId: product.storeId,
+        storeId: normalizedStoreId,
         storeName: product.storeName,
         quantity: 1,
         price: product.price,

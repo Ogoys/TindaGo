@@ -1,6 +1,7 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { onValueWritten, onValueCreated, onValueUpdated } from 'firebase-functions/v2/database';
 import { onCall } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { initializeApp } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 
@@ -164,6 +165,84 @@ export const onPayoutUpdated = onValueUpdated(
     // approved or other transitions: no wallet math change
   }
 );
+
+// -----------------------------
+// Debt reminders (customer due-date)
+// -----------------------------
+
+/**
+ * Process scheduled reminders: send Expo push at triggerAt to the debt owner
+ * Data: scheduledReminders/{orderId} = { userId, storeId, triggerAt, type: 'debt_due_reminder', processed?, cancelled? }
+ */
+export const processDebtReminders = onSchedule({ schedule: 'every 5 minutes' }, async () => {
+  const now = Date.now();
+  const snap = await db.ref('scheduledReminders').get();
+  if (!snap.exists()) return;
+
+  const updates: Record<string, any> = {};
+
+  const tasks: Promise<any>[] = [];
+  snap.forEach((child) => {
+    const orderId = child.key as string;
+    const r = child.val() as any;
+    if (!r || r.processed || r.cancelled || !r.triggerAt || r.type !== 'debt_due_reminder') return;
+    const triggerAtMs = Date.parse(r.triggerAt);
+    if (isNaN(triggerAtMs) || triggerAtMs > now) return; // not due yet
+
+    tasks.push((async () => {
+      try {
+        // Fetch push token
+        const tokenSnap = await db.ref(`users/${r.userId}/pushToken`).get();
+        const pushToken = tokenSnap.exists() ? tokenSnap.val() : null;
+        if (pushToken) {
+          const message = {
+            to: pushToken,
+            sound: 'default',
+            title: 'Payment reminder',
+            body: 'Your Pay Later balance is due soon. Please settle to avoid overdue.',
+            data: { orderId, storeId: r.storeId, type: r.type },
+          };
+          // Node 20 has global fetch
+          await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Accept-encoding': 'gzip, deflate',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(message),
+          });
+        }
+        updates[`scheduledReminders/${orderId}/processed`] = true;
+        updates[`scheduledReminders/${orderId}/processedAt`] = new Date().toISOString();
+      } catch (e) {
+        // Do not throw; try next
+      }
+    })());
+  });
+
+  await Promise.all(tasks);
+  if (Object.keys(updates).length) await db.ref().update(updates);
+});
+
+/**
+ * Cancel scheduled reminder when order is paid/settled (or debt marked paid)
+ */
+export const onDebtOrderPaid = onValueUpdated({ ref: '/orders/{orderId}' }, async (event) => {
+  const before = event.data?.before?.val() as any;
+  const after = event.data?.after?.val() as any;
+  const prevPaid = String(before?.paymentStatus || '').toUpperCase();
+  const nextPaid = String(after?.paymentStatus || '').toUpperCase();
+  const prevDebt = String(before?.debtStatus || '').toLowerCase();
+  const nextDebt = String(after?.debtStatus || '').toLowerCase();
+
+  const paidNow = (prevPaid !== nextPaid && (nextPaid === 'PAID' || nextPaid === 'SETTLED'))
+    || (prevDebt !== nextDebt && nextDebt === 'paid');
+  if (!paidNow) return;
+
+  const orderId = (event.params as any).orderId as string;
+  await db.ref(`scheduledReminders/${orderId}`).update({ cancelled: true, processed: true, processedAt: Date.now() });
+});
 
 export const recomputeWallet = onCall(async (request) => {
   const data = request.data as { storeId?: string } | undefined;
