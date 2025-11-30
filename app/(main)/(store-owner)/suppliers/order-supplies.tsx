@@ -15,7 +15,7 @@
  */
 
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Alert,
   Image,
@@ -58,6 +58,26 @@ interface PurchaseOrderCard {
   selectedImage: string | null;
 }
 
+interface ExistingProduct {
+  productId: string;
+  productName: string;
+  productImageUrl?: string;
+  productImage?: string;
+  sellingPrice: number;
+  currentQuantity: number;
+  productSize: string;
+  unit: string;
+  category: string;
+  description: string;
+  expiryDate?: string;
+  selected: boolean;
+  quantity: number;
+  supplierPrice: number;
+  subtotal: number;
+}
+
+type OrderMode = 'new' | 'existing';
+
 const OrderSuppliesScreen = () => {
   const params = useLocalSearchParams();
 
@@ -65,6 +85,9 @@ const OrderSuppliesScreen = () => {
   const supplierNameParam = typeof params.supplierName === 'string' ? params.supplierName : '';
   const supplierContactParam = typeof params.supplierContact === 'string' ? params.supplierContact : '';
 
+  // Mode state
+  const [mode, setMode] = useState<OrderMode>('new');
+  
   // Supplier state
   const [supplierName, setSupplierName] = useState(supplierNameParam);
   const [deliveryDate, setDeliveryDate] = useState(() => {
@@ -77,6 +100,11 @@ const OrderSuppliesScreen = () => {
   const [purchaseCards, setPurchaseCards] = useState<PurchaseOrderCard[]>([
     createEmptyPurchaseItem(),
   ]);
+  
+  // Existing products state
+  const [existingProducts, setExistingProducts] = useState<ExistingProduct[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Modal states
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -89,6 +117,13 @@ const OrderSuppliesScreen = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [savingProgress, setSavingProgress] = useState({ current: 0, total: 0 });
   const [isPickingImage, setIsPickingImage] = useState(false); // Prevent concurrent image picker calls
+  
+  // Fetch existing products when mode changes to 'existing'
+  useEffect(() => {
+    if (mode === 'existing') {
+      fetchExistingProducts();
+    }
+  }, [mode]);
 
   // Create empty purchase item
   function createEmptyPurchaseItem(): PurchaseOrderCard {
@@ -151,9 +186,109 @@ const OrderSuppliesScreen = () => {
   const formatPrice = (price: number): number => {
     return Math.round(price * 100) / 100;
   };
+  
+  // Fetch existing products from inventory
+  const fetchExistingProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      const productsRef = ref(database, 'products');
+      const storeProductsQuery = query(
+        productsRef,
+        orderByChild('storeOwnerId'),
+        equalTo(currentUser.uid)
+      );
+      
+      const snapshot = await get(storeProductsQuery);
+      if (snapshot.exists()) {
+        const productsData = snapshot.val();
+        const productsList: ExistingProduct[] = Object.keys(productsData).map(key => ({
+          productId: key,
+          productName: productsData[key].productName || 'Unknown Product',
+          productImageUrl: productsData[key].productImageUrl,
+          productImage: productsData[key].productImage,
+          sellingPrice: productsData[key].price || 0,
+          currentQuantity: productsData[key].quantity || 0,
+          productSize: productsData[key].productSize || '',
+          unit: productsData[key].unit || '',
+          category: productsData[key].category || '',
+          description: productsData[key].description || '',
+          expiryDate: productsData[key].expiryDate,
+          selected: false,
+          quantity: 0,
+          supplierPrice: 0,
+          subtotal: 0,
+        }));
+        setExistingProducts(productsList.sort((a, b) => a.productName.localeCompare(b.productName)));
+      } else {
+        setExistingProducts([]);
+      }
+    } catch (error) {
+      console.error('[Order Supplies] Error fetching products:', error);
+      Alert.alert('Error', 'Failed to load products');
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+  
+  // Toggle product selection for existing products mode
+  const toggleProductSelection = (productId: string) => {
+    setExistingProducts(prev => prev.map(p => {
+      if (p.productId === productId) {
+        const newSelected = !p.selected;
+        return {
+          ...p,
+          selected: newSelected,
+          quantity: newSelected ? 1 : 0,
+          supplierPrice: newSelected ? p.sellingPrice * 0.7 : 0, // Default to 70% of selling price
+          subtotal: newSelected ? (p.sellingPrice * 0.7) * 1 : 0,
+        };
+      }
+      return p;
+    }));
+  };
+  
+  // Update quantity for existing product
+  const updateExistingProductQuantity = (productId: string, quantity: number) => {
+    setExistingProducts(prev => prev.map(p => {
+      if (p.productId === productId) {
+        const qty = Math.max(0, quantity);
+        return {
+          ...p,
+          quantity: qty,
+          subtotal: qty * p.supplierPrice,
+        };
+      }
+      return p;
+    }));
+  };
+  
+  // Update supplier price for existing product
+  const updateExistingProductPrice = (productId: string, price: number) => {
+    setExistingProducts(prev => prev.map(p => {
+      if (p.productId === productId) {
+        const priceValue = Math.max(0, price);
+        return {
+          ...p,
+          supplierPrice: priceValue,
+          subtotal: p.quantity * priceValue,
+        };
+      }
+      return p;
+    }));
+  };
 
   const handleBack = () => {
-    if (purchaseCards.some(p => p.productName || p.selectedImage)) {
+    const hasUnsavedData = mode === 'new'
+      ? purchaseCards.some(p => p.productName || p.selectedImage)
+      : existingProducts.some(p => p.selected && p.quantity > 0);
+      
+    if (hasUnsavedData) {
       Alert.alert(
         'Discard Purchase Order?',
         'You have unsaved items. Are you sure you want to go back?',
@@ -321,6 +456,97 @@ const OrderSuppliesScreen = () => {
     return { valid: true };
   };
 
+  // Save existing products order
+  const handleSaveExistingProducts = async () => {
+    if (isSaving) return;
+
+    // Validate supplier name
+    if (!supplierName.trim()) {
+      Alert.alert('Validation Error', 'Supplier name is required');
+      return;
+    }
+
+    const selectedItems = existingProducts.filter(p => p.selected && p.quantity > 0);
+    
+    if (selectedItems.length === 0) {
+      Alert.alert('No Products Selected', 'Please select at least one product to order');
+      return;
+    }
+
+    // Validate all selected items have quantity and supplier price
+    const invalidItems = selectedItems.filter(p => p.quantity <= 0 || p.supplierPrice <= 0);
+    if (invalidItems.length > 0) {
+      Alert.alert(
+        'Invalid Items',
+        'Please enter valid quantity and supplier price for all selected products'
+      );
+      return;
+    }
+    
+    // Validate selling price >= supplier price
+    const invalidPricing = selectedItems.filter(p => p.sellingPrice < p.supplierPrice);
+    if (invalidPricing.length > 0) {
+      Alert.alert(
+        'Invalid Pricing',
+        'Selling price must be at least equal to supplier price for all products'
+      );
+      return;
+    }
+
+    setIsSaving(true);
+    setSavingProgress({ current: 0, total: selectedItems.length });
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'User not authenticated');
+        setIsSaving(false);
+        return;
+      }
+
+      const purchaseOrderItems = selectedItems.map((item, index) => {
+        setSavingProgress({ current: index + 1, total: selectedItems.length });
+        
+        return {
+          productId: item.productId,
+          productName: item.productName,
+          category: item.category,
+          productSize: item.productSize,
+          unit: item.unit,
+          productImage: item.productImage,
+          productImageUrl: item.productImageUrl,
+          quantity: Math.floor(item.quantity),
+          costPerUnit: formatPrice(item.supplierPrice),
+          subtotal: formatPrice(item.subtotal),
+        };
+      });
+
+      // Save to AsyncStorage for payment screen
+      const orderDataForPayment = {
+        supplierName: supplierName.trim(),
+        supplierContact: supplierContactParam || '',
+        purchaseDate: new Date().toISOString().split('T')[0],
+        items: purchaseOrderItems,
+        notes: `Order from ${supplierName.trim()}`,
+        totalCost: existingProducts.filter(p => p.selected).reduce((sum, p) => sum + p.subtotal, 0),
+      };
+
+      console.log('[Order Supplies] Saving existing products to AsyncStorage...');
+      const storageKey = `purchase_order_payment_${currentUser.uid}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(orderDataForPayment));
+      console.log('[Order Supplies] Data saved to AsyncStorage');
+
+      // Navigate to payment screen
+      router.push('/(main)/(store-owner)/suppliers/purchase-payment' as any);
+    } catch (error) {
+      console.error('[Order Supplies] Error creating purchase order:', error);
+      Alert.alert('Error', 'Failed to create purchase order. Please try again.');
+    } finally {
+      setIsSaving(false);
+      setSavingProgress({ current: 0, total: 0 });
+    }
+  };
+  
   // Save all purchase order items
   const handleSaveAllItems = async () => {
     if (isSaving) return;
@@ -488,7 +714,7 @@ const OrderSuppliesScreen = () => {
         await AsyncStorage.setItem(storageKey, JSON.stringify(orderDataForPayment));
         console.log('[Order Supplies] Data saved to AsyncStorage');
 
-        router.push('/(main)/(store-owner)/profile/purchase-payment' as any);
+        router.push('/(main)/(store-owner)/suppliers/purchase-payment' as any);
       } else if (savedCount > 0 && errors.length > 0) {
         Alert.alert(
           'Partial Success',
@@ -755,52 +981,252 @@ const OrderSuppliesScreen = () => {
         </View>
       </View>
 
-      {/* Purchase Order Cards */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        style={styles.scrollView}
-      >
-        {purchaseCards.map((item, index) => renderPurchaseCard(item, index))}
-
-        {/* Add Another Product Button */}
+      {/* Mode Selection Radio Buttons */}
+      <View style={styles.modeSelector}>
         <TouchableOpacity
-          style={styles.addAnotherButton}
-          onPress={handleAddNewPurchaseCard}
+          style={[styles.radioButton, mode === 'new' && styles.radioButtonActive]}
+          onPress={() => setMode('new')}
           activeOpacity={0.7}
         >
-          <View style={styles.addAnotherIcon}>
-            <Text style={styles.addAnotherIconText}>+</Text>
+          <View style={styles.radioCircle}>
+            {mode === 'new' && <View style={styles.radioCircleInner} />}
           </View>
-          <Text style={styles.addAnotherText}>Add Another Product</Text>
+          <Text style={[styles.radioText, mode === 'new' && styles.radioTextActive]}>
+            Add New Product
+          </Text>
         </TouchableOpacity>
-
-        {/* Bottom Padding */}
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-
-      {/* Save Button */}
-      <View style={styles.saveButtonContainer}>
+        
         <TouchableOpacity
-          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-          onPress={handleSaveAllItems}
+          style={[styles.radioButton, mode === 'existing' && styles.radioButtonActive]}
+          onPress={() => setMode('existing')}
           activeOpacity={0.7}
-          disabled={isSaving}
         >
-          {isSaving ? (
-            <View style={styles.savingContainer}>
-              <ActivityIndicator color="#FFFFFF" size="small" />
-              <Text style={styles.saveButtonText}>
-                Saving {savingProgress.current}/{savingProgress.total}...
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.saveButtonText}>
-              Save Purchase Order ({purchaseCards.filter(p => p.productName.trim()).length} {purchaseCards.filter(p => p.productName.trim()).length !== 1 ? 'items' : 'item'})
-            </Text>
-          )}
+          <View style={styles.radioCircle}>
+            {mode === 'existing' && <View style={styles.radioCircleInner} />}
+          </View>
+          <Text style={[styles.radioText, mode === 'existing' && styles.radioTextActive]}>
+            From Existing Products
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Content based on mode */}
+      {mode === 'new' ? (
+        /* Purchase Order Cards */
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          style={styles.scrollView}
+        >
+          {purchaseCards.map((item, index) => renderPurchaseCard(item, index))}
+
+          {/* Add Another Product Button */}
+          <TouchableOpacity
+            style={styles.addAnotherButton}
+            onPress={handleAddNewPurchaseCard}
+            activeOpacity={0.7}
+          >
+            <View style={styles.addAnotherIcon}>
+              <Text style={styles.addAnotherIconText}>+</Text>
+            </View>
+            <Text style={styles.addAnotherText}>Add Another Product</Text>
+          </TouchableOpacity>
+
+          {/* Bottom Padding */}
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      ) : (
+        /* Existing Products List */
+        <>
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <Image
+              source={require('../../../../src/assets/images/home/search-icon.png')}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor="rgba(30, 30, 30, 0.5)"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            style={styles.scrollView}
+          >
+            {loadingProducts ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={styles.loadingText}>Loading products...</Text>
+              </View>
+            ) : existingProducts.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>📦</Text>
+                <Text style={styles.emptyText}>No products found</Text>
+                <Text style={styles.emptySubtext}>Add products to inventory first</Text>
+              </View>
+            ) : (
+              <>
+                {existingProducts
+                  .filter(p => p.productName.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((product) => (
+                  <View key={product.productId} style={styles.restockProductCard}>
+                    {/* Product Header with Checkbox */}
+                    <TouchableOpacity
+                      style={styles.restockProductHeader}
+                      onPress={() => toggleProductSelection(product.productId)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[
+                        styles.checkbox,
+                        product.selected && styles.checkboxSelected
+                      ]}>
+                        {product.selected && <Text style={styles.checkmark}>✓</Text>}
+                      </View>
+                      
+                      {product.productImageUrl || product.productImage ? (
+                        <Image
+                          source={{
+                            uri: product.productImageUrl?.startsWith('http') || product.productImageUrl?.startsWith('data:')
+                              ? product.productImageUrl
+                              : product.productImage?.startsWith('http') || product.productImage?.startsWith('data:')
+                              ? product.productImage
+                              : `data:image/jpeg;base64,${product.productImageUrl || product.productImage}`
+                          }}
+                          style={styles.restockProductImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.restockProductImage, styles.restockProductImagePlaceholder]}>
+                          <Text style={styles.restockProductImagePlaceholderText}>📦</Text>
+                        </View>
+                      )}
+                      
+                      <View style={styles.restockProductHeaderInfo}>
+                        <Text style={styles.restockProductName}>{product.productName}</Text>
+                        <Text style={styles.restockProductSize}>
+                          {product.productSize} • {product.unit}
+                        </Text>
+                        <Text style={styles.restockProductPrice}>
+                          Selling Price: ₱{product.sellingPrice.toFixed(2)}/{product.unit}
+                        </Text>
+                        <Text style={styles.restockProductStock}>
+                          Current Stock: {product.currentQuantity} units
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    
+                    {/* Quantity and Price Inputs - Only show when selected */}
+                    {product.selected && (
+                      <View style={styles.restockProductInputs}>
+                        <View style={styles.restockInputGroup}>
+                          <Text style={styles.restockInputLabel}>Quantity</Text>
+                          <TextInput
+                            style={styles.restockInput}
+                            placeholder="0"
+                            placeholderTextColor="rgba(30, 30, 30, 0.3)"
+                            keyboardType="numeric"
+                            value={product.quantity > 0 ? product.quantity.toString() : ''}
+                            onChangeText={(text) => {
+                              const qty = parseInt(text) || 0;
+                              updateExistingProductQuantity(product.productId, qty);
+                            }}
+                          />
+                        </View>
+                        
+                        <View style={styles.restockInputGroup}>
+                          <Text style={styles.restockInputLabel}>Supplier Price</Text>
+                          <TextInput
+                            style={styles.restockInput}
+                            placeholder="0.00"
+                            placeholderTextColor="rgba(30, 30, 30, 0.3)"
+                            keyboardType="decimal-pad"
+                            value={product.supplierPrice > 0 ? product.supplierPrice.toString() : ''}
+                            onChangeText={(text) => {
+                              const price = parseFloat(text) || 0;
+                              updateExistingProductPrice(product.productId, price);
+                            }}
+                          />
+                        </View>
+                        
+                        <View style={styles.subtotalContainer}>
+                          <View style={styles.subtotalRow}>
+                            <Text style={styles.subtotalLabel}>Subtotal:</Text>
+                            <Text style={styles.subtotalValue}>₱{product.subtotal.toFixed(2)}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                
+                <View style={styles.bottomPadding} />
+              </>
+            )}
+          </ScrollView>
+        </>
+      )}
+
+      {/* Save Button */}
+      {mode === 'existing' && existingProducts.some(p => p.selected) ? (
+        <View style={styles.bottomSummaryContainer}>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryHeaderText}>
+              {existingProducts.filter(p => p.selected).length} product{existingProducts.filter(p => p.selected).length !== 1 ? 's' : ''} selected
+            </Text>
+            <Text style={styles.summaryTotalText}>
+              Total: ₱{existingProducts.filter(p => p.selected).reduce((sum, p) => sum + p.subtotal, 0).toFixed(2)}
+            </Text>
+          </View>
+          
+          <TouchableOpacity
+            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            onPress={handleSaveExistingProducts}
+            activeOpacity={0.7}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <View style={styles.savingContainer}>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+                <Text style={styles.saveButtonText}>
+                  Processing {savingProgress.current}/{savingProgress.total}...
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.saveButtonText}>Proceed to Payment</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.saveButtonContainer}>
+          <TouchableOpacity
+            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            onPress={mode === 'new' ? handleSaveAllItems : handleSaveExistingProducts}
+            activeOpacity={0.7}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <View style={styles.savingContainer}>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+                <Text style={styles.saveButtonText}>
+                  Saving {savingProgress.current}/{savingProgress.total}...
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.saveButtonText}>
+                {mode === 'new'
+                  ? `Save Purchase Order (${purchaseCards.filter(p => p.productName.trim()).length} ${purchaseCards.filter(p => p.productName.trim()).length !== 1 ? 'items' : 'item'})`
+                  : 'Proceed to Payment'
+                }
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Category Dropdown Modal */}
       <Modal
@@ -1514,6 +1940,318 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: ms(15),
     color: Colors.darkGray,
+  },
+  
+  // Mode Selector
+  modeSelector: {
+    flexDirection: 'row',
+    paddingHorizontal: s(20),
+    paddingVertical: vs(12),
+    backgroundColor: Colors.backgroundGray,
+    gap: s(10),
+  },
+  
+  radioButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    paddingVertical: vs(12),
+    paddingHorizontal: s(12),
+    borderRadius: s(12),
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  
+  radioButtonActive: {
+    borderColor: Colors.primary,
+    backgroundColor: '#ECFDF5',
+  },
+  
+  radioCircle: {
+    width: s(20),
+    height: s(20),
+    borderRadius: s(10),
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    marginRight: s(8),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  radioCircleInner: {
+    width: s(10),
+    height: s(10),
+    borderRadius: s(5),
+    backgroundColor: Colors.primary,
+  },
+  
+  radioText: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.6)',
+  },
+  
+  radioTextActive: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  
+  // Search Container
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    marginHorizontal: s(20),
+    marginBottom: vs(16),
+    paddingHorizontal: s(16),
+    paddingVertical: vs(12),
+    borderRadius: s(12),
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  
+  searchIcon: {
+    width: s(20),
+    height: s(20),
+    marginRight: s(10),
+    tintColor: 'rgba(30, 30, 30, 0.5)',
+  },
+  
+  searchInput: {
+    flex: 1,
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: '#1E1E1E',
+  },
+  
+  // Loading Container
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: vs(60),
+  },
+  
+  loadingText: {
+    marginTop: vs(15),
+    fontSize: ms(16),
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.6)',
+    fontFamily: Fonts.primary,
+  },
+  
+  // Empty Container
+  emptyIcon: {
+    fontSize: s(60),
+    marginBottom: vs(16),
+    textAlign: 'center',
+  },
+  
+  emptyText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(18),
+    fontWeight: '600',
+    color: '#1E1E1E',
+    marginBottom: vs(8),
+    textAlign: 'center',
+  },
+  
+  emptySubtext: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: 'rgba(30, 30, 30, 0.5)',
+    textAlign: 'center',
+  },
+  
+  // Restock-style Product Cards
+  restockProductCard: {
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    marginBottom: vs(12),
+    overflow: 'hidden',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  
+  restockProductHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: s(16),
+  },
+  
+  checkbox: {
+    width: s(24),
+    height: s(24),
+    borderRadius: s(6),
+    borderWidth: 2,
+    borderColor: 'rgba(30, 30, 30, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(12),
+  },
+  
+  checkboxSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  
+  checkmark: {
+    color: Colors.white,
+    fontSize: s(16),
+    fontWeight: '700',
+  },
+  
+  restockProductImage: {
+    width: s(60),
+    height: s(60),
+    borderRadius: s(8),
+    marginRight: s(12),
+  },
+  
+  restockProductImagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E5E7EB',
+  },
+  
+  restockProductImagePlaceholderText: {
+    fontSize: s(30),
+  },
+  
+  restockProductHeaderInfo: {
+    flex: 1,
+  },
+  
+  restockProductName: {
+    fontFamily: Fonts.primary,
+    fontSize: s(15),
+    fontWeight: '600',
+    color: '#1E1E1E',
+    marginBottom: vs(4),
+  },
+  
+  restockProductSize: {
+    fontFamily: Fonts.primary,
+    fontSize: s(12),
+    color: 'rgba(30, 30, 30, 0.6)',
+    marginBottom: vs(4),
+  },
+  
+  restockProductPrice: {
+    fontFamily: Fonts.primary,
+    fontSize: s(11),
+    color: Colors.primary,
+    fontWeight: '500',
+  },
+  
+  restockProductStock: {
+    fontFamily: Fonts.primary,
+    fontSize: s(11),
+    color: 'rgba(30, 30, 30, 0.6)',
+    marginTop: vs(2),
+  },
+  
+  restockProductInputs: {
+    padding: s(16),
+    paddingTop: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  
+  restockInputGroup: {
+    marginBottom: vs(12),
+  },
+  
+  restockInputLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: s(12),
+    fontWeight: '600',
+    color: 'rgba(30, 30, 30, 0.7)',
+    marginBottom: vs(6),
+  },
+  
+  restockInput: {
+    fontFamily: Fonts.primary,
+    fontSize: s(14),
+    color: '#1E1E1E',
+    backgroundColor: '#F4F6F6',
+    borderRadius: s(8),
+    paddingVertical: vs(10),
+    paddingHorizontal: s(12),
+    borderWidth: 1,
+    borderColor: 'rgba(30, 30, 30, 0.1)',
+  },
+  
+  subtotalContainer: {
+    marginTop: vs(8),
+    paddingTop: vs(12),
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  
+  subtotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  
+  subtotalLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: s(12),
+    fontWeight: '500',
+    color: 'rgba(30, 30, 30, 0.6)',
+  },
+  
+  subtotalValue: {
+    fontFamily: Fonts.primary,
+    fontSize: s(14),
+    fontWeight: '600',
+    color: '#1E1E1E',
+  },
+  
+  // Bottom Summary Container
+  bottomSummaryContainer: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: s(20),
+    paddingTop: vs(15),
+    paddingBottom: vs(15),
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  
+  summaryHeader: {
+    marginBottom: vs(12),
+  },
+  
+  summaryHeaderText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    fontWeight: '600',
+    color: '#1E1E1E',
+    textAlign: 'center',
+  },
+  
+  summaryTotalText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(18),
+    fontWeight: '700',
+    color: Colors.primary,
+    textAlign: 'center',
+    marginTop: vs(4),
   },
 });
 

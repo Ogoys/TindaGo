@@ -10,7 +10,6 @@ import { Stack } from "expo-router";
  * - add-supplier: Add new supplier
  * - purchase-order-history: View purchase order history
  * - record-purchase-order: Create/record new purchase orders
- * - restock-from-supplier: Restock inventory from supplier
  * - purchase-payment: Payment method selection for purchase orders
  * - purchase-invoice: Invoice/receipt for completed purchase orders
  */
@@ -27,7 +26,6 @@ export default function SuppliersLayout() {
       <Stack.Screen name="add-supplier" />
       <Stack.Screen name="purchase-order-history" />
       <Stack.Screen name="record-purchase-order" />
-      <Stack.Screen name="restock-from-supplier" />
       <Stack.Screen name="purchase-payment" />
       <Stack.Screen name="purchase-invoice" />
       <Stack.Screen name="purchase-details" />

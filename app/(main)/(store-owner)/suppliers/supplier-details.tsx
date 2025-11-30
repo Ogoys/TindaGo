@@ -393,29 +393,6 @@ const SupplierDetailsScreen = () => {
           </View>
         )}
 
-        {/* Restock Button - Only show if supplier has purchase history */}
-        {supplierData.purchaseOrders.length > 0 && (
-          <TouchableOpacity
-            style={styles.restockButton}
-            onPress={() => router.push({
-              pathname: '/(main)/(store-owner)/suppliers/restock-from-supplier' as any,
-              params: {
-                supplierId: params.supplierId,
-                supplierName: supplierData.name,
-                supplierContact: supplierData.contact || '',
-              }
-            })}
-            activeOpacity={0.7}
-          >
-            <View style={styles.restockButtonContent}>
-              <View style={styles.restockIconCircle}>
-                <Text style={styles.restockIcon}>🔄</Text>
-              </View>
-              <Text style={styles.restockButtonText}>Restock from {supplierData.name}</Text>
-            </View>
-            <Text style={styles.restockButtonArrow}>→</Text>
-          </TouchableOpacity>
-        )}
 
         {/* Purchase Order Cards - Figma: white background, 400x168, borderRadius: 16 */}
         {supplierData.purchaseOrders.length === 0 ? (
@@ -954,58 +931,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Restock Button
-  restockButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.primary,
-    marginHorizontal: s(20),
-    marginBottom: vs(20),
-    paddingVertical: vs(16),
-    paddingHorizontal: s(20),
-    borderRadius: s(16),
-    shadowColor: 'rgba(0, 0, 0, 0.15)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-
-  restockButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  restockIconCircle: {
-    width: s(40),
-    height: s(40),
-    borderRadius: s(20),
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: s(12),
-  },
-
-  restockIcon: {
-    fontSize: ms(20),
-  },
-
-  restockButtonText: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(16),
-    fontWeight: '600',
-    color: Colors.white,
-    flex: 1,
-  },
-
-  restockButtonArrow: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(20),
-    color: Colors.white,
-    fontWeight: '600',
-  },
 
   // Order Header Row
   orderHeaderRow: {
