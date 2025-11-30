@@ -113,7 +113,13 @@ const SupplierDashboardScreen = () => {
           // Process each purchase order
           Object.keys(purchaseOrders).forEach((poId) => {
             const po: any = purchaseOrders[poId];
-            const supplierName = po.supplierName || 'Unknown Supplier';
+            
+            // Skip purchase orders without supplier name (from record-purchase-order)
+            if (!po.supplierName || po.supplierName.trim() === '') {
+              return;
+            }
+            
+            const supplierName = po.supplierName;
 
             if (!suppliersData.has(supplierName)) {
               suppliersData.set(supplierName, {

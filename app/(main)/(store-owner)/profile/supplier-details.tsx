@@ -359,6 +359,24 @@ const SupplierDetailsScreen = () => {
           )}
         </View>
 
+        {/* Purchase Statistics Card */}
+        {supplierData.purchaseOrders.length > 0 && (
+          <View style={styles.purchaseStatsCard}>
+            <Text style={styles.purchaseStatsTitle}>📊 Purchase Statistics</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{supplierData.purchaseOrders.length}</Text>
+                <Text style={styles.statLabel}>Total Orders</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{formatCurrency(supplierData.totalValue)}</Text>
+                <Text style={styles.statLabel}>Total Spent</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Unpaid Amount Warning */}
         {supplierData.unpaidAmount > 0 && (
           <View style={styles.unpaidWarningCard}>
@@ -420,7 +438,10 @@ const SupplierDetailsScreen = () => {
                 style={styles.purchaseOrderCard}
                 onPress={() => router.push({
                   pathname: '/profile/purchase-details',
-                  params: { purchaseOrderId: order.id }
+                  params: { 
+                    purchaseOrderId: order.id,
+                    fromSupplier: supplierData.name
+                  }
                 })}
                 activeOpacity={0.7}
               >
@@ -470,6 +491,21 @@ const SupplierDetailsScreen = () => {
             </TouchableOpacity>
             );
           })
+        )}
+
+        {/* View All Purchase Orders Button */}
+        {supplierData.purchaseOrders.length > 0 && (
+          <TouchableOpacity
+            style={styles.viewAllOrdersButton}
+            onPress={() => router.push({
+              pathname: '/(main)/(store-owner)/profile/purchase-order-history' as any,
+              params: { supplier: supplierData.name }
+            })}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.viewAllOrdersText}>📋 View All Purchase Orders</Text>
+            <Text style={styles.viewAllOrdersArrow}>›</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
 
@@ -679,6 +715,63 @@ const styles = StyleSheet.create({
     lineHeight: vs(17),
     color: ScreenColors.darkGray, // #1E1E1E
     marginBottom: vs(4),
+  },
+
+  // Purchase Statistics Card
+  purchaseStatsCard: {
+    width: s(400),
+    backgroundColor: ScreenColors.white,
+    borderRadius: s(16),
+    padding: s(20),
+    marginBottom: vs(15),
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 5,
+    elevation: 5,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+
+  purchaseStatsTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: ScreenColors.darkGray,
+    marginBottom: vs(15),
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  statDivider: {
+    width: 1,
+    height: vs(40),
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    marginHorizontal: s(10),
+  },
+
+  statValue: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(20),
+    color: Colors.primary,
+    marginBottom: vs(4),
+  },
+
+  statLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 
   // Purchase Order Card - Figma: 400x168, white bg, borderRadius: 16, shadow
@@ -943,6 +1036,39 @@ const styles = StyleSheet.create({
     color: '#E92B45',
     fontWeight: '600',
     marginBottom: vs(8),
+  },
+
+  // View All Orders Button
+  viewAllOrdersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: ScreenColors.white,
+    borderRadius: s(16),
+    padding: s(20),
+    marginBottom: vs(20),
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  viewAllOrdersText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: Colors.primary,
+    flex: 1,
+  },
+
+  viewAllOrdersArrow: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(24),
+    color: Colors.primary,
+    fontWeight: '600',
   },
 });
 

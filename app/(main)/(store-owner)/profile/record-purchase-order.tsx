@@ -1,11 +1,10 @@
 /**
  * RECORD PURCHASE ORDER SCREEN
  * 
- * Allows store owners to record inventory restocking from suppliers
+ * Allows store owners to record inventory purchases
  * Tracks costs and automatically updates inventory when marked as received
  * 
  * Features:
- * - Supplier information (optional - sari-sari stores buy from various places)
  * - Product selection from catalog
  * - Cost per unit tracking
  * - Quantity input
@@ -51,6 +50,11 @@ interface Product {
   productImage?: string;       // Legacy base64
   productImageUrl?: string;    // New Cloudinary URL
   status: 'available' | 'out_of_stock';
+  // For modal selection
+  selected?: boolean;
+  purchaseQuantity?: number;
+  costPerUnit?: number;
+  subtotal?: number;
 }
 
 interface SelectedProduct extends Product {
@@ -67,23 +71,20 @@ const RecordPurchaseOrderScreen = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [showProductSelector, setShowProductSelector] = useState(false);
+  const [modalProducts, setModalProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [storeName, setStoreName] = useState('My Store');
 
-  // Purchase order details - Pre-populate from params if coming from supplier details
-  const [supplierName, setSupplierName] = useState(
-    typeof params.supplierName === 'string' ? params.supplierName : ''
-  );
-  const [supplierContact, setSupplierContact] = useState(
-    typeof params.supplierContact === 'string' ? params.supplierContact : ''
-  );
+  // Purchase order details
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredProducts = products.filter(p => 
+  const filteredProducts = modalProducts.filter(p => 
     p.productName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const modalSelectedCount = modalProducts.filter(p => p.selected).length;
 
   const totalCost = selectedProducts.reduce((sum, p) => sum + p.subtotal, 0);
 
@@ -93,12 +94,12 @@ const RecordPurchaseOrderScreen = () => {
     loadCartFromStorage();
   }, []);
 
-  // Save cart to AsyncStorage whenever selectedProducts, supplier info, or notes changes
+  // Save cart to AsyncStorage whenever selectedProducts or notes changes
   useEffect(() => {
     if (selectedProducts.length > 0) {
       saveCartToStorage();
     }
-  }, [selectedProducts, supplierName, supplierContact, notes]);
+  }, [selectedProducts, notes]);
 
   const saveCartToStorage = async () => {
     try {
@@ -107,8 +108,6 @@ const RecordPurchaseOrderScreen = () => {
 
       const cartData = {
         selectedProducts,
-        supplierName,
-        supplierContact,
         purchaseDate,
         notes,
         timestamp: new Date().toISOString(),
@@ -141,8 +140,6 @@ const RecordPurchaseOrderScreen = () => {
 
         if (cartAge < maxAge) {
           setSelectedProducts(cartData.selectedProducts || []);
-          setSupplierName(cartData.supplierName || '');
-          setSupplierContact(cartData.supplierContact || '');
           setPurchaseDate(cartData.purchaseDate || new Date().toISOString().split('T')[0]);
           setNotes(cartData.notes || '');
 
@@ -213,6 +210,10 @@ const RecordPurchaseOrderScreen = () => {
           id: key,
           ...data[key],
           status: data[key].status || 'available',
+          selected: false,
+          purchaseQuantity: 0,
+          costPerUnit: 0,
+          subtotal: 0,
         }));
         setProducts(productsList);
       } else {
@@ -229,26 +230,66 @@ const RecordPurchaseOrderScreen = () => {
     router.back();
   };
 
-  const handleAddProduct = (product: Product) => {
-    const existingProduct = selectedProducts.find(p => p.id === product.id);
+  const handleOpenModal = () => {
+    // Initialize modal products with current state
+    const modalProductsList = products.map(p => {
+      const alreadySelected = selectedProducts.find(sp => sp.id === p.id);
+      if (alreadySelected) {
+        return {
+          ...p,
+          selected: true,
+          purchaseQuantity: alreadySelected.purchaseQuantity,
+          costPerUnit: alreadySelected.costPerUnit,
+          subtotal: alreadySelected.subtotal,
+        };
+      }
+      return {
+        ...p,
+        selected: false,
+        purchaseQuantity: 0,
+        costPerUnit: Math.round(p.price * 0.8), // Default cost
+        subtotal: 0,
+      };
+    });
+    setModalProducts(modalProductsList);
+    setShowProductSelector(true);
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    setModalProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        const newSelected = !p.selected;
+        return {
+          ...p,
+          selected: newSelected,
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleAddSelectedProducts = () => {
+    const selected = modalProducts.filter(p => p.selected);
     
-    if (existingProduct) {
-      Alert.alert('Already Added', 'This product is already in the purchase order. You can adjust the quantity or cost.');
+    if (selected.length === 0) {
+      Alert.alert('No Products Selected', 'Please select at least one product.');
       return;
     }
 
-    // Default cost = 80% of selling price (common wholesale margin)
-    const defaultCost = Math.round(product.price * 0.8);
+    // Add selected products with default values
+    const newSelectedProducts: SelectedProduct[] = selected.map(p => {
+      const defaultCost = Math.round(p.price * 0.8);
+      return {
+        ...p,
+        purchaseQuantity: 1,
+        costPerUnit: defaultCost,
+        subtotal: defaultCost,
+      };
+    });
 
-    const newProduct: SelectedProduct = {
-      ...product,
-      purchaseQuantity: 1,
-      costPerUnit: defaultCost,
-      subtotal: defaultCost,
-    };
-
-    setSelectedProducts([...selectedProducts, newProduct]);
+    setSelectedProducts(newSelectedProducts);
     setShowProductSelector(false);
+    setSearchQuery('');
   };
 
   const handleQuantityChange = (productId: string, newQuantity: string) => {
@@ -324,8 +365,6 @@ const RecordPurchaseOrderScreen = () => {
           style: 'destructive',
           onPress: () => {
             setSelectedProducts([]);
-            setSupplierName('');
-            setSupplierContact('');
             setPurchaseDate(new Date().toISOString().split('T')[0]);
             setNotes('');
             clearCartFromStorage();
@@ -376,8 +415,6 @@ const RecordPurchaseOrderScreen = () => {
 
       // ✅ FIX: Save to AsyncStorage instead of URL params (URL params can strip fields)
       const orderDataForPayment = {
-        supplierName: supplierName.trim(),
-        supplierContact: supplierContact.trim(),
         purchaseDate,
         items,
         notes: notes.trim(),
@@ -422,43 +459,10 @@ const RecordPurchaseOrderScreen = () => {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Purchase Information Section */}
-        <Text style={styles.sectionTitle}>Purchase Information</Text>
-        
-        <View style={styles.infoCard}>
-          <Text style={styles.inputLabel}>Where did you buy? (Optional)</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="e.g., Puregold, SM, Divisoria, Local Market..."
-            placeholderTextColor="rgba(30, 30, 30, 0.5)"
-            value={supplierName}
-            onChangeText={setSupplierName}
-          />
-
-          <Text style={[styles.inputLabel, { marginTop: vs(15) }]}>Contact Number (Optional)</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="e.g., +63 912 345 6789"
-            placeholderTextColor="rgba(30, 30, 30, 0.5)"
-            value={supplierContact}
-            onChangeText={setSupplierContact}
-            keyboardType="phone-pad"
-          />
-
-          <Text style={[styles.inputLabel, { marginTop: vs(15) }]}>Purchase Date</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor="rgba(30, 30, 30, 0.5)"
-            value={purchaseDate}
-            onChangeText={setPurchaseDate}
-          />
-        </View>
-
         {/* Add Products Button */}
         <TouchableOpacity
           style={styles.addProductCard}
-          onPress={() => setShowProductSelector(true)}
+          onPress={handleOpenModal}
           activeOpacity={0.7}
         >
           <View style={styles.addProductLeft}>
@@ -476,134 +480,190 @@ const RecordPurchaseOrderScreen = () => {
           />
         </TouchableOpacity>
 
-        {/* Selected Products Section - Horizontal Scroll */}
-        <View style={styles.productsSection}>
-          <View style={styles.productsSectionHeader}>
-            <Text style={styles.sectionLabel}>Products to Purchase</Text>
-            <Text style={styles.productCount}>
-              {selectedProducts.length} {selectedProducts.length === 1 ? 'item' : 'items'}
-            </Text>
-          </View>
+        {/* Selected Products Section - Vertical Stack */}
+        <View style={styles.productsSectionHeader}>
+          <Text style={styles.sectionLabel}>Products to Purchase</Text>
+          <Text style={styles.productCount}>
+            {selectedProducts.length} {selectedProducts.length === 1 ? 'item' : 'items'}
+          </Text>
+        </View>
 
-          {selectedProducts.length === 0 ? (
-            <TouchableOpacity
-              style={styles.emptyAddButton}
-              onPress={() => setShowProductSelector(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.emptyAddIconCircle}>
-                <Text style={styles.emptyAddIcon}>+</Text>
-              </View>
-              <Text style={styles.emptyAddTitle}>Add Your First Product</Text>
-              <Text style={styles.emptyAddSubtitle}>
-                Tap here to select products from your catalog
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalScrollContent}
-              style={styles.horizontalScrollView}
-            >
-              {selectedProducts.map((product, index) => (
-                <View key={product.id} style={styles.horizontalProductCard}>
+        {selectedProducts.length === 0 ? (
+          <TouchableOpacity
+            style={styles.emptyAddButton}
+            onPress={handleOpenModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.emptyAddIconCircle}>
+              <Text style={styles.emptyAddIcon}>+</Text>
+            </View>
+            <Text style={styles.emptyAddTitle}>Add Purchase Product</Text>
+            <Text style={styles.emptyAddSubtitle}>
+              Tap here to select products from your catalog
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          selectedProducts.map((product, index) => (
+                <View key={product.id} style={styles.detailProductCard}>
                   {/* Card Header */}
-                  <View style={styles.hCardHeader}>
-                    <View style={styles.hIndexBadge}>
-                      <Text style={styles.hIndexText}>#{index + 1}</Text>
+                  <View style={styles.detailCardHeader}>
+                    <View style={styles.detailIndexBadge}>
+                      <Text style={styles.detailIndexText}>#{index + 1}</Text>
                     </View>
+                    <Text style={styles.detailCardTitle}>Product Details</Text>
                     <TouchableOpacity
-                      style={styles.hRemoveButton}
+                      style={styles.detailRemoveButton}
                       onPress={() => handleRemoveProduct(product.id)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.hRemoveIcon}>✕</Text>
+                      <Text style={styles.detailRemoveIcon}>✕</Text>
                     </TouchableOpacity>
                   </View>
 
-                  {/* Product Image */}
-                  <View style={styles.hImageContainer}>
-                    {getProductImageSource(product) ? (
-                      <Image source={getProductImageSource(product)!} style={styles.hProductImage} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.hImagePlaceholder}>
-                        <Text style={styles.hImagePlaceholderIcon}>📦</Text>
+                  {/* Horizontal Scroll Sections - Same as order-supplies.tsx */}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={true}
+                    pagingEnabled={false}
+                    contentContainerStyle={styles.detailSectionsContent}
+                    style={styles.detailSections}
+                  >
+                    {/* SECTION 1: Basic Info */}
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailSectionTitle}>Basic Info</Text>
+                      
+                      {/* Product Image */}
+                      <View style={styles.detailImageContainer}>
+                        {getProductImageSource(product) ? (
+                          <Image 
+                            source={getProductImageSource(product)!} 
+                            style={styles.detailProductImage} 
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.detailImagePlaceholder}>
+                            <Text style={styles.detailImagePlaceholderIcon}>📦</Text>
+                          </View>
+                        )}
                       </View>
-                    )}
-                  </View>
 
-                  {/* Product Name */}
-                  <Text style={styles.hProductName} numberOfLines={2}>{product.productName}</Text>
-                  <Text style={styles.hProductSize}>{product.productSize} {product.unit}</Text>
-                  <Text style={styles.hSellingPrice}>Sells at: ₱{product.price.toFixed(2)}</Text>
+                      {/* Product Name */}
+                      <Text style={styles.detailFieldLabel}>Product Name</Text>
+                      <View style={styles.detailTextDisplay}>
+                        <Text style={styles.detailTextValue} numberOfLines={2}>
+                          {product.productName}
+                        </Text>
+                      </View>
 
-                  {/* Cost Input */}
-                  <View style={styles.hCostSection}>
-                    <Text style={styles.hSectionLabel}>Cost per unit</Text>
-                    <View style={styles.hPriceInputContainer}>
-                      <Text style={styles.hPesoCurrency}>₱</Text>
-                      <TextInput
-                        style={styles.hPriceInput}
-                        value={product.costPerUnit.toString()}
-                        onChangeText={(text) => handleCostChange(product.id, text)}
-                        keyboardType="decimal-pad"
-                        placeholder="0.00"
-                      />
+                      {/* Description */}
+                      <Text style={styles.detailFieldLabel}>Description</Text>
+                      <View style={[styles.detailTextDisplay, styles.detailDescriptionDisplay]}>
+                        <Text style={styles.detailTextValue} numberOfLines={3}>
+                          {product.description || 'No description'}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
 
-                  {/* Quantity Controls */}
-                  <View style={styles.hQuantitySection}>
-                    <Text style={styles.hSectionLabel}>Quantity</Text>
-                    <View style={styles.hQuantityControls}>
-                      <TouchableOpacity
-                        style={styles.hQtyButton}
-                        onPress={() => handleDecrementQuantity(product.id)}
-                        disabled={product.purchaseQuantity <= 1}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.hQtyButtonText}>−</Text>
-                      </TouchableOpacity>
-                      <TextInput
-                        style={styles.hQtyInput}
-                        value={product.purchaseQuantity.toString()}
-                        onChangeText={(text) => handleQuantityChange(product.id, text)}
-                        keyboardType="number-pad"
-                        textAlign="center"
-                      />
-                      <TouchableOpacity
-                        style={styles.hQtyButton}
-                        onPress={() => handleIncrementQuantity(product.id)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.hQtyButtonText}>+</Text>
-                      </TouchableOpacity>
+                    {/* SECTION 2: Pricing & Stock */}
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailSectionTitle}>Pricing & Stock</Text>
+
+                      {/* Category */}
+                      <Text style={styles.detailFieldLabel}>Category</Text>
+                      <View style={styles.detailCategoryDisplay}>
+                        <Text style={styles.detailCategoryText}>
+                          {product.category || 'Uncategorized'}
+                        </Text>
+                      </View>
+
+                      {/* Selling Price */}
+                      <Text style={styles.detailFieldLabel}>Selling Price</Text>
+                      <View style={styles.detailPriceDisplay}>
+                        <Text style={styles.detailPesoCurrency}>₱</Text>
+                        <Text style={styles.detailPriceValue}>{product.price.toFixed(2)}</Text>
+                      </View>
+
+                      {/* Current Stock */}
+                      <Text style={styles.detailFieldLabel}>Current Stock</Text>
+                      <View style={styles.detailStockDisplayReadonly}>
+                        <Text style={styles.detailStockValue}>{product.quantity}</Text>
+                        <View style={[
+                          styles.detailStockBadge,
+                          product.quantity === 0 && styles.detailStockBadgeEmpty
+                        ]}>
+                          <Text style={[
+                            styles.detailStockBadgeText,
+                            product.quantity === 0 && styles.detailStockBadgeTextEmpty
+                          ]}>
+                            {product.quantity === 0 ? 'Out of Stock' : 'In Stock'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Cost Input */}
+                      <Text style={styles.detailFieldLabel}>Cost per unit</Text>
+                      <View style={styles.detailCostInputContainer}>
+                        <Text style={styles.detailPesoCurrency}>₱</Text>
+                        <TextInput
+                          style={styles.detailCostInput}
+                          value={product.costPerUnit.toString()}
+                          onChangeText={(text) => handleCostChange(product.id, text)}
+                          keyboardType="decimal-pad"
+                          placeholder="0.00"
+                        />
+                      </View>
+
+                      {/* Quantity Controls */}
+                      <Text style={styles.detailFieldLabel}>Quantity to Order</Text>
+                      <View style={styles.detailQuantityControls}>
+                        <TouchableOpacity
+                          style={styles.detailQtyButton}
+                          onPress={() => handleDecrementQuantity(product.id)}
+                          disabled={product.purchaseQuantity <= 1}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.detailQtyButtonText}>−</Text>
+                        </TouchableOpacity>
+                        <TextInput
+                          style={styles.detailQtyInput}
+                          value={product.purchaseQuantity.toString()}
+                          onChangeText={(text) => handleQuantityChange(product.id, text)}
+                          keyboardType="number-pad"
+                          textAlign="center"
+                        />
+                        <TouchableOpacity
+                          style={styles.detailQtyButton}
+                          onPress={() => handleIncrementQuantity(product.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.detailQtyButtonText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Subtotal Footer */}
+                      <View style={styles.detailSubtotalFooter}>
+                        <Text style={styles.detailSubtotalLabel}>Subtotal</Text>
+                        <Text style={styles.detailSubtotalValue}>₱{product.subtotal.toFixed(2)}</Text>
+                      </View>
                     </View>
-                  </View>
-
-                  {/* Subtotal Footer */}
-                  <View style={styles.hSubtotalFooter}>
-                    <Text style={styles.hSubtotalLabel}>Subtotal</Text>
-                    <Text style={styles.hSubtotalValue}>₱{product.subtotal.toFixed(2)}</Text>
-                  </View>
+                  </ScrollView>
                 </View>
-              ))}
+              ))
+        )}
 
-              {/* Add More Products Card */}
-              <TouchableOpacity
-                style={styles.hAddProductCard}
-                onPress={() => setShowProductSelector(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.hAddIconCircle}>
-                  <Text style={styles.hAddIcon}>+</Text>
-                </View>
-                <Text style={styles.hAddText}>Add{'\n'}More</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          )}
-        </View>
+        {/* Add More Products Button - Below cards */}
+        {selectedProducts.length > 0 && (
+          <TouchableOpacity
+            style={styles.addMoreButton}
+            onPress={handleOpenModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.addMoreIconCircle}>
+              <Text style={styles.addMoreIcon}>+</Text>
+            </View>
+            <Text style={styles.addMoreText}>Add More Products</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Notes Section */}
         {selectedProducts.length > 0 && (
@@ -611,7 +671,7 @@ const RecordPurchaseOrderScreen = () => {
             <Text style={styles.sectionTitle}>Notes (Optional)</Text>
             <TextInput
               style={styles.notesInput}
-              placeholder="e.g., Bought from Puregold Caloocan branch..."
+              placeholder="e.g., Special discount received, urgent restock..."
               placeholderTextColor="rgba(30, 30, 30, 0.5)"
               value={notes}
               onChangeText={setNotes}
@@ -665,7 +725,7 @@ const RecordPurchaseOrderScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.productSelectorModal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Product</Text>
+              <Text style={styles.modalTitle}>Select Products</Text>
               <TouchableOpacity
                 onPress={() => setShowProductSelector(false)}
                 style={styles.closeButton}
@@ -674,6 +734,12 @@ const RecordPurchaseOrderScreen = () => {
                 <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
             </View>
+
+            {modalSelectedCount > 0 && (
+              <View style={styles.modalSelectedBadge}>
+                <Text style={styles.modalSelectedText}>{modalSelectedCount} selected</Text>
+              </View>
+            )}
 
             <TextInput
               style={styles.searchInput}
@@ -690,35 +756,53 @@ const RecordPurchaseOrderScreen = () => {
                 <Text style={styles.noProductsText}>No products found</Text>
               ) : (
                 filteredProducts.map((product) => (
-                  <TouchableOpacity
-                    key={product.id}
-                    style={styles.productSelectorItem}
-                    onPress={() => handleAddProduct(product)}
-                    activeOpacity={0.7}
-                  >
-                    {getProductImageSource(product) ? (
-                      <Image source={getProductImageSource(product)!} style={styles.selectorProductImage} />
-                    ) : (
-                      <View style={[styles.selectorProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
-                        <Text style={{ fontSize: 10, color: '#999' }}>No Image</Text>
+                  <View key={product.id} style={styles.modalProductCard}>
+                    {/* Product Header with Checkbox */}
+                    <TouchableOpacity
+                      style={styles.modalProductHeader}
+                      onPress={() => toggleProductSelection(product.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[
+                        styles.modalCheckbox,
+                        product.selected && styles.modalCheckboxSelected
+                      ]}>
+                        {product.selected && <Text style={styles.modalCheckmark}>✓</Text>}
                       </View>
-                    )}
-                    <View style={styles.selectorProductInfo}>
-                      <Text style={styles.selectorProductName} numberOfLines={1}>
-                        {product.productName}
-                      </Text>
-                      <Text style={styles.selectorProductSize}>
-                        {product.productSize} {product.unit}
-                      </Text>
-                      <Text style={styles.selectorProductPrice}>₱{product.price.toFixed(2)}</Text>
-                    </View>
-                    <View style={styles.selectorProductStock}>
-                      <Text style={styles.stockText}>Stock: {product.quantity}</Text>
-                    </View>
-                  </TouchableOpacity>
+
+                      {getProductImageSource(product) ? (
+                        <Image source={getProductImageSource(product)!} style={styles.modalProductImage} />
+                      ) : (
+                        <View style={[styles.modalProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                          <Text style={{ fontSize: 10, color: '#999' }}>No Image</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.modalProductInfo}>
+                        <Text style={styles.modalProductName} numberOfLines={1}>
+                          {product.productName}
+                        </Text>
+                        <Text style={styles.modalProductSize}>
+                          {product.productSize} {product.unit}
+                        </Text>
+                        <Text style={styles.modalProductPrice}>₱{product.price.toFixed(2)} • Stock: {product.quantity}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 ))
               )}
             </ScrollView>
+
+            {/* Add Selected Button */}
+            {modalSelectedCount > 0 && (
+              <TouchableOpacity
+                style={styles.modalAddButton}
+                onPress={handleAddSelectedProducts}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalAddButtonText}>Add Selected ({modalSelectedCount})</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -900,52 +984,52 @@ const styles = StyleSheet.create({
     lineHeight: vs(20),
   },
 
-  // Horizontal Scroll View
-  horizontalScrollView: {
-    marginHorizontal: s(-20),
-    marginBottom: vs(10),
-  },
-  horizontalScrollContent: {
-    paddingHorizontal: s(20),
-    paddingVertical: vs(5),
-    gap: s(15),
-  },
-
-  // Horizontal Product Card
-  horizontalProductCard: {
-    width: s(240),
+  // Detailed Product Card - Vertical stacking
+  detailProductCard: {
+    width: '100%',
     backgroundColor: Colors.white,
     borderRadius: s(20),
-    padding: s(14),
     shadowColor: 'rgba(0, 0, 0, 0.15)',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 12,
     elevation: 8,
-    borderWidth: 1.5,
-    borderColor: 'rgba(2, 84, 95, 0.08)',
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    overflow: 'hidden',
+    marginBottom: vs(15),
   },
 
   // Card Header
-  hCardHeader: {
+  detailCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: vs(10),
+    paddingHorizontal: s(15),
+    paddingVertical: vs(12),
+    backgroundColor: 'rgba(2, 84, 95, 0.05)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(2, 84, 95, 0.1)',
   },
-  hIndexBadge: {
+  detailIndexBadge: {
     backgroundColor: Colors.primary,
     paddingHorizontal: s(12),
     paddingVertical: vs(4),
     borderRadius: s(10),
   },
-  hIndexText: {
+  detailIndexText: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(12),
     color: Colors.white,
   },
-  hRemoveButton: {
+  detailCardTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: Colors.darkGray,
+  },
+  detailRemoveButton: {
     width: s(26),
     height: s(26),
     borderRadius: s(13),
@@ -953,72 +1037,187 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  hRemoveIcon: {
+  detailRemoveIcon: {
     fontSize: ms(13),
     fontWeight: '700',
     color: '#FF5252',
   },
 
-  // Product Image
-  hImageContainer: {
+  // Sections Scroll
+  detailSections: {
     width: '100%',
-    height: vs(100),
-    borderRadius: s(14),
+  },
+  detailSectionsContent: {
+    paddingHorizontal: s(5),
+  },
+
+  // Detail Section (Basic Info & Pricing/Stock)
+  detailSection: {
+    width: s(350),
+    paddingHorizontal: s(15),
+    paddingVertical: vs(15),
+  },
+
+  detailSectionTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
+    color: Colors.primary,
+    marginBottom: vs(12),
+    textAlign: 'center',
+  },
+
+  // Image Container
+  detailImageContainer: {
+    width: '100%',
+    height: vs(140),
+    borderRadius: s(12),
     overflow: 'hidden',
-    marginBottom: vs(10),
+    marginBottom: vs(12),
     backgroundColor: '#F8F9FA',
   },
-  hProductImage: {
+
+  detailProductImage: {
     width: '100%',
     height: '100%',
   },
-  hImagePlaceholder: {
+
+  detailImagePlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F0F4F8',
   },
-  hImagePlaceholderIcon: {
-    fontSize: ms(32),
+
+  detailImagePlaceholderIcon: {
+    fontSize: ms(40),
   },
 
-  // Product Info
-  hProductName: {
+  // Field Label
+  detailFieldLabel: {
     fontFamily: Fonts.primary,
     fontWeight: '600',
-    fontSize: ms(14),
-    color: Colors.darkGray,
-    marginBottom: vs(4),
-    lineHeight: vs(18),
-  },
-  hProductSize: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(11),
-    color: Colors.textSecondary,
-    marginBottom: vs(3),
-  },
-  hSellingPrice: {
-    fontFamily: Fonts.primary,
-    fontSize: ms(11),
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-    marginBottom: vs(12),
-  },
-
-  // Section Label
-  hSectionLabel: {
-    fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(11),
+    fontSize: ms(12),
     color: Colors.textSecondary,
     marginBottom: vs(6),
+    marginTop: vs(2),
   },
 
-  // Cost Section
-  hCostSection: {
-    marginBottom: vs(12),
+  // Text Display Fields
+  detailTextDisplay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: s(10),
+    paddingVertical: vs(10),
+    paddingHorizontal: s(12),
+    marginBottom: vs(10),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
   },
-  hPriceInputContainer: {
+
+  detailDescriptionDisplay: {
+    minHeight: vs(60),
+  },
+
+  detailTextValue: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: Colors.darkGray,
+    lineHeight: vs(18),
+  },
+
+  // Category Display
+  detailCategoryDisplay: {
+    backgroundColor: 'rgba(2, 84, 95, 0.08)',
+    borderRadius: s(10),
+    paddingVertical: vs(10),
+    paddingHorizontal: s(12),
+    marginBottom: vs(10),
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+
+  detailCategoryText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(13),
+    color: Colors.primary,
+    textAlign: 'center',
+  },
+
+  // Price Display
+  detailPriceDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(59, 183, 126, 0.08)',
+    borderRadius: s(10),
+    paddingVertical: vs(10),
+    paddingHorizontal: s(12),
+    marginBottom: vs(10),
+    borderWidth: 1.5,
+    borderColor: '#3BB77E',
+  },
+
+  detailPesoCurrency: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(18),
+    color: '#3BB77E',
+    marginRight: s(4),
+  },
+
+  detailPriceValue: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(18),
+    color: '#3BB77E',
+  },
+
+  // Stock Display (Read-only)
+  detailStockDisplayReadonly: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: s(10),
+    paddingVertical: vs(10),
+    paddingHorizontal: s(12),
+    marginBottom: vs(10),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+  },
+
+  detailStockValue: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(24),
+    color: Colors.darkGray,
+  },
+
+  detailStockBadge: {
+    backgroundColor: '#3BB77E',
+    paddingHorizontal: s(12),
+    paddingVertical: vs(6),
+    borderRadius: s(8),
+  },
+
+  detailStockBadgeEmpty: {
+    backgroundColor: '#E92B45',
+  },
+
+  detailStockBadgeText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(11),
+    color: Colors.white,
+  },
+
+  detailStockBadgeTextEmpty: {
+    color: Colors.white,
+  },
+
+  // Cost Input Container
+  detailCostInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
@@ -1026,16 +1225,10 @@ const styles = StyleSheet.create({
     borderRadius: s(10),
     backgroundColor: Colors.white,
     overflow: 'hidden',
+    marginBottom: vs(10),
   },
-  hPesoCurrency: {
-    fontFamily: Fonts.primary,
-    fontWeight: '700',
-    fontSize: ms(16),
-    color: '#02545F',
-    paddingLeft: s(12),
-    paddingRight: s(4),
-  },
-  hPriceInput: {
+
+  detailCostInput: {
     flex: 1,
     fontFamily: Fonts.primary,
     fontWeight: '600',
@@ -1046,102 +1239,115 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Quantity Section
-  hQuantitySection: {
-    marginBottom: vs(12),
-  },
-  hQuantityControls: {
+  // Quantity Controls
+  detailQuantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: '#02545F',
     borderRadius: s(10),
     overflow: 'hidden',
+    marginBottom: vs(10),
   },
-  hQtyButton: {
-    width: s(40),
-    height: vs(40),
+
+  detailQtyButton: {
+    width: s(50),
+    height: vs(45),
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(2, 84, 95, 0.1)',
   },
-  hQtyButtonText: {
+
+  detailQtyButtonText: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(20),
     color: '#02545F',
   },
-  hQtyInput: {
+
+  detailQtyInput: {
     flex: 1,
     fontFamily: Fonts.primary,
     fontWeight: '700',
     fontSize: ms(18),
     color: Colors.darkGray,
     textAlign: 'center',
-    paddingVertical: vs(8),
+    paddingVertical: vs(10),
   },
 
   // Subtotal Footer
-  hSubtotalFooter: {
+  detailSubtotalFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: vs(12),
+    marginTop: vs(10),
     borderTopWidth: 2,
     borderTopColor: Colors.primary,
   },
-  hSubtotalLabel: {
+
+  detailSubtotalLabel: {
     fontFamily: Fonts.primary,
     fontWeight: '500',
     fontSize: ms(13),
     color: Colors.textSecondary,
   },
-  hSubtotalValue: {
+
+  detailSubtotalValue: {
     fontFamily: Fonts.primary,
     fontWeight: '800',
     fontSize: ms(18),
     color: Colors.primary,
   },
 
-  // Add Product Card (in horizontal scroll)
-  hAddProductCard: {
-    width: s(120),
-    height: vs(360),
-    backgroundColor: Colors.white,
-    borderRadius: s(20),
-    justifyContent: 'center',
+  // Add More Button (Below cards)
+  addMoreButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    paddingVertical: vs(15),
+    paddingHorizontal: s(20),
+    marginHorizontal: s(20),
+    marginBottom: vs(15),
     borderWidth: 2.5,
     borderColor: Colors.primary,
     borderStyle: 'dashed',
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  hAddIconCircle: {
-    width: s(50),
-    height: s(50),
-    borderRadius: s(25),
+
+  addMoreIconCircle: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: vs(10),
+    marginRight: s(12),
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
-  hAddIcon: {
+
+  addMoreIcon: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(28),
+    fontSize: ms(24),
     color: Colors.white,
   },
-  hAddText: {
+
+  addMoreText: {
     fontFamily: Fonts.primary,
-    fontWeight: '600',
-    fontSize: ms(14),
+    fontWeight: '700',
+    fontSize: ms(16),
     color: Colors.primary,
-    textAlign: 'center',
-    lineHeight: vs(18),
   },
 
   notesInput: {
@@ -1294,6 +1500,7 @@ const styles = StyleSheet.create({
     paddingVertical: vs(40),
   },
 
+  // Simple Product Selector Modal List
   productSelectorItem: {
     flexDirection: 'row',
     backgroundColor: 'rgba(0, 0, 0, 0.02)',
@@ -1347,6 +1554,168 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontWeight: '600',
     fontSize: ms(12),
+    color: Colors.white,
+  },
+
+  // Modal with checkbox selection
+  modalSelectedBadge: {
+    backgroundColor: Colors.primary,
+    paddingVertical: vs(8),
+    paddingHorizontal: s(15),
+    borderRadius: s(20),
+    alignSelf: 'center',
+    marginBottom: vs(10),
+  },
+
+  modalSelectedText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(13),
+    color: Colors.white,
+  },
+
+  modalProductCard: {
+    backgroundColor: Colors.white,
+    borderRadius: s(12),
+    marginBottom: vs(12),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    overflow: 'hidden',
+  },
+
+  modalProductHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: s(12),
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  },
+
+  modalCheckbox: {
+    width: s(24),
+    height: s(24),
+    borderRadius: s(6),
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(12),
+  },
+
+  modalCheckboxSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+
+  modalCheckmark: {
+    fontSize: ms(16),
+    fontWeight: '700',
+    color: Colors.white,
+  },
+
+  modalProductImage: {
+    width: s(50),
+    height: s(50),
+    borderRadius: s(8),
+    marginRight: s(12),
+  },
+
+  modalProductInfo: {
+    flex: 1,
+  },
+
+  modalProductName: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    marginBottom: vs(3),
+  },
+
+  modalProductSize: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(11),
+    color: Colors.textSecondary,
+    marginBottom: vs(2),
+  },
+
+  modalProductPrice: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    color: Colors.textSecondary,
+  },
+
+  modalProductInputs: {
+    padding: s(12),
+    backgroundColor: 'rgba(2, 84, 95, 0.02)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+  },
+
+  modalInputGroup: {
+    marginBottom: vs(10),
+  },
+
+  modalInputLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(12),
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    marginBottom: vs(5),
+  },
+
+  modalInput: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(14),
+    color: Colors.darkGray,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: s(8),
+    paddingVertical: vs(8),
+    paddingHorizontal: s(12),
+  },
+
+  modalSubtotalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: vs(5),
+    paddingTop: vs(10),
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+  },
+
+  modalSubtotalLabel: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+
+  modalSubtotalValue: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(15),
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+
+  modalAddButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: s(12),
+    paddingVertical: vs(15),
+    alignItems: 'center',
+    marginTop: vs(15),
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  modalAddButtonText: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(16),
     color: Colors.white,
   },
 });
