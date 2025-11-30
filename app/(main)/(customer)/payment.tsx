@@ -43,6 +43,7 @@ import { createOrder } from '../../../src/api/orders';
 import { clearCart } from '../../../src/api/cart';
 import { xenditService } from '../../../src/services/payment/XenditService';
 import { CommissionService } from '../../../src/services/commission';
+import { DebtReminderScheduler } from '../../../src/services/notifications/DebtReminderScheduler';
 
 interface OrderSummary {
   items: number;
@@ -528,6 +529,9 @@ const PaymentScreen = () => {
                     debtPaidDate: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   });
+                  
+                  // ✅ Cancel all scheduled reminders for this order
+                  await DebtReminderScheduler.cancelReminders(ord.id);
                 } catch {}
 
                 // Show success modal
@@ -780,26 +784,18 @@ const PaymentScreen = () => {
         });
 
         if (orderId) {
-          // Optionally schedule a due-date reminder (server can process scheduledReminders)
+          // ✅ Schedule FREE local reminders on customer's device (no Cloud Functions needed)
           try {
-            if (storeDebtSettings?.reminderDaysBefore && storeDebtSettings.reminderDaysBefore > 0) {
-              const reminderAt = new Date(debtDueDate);
-              reminderAt.setDate(reminderAt.getDate() - storeDebtSettings.reminderDaysBefore);
-              if (!isNaN(reminderAt.getTime()) && reminderAt > new Date()) {
-                await update(ref(database), {
-                  [`scheduledReminders/${orderId}`]: {
-                    userId: user.id,
-                    orderId,
-                    storeId,
-                    triggerAt: reminderAt.toISOString(),
-                    createdAt: new Date().toISOString(),
-                    type: 'debt_due_reminder',
-                    reminderDaysBefore: storeDebtSettings.reminderDaysBefore,
-                  },
-                });
-              }
-            }
+            await DebtReminderScheduler.scheduleReminders({
+              orderId,
+              storeId,
+              storeName,
+              dueDate: debtDueDate.toISOString(),
+              reminderDaysBefore: storeDebtSettings?.reminderDaysBefore || 3,
+            });
+            console.log('✅ Local payment reminders scheduled for order:', orderId);
           } catch (e) {
+            console.error('❌ Failed to schedule reminders:', e);
             // Non-blocking; continue
           }
 

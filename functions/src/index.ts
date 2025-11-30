@@ -167,63 +167,123 @@ export const onPayoutUpdated = onValueUpdated(
 );
 
 // -----------------------------
-// Debt reminders (customer due-date)
+// Debt reminders - Efficient approach using Firebase triggers
 // -----------------------------
 
 /**
- * Process scheduled reminders: send Expo push at triggerAt to the debt owner
- * Data: scheduledReminders/{orderId} = { userId, storeId, triggerAt, type: 'debt_due_reminder', processed?, cancelled? }
+ * Send immediate notification when Pay Later order is created
+ * Triggered when: orders/{orderId} is created with paymentMethod = 'Pay Later'
  */
-export const processDebtReminders = onSchedule({ schedule: 'every 5 minutes' }, async () => {
-  const now = Date.now();
-  const snap = await db.ref('scheduledReminders').get();
-  if (!snap.exists()) return;
-
-  const updates: Record<string, any> = {};
-
-  const tasks: Promise<any>[] = [];
-  snap.forEach((child) => {
-    const orderId = child.key as string;
-    const r = child.val() as any;
-    if (!r || r.processed || r.cancelled || !r.triggerAt || r.type !== 'debt_due_reminder') return;
-    const triggerAtMs = Date.parse(r.triggerAt);
-    if (isNaN(triggerAtMs) || triggerAtMs > now) return; // not due yet
-
-    tasks.push((async () => {
-      try {
-        // Fetch push token
-        const tokenSnap = await db.ref(`users/${r.userId}/pushToken`).get();
-        const pushToken = tokenSnap.exists() ? tokenSnap.val() : null;
-        if (pushToken) {
-          const message = {
-            to: pushToken,
-            sound: 'default',
-            title: 'Payment reminder',
-            body: 'Your Pay Later balance is due soon. Please settle to avoid overdue.',
-            data: { orderId, storeId: r.storeId, type: r.type },
-          };
-          // Node 20 has global fetch
-          await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Accept-encoding': 'gzip, deflate',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(message),
-          });
-        }
-        updates[`scheduledReminders/${orderId}/processed`] = true;
-        updates[`scheduledReminders/${orderId}/processedAt`] = new Date().toISOString();
-      } catch (e) {
-        // Do not throw; try next
+export const onPayLaterOrderCreated = onValueCreated(
+  {
+    ref: '/orders/{orderId}',
+    concurrency: 50,
+  },
+  async (event) => {
+    const order = event.data?.val() as any;
+    const orderId = (event.params as any).orderId as string;
+    
+    // Only process Pay Later orders
+    if (order?.paymentMethod !== 'Pay Later' || !order?.customerId) return;
+    
+    try {
+      // Fetch customer push token
+      const tokenSnap = await db.ref(`users/${order.customerId}/pushToken`).get();
+      const pushToken = tokenSnap.exists() ? tokenSnap.val() : null;
+      
+      if (pushToken) {
+        // Send immediate confirmation
+        const message = {
+          to: pushToken,
+          sound: 'default',
+          title: 'Order Confirmed - Pay Later',
+          body: `Your order from ${order.storeName || 'store'} will be paid later. Due: ${order.dueDate ? new Date(order.dueDate).toLocaleDateString() : 'TBD'}`,
+          data: { orderId, type: 'pay_later_order_created', storeId: order.storeId },
+        };
+        
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(message),
+        });
+        
+        console.log(`✅ Pay Later notification sent for order ${orderId}`);
       }
-    })());
-  });
+    } catch (error) {
+      console.error(`❌ Error sending Pay Later notification:`, error);
+    }
+  }
+);
 
-  await Promise.all(tasks);
-  if (Object.keys(updates).length) await db.ref().update(updates);
-});
+/**
+ * Send payment reminder 3 days before due date
+ * Simple approach: Check daily at midnight and send reminders
+ */
+export const sendDailyDebtReminders = onSchedule(
+  { schedule: 'every day 09:00', timeZone: 'Asia/Manila' },
+  async () => {
+    const now = new Date();
+    const threeDaysFromNow = new Date(now);
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+    const threeDaysFromNowStr = threeDaysFromNow.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    console.log(`🔔 Checking debt reminders for due date: ${threeDaysFromNowStr}`);
+    
+    // Fetch all unpaid Pay Later orders
+    const ordersSnap = await db.ref('orders').orderByChild('paymentMethod').equalTo('Pay Later').get();
+    if (!ordersSnap.exists()) return;
+    
+    const tasks: Promise<any>[] = [];
+    ordersSnap.forEach((child) => {
+      const order = child.val() as any;
+      const orderId = child.key as string;
+      
+      // Skip if already paid or no due date
+      if (!order.dueDate || order.paymentStatus === 'PAID' || order.debtStatus === 'paid') return;
+      
+      // Check if due date matches (3 days from now)
+      const orderDueDate = new Date(order.dueDate).toISOString().split('T')[0];
+      if (orderDueDate !== threeDaysFromNowStr) return;
+      
+      tasks.push((async () => {
+        try {
+          // Fetch customer push token
+          const tokenSnap = await db.ref(`users/${order.customerId}/pushToken`).get();
+          const pushToken = tokenSnap.exists() ? tokenSnap.val() : null;
+          
+          if (pushToken) {
+            const message = {
+              to: pushToken,
+              sound: 'default',
+              title: '💰 Payment Reminder',
+              body: `Your Pay Later balance from ${order.storeName || 'store'} is due in 3 days. Please settle to avoid late fees.`,
+              data: { orderId, storeId: order.storeId, type: 'debt_due_reminder' },
+            };
+            
+            await fetch('https://exp.host/--/api/v2/push/send', {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(message),
+            });
+            
+            console.log(`✅ Reminder sent for order ${orderId}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error sending reminder for order ${orderId}:`, error);
+        }
+      })());
+    });
+    
+    await Promise.all(tasks);
+    console.log(`✅ Sent ${tasks.length} debt reminders`);
+  }
+);
 
 /**
  * Cancel scheduled reminder when order is paid/settled (or debt marked paid)
