@@ -1,17 +1,18 @@
 import { Tabs, usePathname } from "expo-router";
-import { View, Image } from "react-native";
+import { View, Image, Text } from "react-native";
 import { Colors } from "../../../src/constants/Colors";
 import { s, vs } from "../../../src/constants/responsive";
+import { Ionicons } from '@expo/vector-icons';
 
 export default function StoreOwnerLayout() {
   const pathname = usePathname();
 
-  // Hide bottom tabs when inside wallet, profile, or inventory subdirectories
-  // Show tabs ONLY on: /home, /orders, /wallet (index), /profile (index), /inventory (index)
-  const hideTabsWallet = pathname?.startsWith('/(main)/(store-owner)/wallet/') && pathname !== '/(main)/(store-owner)/wallet';
+  // Hide bottom tabs when inside profile or inventory subdirectories
+  // Show tabs ONLY on: /home, /orders, /supplier-dashboard (index), /profile (index), /inventory (index)
+  // Keep tabs visible for ALL supplier routes so "Suppliers" tab stays highlighted
   const hideTabsProfile = pathname?.startsWith('/(main)/(store-owner)/profile/') && pathname !== '/(main)/(store-owner)/profile';
   const hideTabsInventory = pathname?.startsWith('/(main)/(store-owner)/inventory/') && pathname !== '/(main)/(store-owner)/inventory';
-  const hideTabs = hideTabsWallet || hideTabsProfile || hideTabsInventory;
+  const hideTabs = hideTabsProfile || hideTabsInventory;
 
   return (
     <Tabs
@@ -78,20 +79,27 @@ export default function StoreOwnerLayout() {
           ),
         }}
       />
+      {/* Suppliers tab - points to supplier-dashboard but also highlights for suppliers/* routes */}
       <Tabs.Screen
-        name="wallet"
+        name="supplier-dashboard"
         options={{
-          title: "Wallet",
-          tabBarIcon: ({ focused }) => (
-            <Image
-              source={require('../../../src/assets/images/store-owner-dashboard/wallet-icon.png')}
-              style={{
-                width: s(30),
-                height: s(30),
-                tintColor: focused ? Colors.primary : Colors.textSecondary,
-              }}
-              resizeMode="contain"
+          title: "Suppliers",
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons 
+              name="people" 
+              size={s(30)} 
+              color={(focused || pathname?.includes('/suppliers/')) ? Colors.primary : Colors.textSecondary} 
             />
+          ),
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={{
+              fontSize: 12,
+              fontWeight: "500",
+              marginTop: vs(4),
+              color: (focused || pathname?.includes('/suppliers/')) ? Colors.primary : Colors.textSecondary,
+            }}>
+              Suppliers
+            </Text>
           ),
         }}
       />
@@ -127,6 +135,16 @@ export default function StoreOwnerLayout() {
               resizeMode="contain"
             />
           ),
+        }}
+      />
+      {/* Hide suppliers folder from tabs but enable icon highlighting for nested routes */}
+      <Tabs.Screen
+        name="suppliers"
+        options={{
+          href: null,
+          // This hidden screen represents all suppliers/* sub-routes
+          // When user is on suppliers/*, this tab is technically "active" in routing
+          // but we visually show the supplier-dashboard tab as active instead
         }}
       />
     </Tabs>

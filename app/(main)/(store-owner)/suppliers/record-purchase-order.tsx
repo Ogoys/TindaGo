@@ -441,7 +441,7 @@ const RecordPurchaseOrderScreen = () => {
 
       console.log('[Record PO] Navigating to payment screen...');
       // Navigate to payment screen (data loaded from AsyncStorage there)
-      router.push('/(main)/(store-owner)/profile/purchase-payment' as any);
+      router.push('/(main)/(store-owner)/suppliers/purchase-payment' as any);
       console.log('[Record PO] Navigation called');
   } catch (error) {
     console.error('[Record PO] ❌ ERROR in handleRecordPurchase:', error);

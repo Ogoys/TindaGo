@@ -330,7 +330,7 @@ const RestockFromSupplierScreen = () => {
       console.log('[Restock] Order data saved, navigating to payment');
 
       // Navigate to payment screen
-      router.push('/(main)/(store-owner)/profile/purchase-payment' as any);
+      router.push('/(main)/(store-owner)/suppliers/purchase-payment' as any);
     } catch (error) {
       console.error('[Restock] Error proceeding to payment:', error);
       Alert.alert('Error', 'Failed to proceed to payment');

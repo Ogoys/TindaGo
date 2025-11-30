@@ -45,10 +45,16 @@ export interface StoreRegistrationData {
     validId?: DocumentInfo;
   };
   paymentInfo?: {
-    method: 'gcash' | 'paymaya' | 'bank_transfer';
-    accountName: string;
-    accountNumber: string;
-    verified: boolean;
+    gcash: {
+      accountName: string;
+      accountNumber: string;
+      verified: boolean;
+    };
+    paymaya: {
+      accountName: string;
+      accountNumber: string;
+      verified: boolean;
+    };
   };
   status: string;
   createdAt: string;
@@ -386,11 +392,17 @@ export class StoreRegistrationService {
 
   /**
    * Update payment details (step 3 of registration)
+   * Now requires both GCash and PayMaya accounts
    */
   static async updatePaymentDetails(paymentData: {
-    paymentMethod: 'gcash' | 'paymaya' | 'bank_transfer';
-    accountName: string;
-    accountNumber: string;
+    gcash: {
+      accountName: string;
+      accountNumber: string;
+    };
+    paymaya: {
+      accountName: string;
+      accountNumber: string;
+    };
   }): Promise<void> {
     if (!auth.currentUser) {
       throw new Error('User not authenticated');
@@ -399,12 +411,26 @@ export class StoreRegistrationService {
     const userId = auth.currentUser.uid;
     const timestamp = new Date().toISOString();
 
+    // Validate required fields
+    if (!paymentData?.gcash?.accountName || !paymentData?.gcash?.accountNumber) {
+      throw new Error('GCash account details are required');
+    }
+    if (!paymentData?.paymaya?.accountName || !paymentData?.paymaya?.accountNumber) {
+      throw new Error('PayMaya account details are required');
+    }
+
     const paymentInfo = {
       paymentInfo: {
-        method: paymentData.paymentMethod,
-        accountName: paymentData.accountName.trim(),
-        accountNumber: paymentData.accountNumber.trim(),
-        verified: false,
+        gcash: {
+          accountName: paymentData.gcash.accountName.trim(),
+          accountNumber: paymentData.gcash.accountNumber.trim(),
+          verified: false,
+        },
+        paymaya: {
+          accountName: paymentData.paymaya.accountName.trim(),
+          accountNumber: paymentData.paymaya.accountNumber.trim(),
+          verified: false,
+        },
         addedAt: serverTimestamp(),
       },
       status: STORE_STATUS.PENDING, // Standardized status

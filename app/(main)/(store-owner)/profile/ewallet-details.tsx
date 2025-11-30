@@ -20,27 +20,36 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { ref, get, update } from 'firebase/database';
-import { database, auth } from '../../../../FirebaseConfig';
+import { database, auth } from '@/lib/firebase';
 import { s, vs, ms } from '../../../../src/constants/responsive';
 import { Colors } from '../../../../src/constants/Colors';
 import { Fonts } from '../../../../src/constants/Fonts';
 import { ProfileScreenHeader } from '../../../../src/components/store-owner/ProfileScreenHeader';
 
-type PaymentMethod = 'gcash' | 'paymaya' | 'bank_transfer';
-
-interface PaymentInfo {
-  method: PaymentMethod;
+interface PaymentAccountInfo {
   accountName: string;
   accountNumber: string;
+  verified?: boolean;
+}
+
+interface PaymentInfo {
+  gcash: PaymentAccountInfo;
+  paymaya: PaymentAccountInfo;
 }
 
 export default function EWalletDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [originalData, setOriginalData] = useState<PaymentInfo | null>(null);
-  const [method, setMethod] = useState<PaymentMethod>('gcash');
-  const [accountName, setAccountName] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
+  
+  // GCash state
+  const [gcashAccountName, setGcashAccountName] = useState('');
+  const [gcashAccountNumber, setGcashAccountNumber] = useState('');
+  
+  // PayMaya state
+  const [paymayaAccountName, setPaymayaAccountName] = useState('');
+  const [paymayaAccountNumber, setPaymayaAccountNumber] = useState('');
+  
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
@@ -51,12 +60,13 @@ export default function EWalletDetailsScreen() {
     // Check if there are changes
     if (originalData) {
       const changed = 
-        method !== originalData.method ||
-        accountName !== originalData.accountName ||
-        accountNumber !== originalData.accountNumber;
+        gcashAccountName !== originalData.gcash.accountName ||
+        gcashAccountNumber !== originalData.gcash.accountNumber ||
+        paymayaAccountName !== originalData.paymaya.accountName ||
+        paymayaAccountNumber !== originalData.paymaya.accountNumber;
       setHasChanges(changed);
     }
-  }, [method, accountName, accountNumber, originalData]);
+  }, [gcashAccountName, gcashAccountNumber, paymayaAccountName, paymayaAccountNumber, originalData]);
 
   const fetchPaymentInfo = async () => {
     try {
@@ -71,13 +81,27 @@ export default function EWalletDetailsScreen() {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setMethod(data.method || 'gcash');
-        setAccountName(data.accountName || '');
-        setAccountNumber(data.accountNumber || '');
+        
+        // Load GCash data
+        const gcashData = data.gcash || { accountName: '', accountNumber: '' };
+        setGcashAccountName(gcashData.accountName || '');
+        setGcashAccountNumber(gcashData.accountNumber || '');
+        
+        // Load PayMaya data
+        const paymayaData = data.paymaya || { accountName: '', accountNumber: '' };
+        setPaymayaAccountName(paymayaData.accountName || '');
+        setPaymayaAccountNumber(paymayaData.accountNumber || '');
+        
+        // Store original data for change detection
         setOriginalData({
-          method: data.method || 'gcash',
-          accountName: data.accountName || '',
-          accountNumber: data.accountNumber || '',
+          gcash: {
+            accountName: gcashData.accountName || '',
+            accountNumber: gcashData.accountNumber || '',
+          },
+          paymaya: {
+            accountName: paymayaData.accountName || '',
+            accountNumber: paymayaData.accountNumber || '',
+          },
         });
       }
     } catch (error) {
@@ -89,26 +113,52 @@ export default function EWalletDetailsScreen() {
   };
 
   const validateForm = (): boolean => {
-    if (!accountName.trim()) {
-      Alert.alert('Validation Error', 'Please enter account name');
+    // Validate GCash account name
+    if (!gcashAccountName.trim()) {
+      Alert.alert('Validation Error', 'Please enter GCash account name');
+      return false;
+    }
+    if (gcashAccountName.trim().length < 2) {
+      Alert.alert('Validation Error', 'GCash account name must be at least 2 characters');
       return false;
     }
 
-    if (!accountNumber.trim()) {
-      Alert.alert('Validation Error', 'Please enter account number');
+    // Validate GCash number
+    if (!gcashAccountNumber.trim()) {
+      Alert.alert('Validation Error', 'Please enter GCash number');
+      return false;
+    }
+    const cleanGcashNumber = gcashAccountNumber.trim().replace(/\s+/g, '');
+    if (!/^09\d{9}$/.test(cleanGcashNumber)) {
+      Alert.alert(
+        'Validation Error',
+        'Please enter a valid 11-digit GCash number (09XXXXXXXXX)'
+      );
       return false;
     }
 
-    // Validate phone number format for GCash/PayMaya
-    if (method === 'gcash' || method === 'paymaya') {
-      const cleanNumber = accountNumber.trim().replace(/\s+/g, '');
-      if (!/^09\d{9}$/.test(cleanNumber)) {
-        Alert.alert(
-          'Validation Error',
-          'Please enter a valid 11-digit mobile number (09XXXXXXXXX)'
-        );
-        return false;
-      }
+    // Validate PayMaya account name
+    if (!paymayaAccountName.trim()) {
+      Alert.alert('Validation Error', 'Please enter PayMaya account name');
+      return false;
+    }
+    if (paymayaAccountName.trim().length < 2) {
+      Alert.alert('Validation Error', 'PayMaya account name must be at least 2 characters');
+      return false;
+    }
+
+    // Validate PayMaya number
+    if (!paymayaAccountNumber.trim()) {
+      Alert.alert('Validation Error', 'Please enter PayMaya number');
+      return false;
+    }
+    const cleanPaymayaNumber = paymayaAccountNumber.trim().replace(/\s+/g, '');
+    if (!/^09\d{9}$/.test(cleanPaymayaNumber)) {
+      Alert.alert(
+        'Validation Error',
+        'Please enter a valid 11-digit PayMaya number (09XXXXXXXXX)'
+      );
+      return false;
     }
 
     return true;
@@ -127,9 +177,16 @@ export default function EWalletDetailsScreen() {
 
     try {
       const paymentInfo = {
-        method,
-        accountName: accountName.trim(),
-        accountNumber: accountNumber.trim(),
+        gcash: {
+          accountName: gcashAccountName.trim(),
+          accountNumber: gcashAccountNumber.trim(),
+          verified: originalData?.gcash?.verified || false,
+        },
+        paymaya: {
+          accountName: paymayaAccountName.trim(),
+          accountNumber: paymayaAccountNumber.trim(),
+          verified: originalData?.paymaya?.verified || false,
+        },
         updatedAt: new Date().toISOString(),
       };
 
@@ -142,9 +199,14 @@ export default function EWalletDetailsScreen() {
       await update(registrationRef, paymentInfo);
 
       setOriginalData({
-        method,
-        accountName: accountName.trim(),
-        accountNumber: accountNumber.trim(),
+        gcash: {
+          accountName: gcashAccountName.trim(),
+          accountNumber: gcashAccountNumber.trim(),
+        },
+        paymaya: {
+          accountName: paymayaAccountName.trim(),
+          accountNumber: paymayaAccountNumber.trim(),
+        },
       });
       setHasChanges(false);
 
@@ -209,96 +271,109 @@ export default function EWalletDetailsScreen() {
           <View style={styles.infoBannerTextContainer}>
             <Text style={styles.infoBannerTitle}>Payment Information</Text>
             <Text style={styles.infoBannerText}>
-              These details will be used for payout requests. Make sure they are accurate.
+              Both GCash and PayMaya accounts are required for customer payments. These details will be used for payout requests.
             </Text>
           </View>
         </View>
 
-        {/* Payment Method Selection */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
-          <View style={styles.methodContainer}>
-            {[
-              {
-                value: 'gcash' as PaymentMethod,
-                label: 'GCash',
-                image: require('../../../../src/assets/images/payment/gcash-icon.png'),
-              },
-              {
-                value: 'paymaya' as PaymentMethod,
-                label: 'PayMaya',
-                image: require('../../../../src/assets/images/payment/paymaya-icon.png'),
-              },
-            ].map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.methodOption,
-                  method === option.value && styles.methodOptionSelected,
-                ]}
-                onPress={() => setMethod(option.value)}
-                activeOpacity={0.7}
-                disabled={saving}
-              >
-                <Image
-                  source={option.image}
-                  style={styles.methodImage}
-                  resizeMode="contain"
-                />
-                <Text
-                  style={[
-                    styles.methodText,
-                    method === option.value && styles.methodTextSelected,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-                {method === option.value && (
-                  <View style={styles.methodCheckmark}>
-                    <Text style={styles.methodCheckmarkText}>✓</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
+        {/* GCash Section */}
+        <View style={styles.paymentMethodSection}>
+          <View style={styles.paymentMethodHeader}>
+            <Image
+              source={require('../../../../src/assets/images/payment/gcash-icon.png')}
+              style={styles.paymentMethodIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.paymentMethodTitle}>GCash Account</Text>
+          </View>
+
+          {/* GCash Account Name */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>GCash Account Name</Text>
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter GCash account name"
+                placeholderTextColor={Colors.textSecondary}
+                value={gcashAccountName}
+                onChangeText={setGcashAccountName}
+                editable={!saving}
+              />
+            </View>
+            <Text style={styles.helperText}>
+              Enter your name exactly as it appears on your GCash account
+            </Text>
+          </View>
+
+          {/* GCash Number */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>GCash Number</Text>
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.input}
+                placeholder="09XXXXXXXXX"
+                placeholderTextColor={Colors.textSecondary}
+                keyboardType="phone-pad"
+                value={gcashAccountNumber}
+                onChangeText={setGcashAccountNumber}
+                editable={!saving}
+                maxLength={11}
+              />
+            </View>
+            <Text style={styles.helperText}>
+              11-digit mobile number linked to your GCash account
+            </Text>
           </View>
         </View>
 
-        {/* Account Name */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Account Name</Text>
-          <View style={styles.inputCard}>
-            <TextInput
-              style={styles.input}
-              placeholder="Full name as registered"
-              placeholderTextColor={Colors.textSecondary}
-              value={accountName}
-              onChangeText={setAccountName}
-              editable={!saving}
+        {/* PayMaya Section */}
+        <View style={styles.paymentMethodSection}>
+          <View style={styles.paymentMethodHeader}>
+            <Image
+              source={require('../../../../src/assets/images/payment/paymaya-icon.png')}
+              style={styles.paymentMethodIcon}
+              resizeMode="contain"
             />
+            <Text style={styles.paymentMethodTitle}>PayMaya Account</Text>
           </View>
-          <Text style={styles.helperText}>
-            Enter your name exactly as it appears on your {method === 'gcash' ? 'GCash' : method === 'paymaya' ? 'PayMaya' : 'bank'} account
-          </Text>
-        </View>
 
-        {/* Account Number / Mobile Number */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Mobile Number</Text>
-          <View style={styles.inputCard}>
-            <TextInput
-              style={styles.input}
-              placeholder="09XX XXX XXXX"
-              placeholderTextColor={Colors.textSecondary}
-              keyboardType="phone-pad"
-              value={accountNumber}
-              onChangeText={setAccountNumber}
-              editable={!saving}
-              maxLength={11}
-            />
+          {/* PayMaya Account Name */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>PayMaya Account Name</Text>
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter PayMaya account name"
+                placeholderTextColor={Colors.textSecondary}
+                value={paymayaAccountName}
+                onChangeText={setPaymayaAccountName}
+                editable={!saving}
+              />
+            </View>
+            <Text style={styles.helperText}>
+              Enter your name exactly as it appears on your PayMaya account
+            </Text>
           </View>
-          <Text style={styles.helperText}>
-            11-digit mobile number linked to your {method === 'gcash' ? 'GCash' : 'PayMaya'} account
-          </Text>
+
+          {/* PayMaya Number */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>PayMaya Number</Text>
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.input}
+                placeholder="09XXXXXXXXX"
+                placeholderTextColor={Colors.textSecondary}
+                keyboardType="phone-pad"
+                value={paymayaAccountNumber}
+                onChangeText={setPaymayaAccountNumber}
+                editable={!saving}
+                maxLength={11}
+              />
+            </View>
+            <Text style={styles.helperText}>
+              11-digit mobile number linked to your PayMaya account
+            </Text>
+          </View>
         </View>
 
         {/* Action Buttons */}
@@ -389,70 +464,48 @@ const styles = StyleSheet.create({
     lineHeight: vs(18),
   },
 
+  // Payment Method Section
+  paymentMethodSection: {
+    backgroundColor: Colors.white,
+    borderRadius: s(16),
+    padding: s(20),
+    marginBottom: vs(24),
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: s(8),
+    elevation: 3,
+  },
+  paymentMethodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: vs(20),
+    paddingBottom: vs(16),
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  paymentMethodIcon: {
+    width: s(40),
+    height: s(40),
+    marginRight: s(12),
+  },
+  paymentMethodTitle: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(18),
+    fontWeight: '700',
+    color: Colors.darkGray,
+  },
+
   // Form Section
   formSection: {
-    marginBottom: vs(28),
+    marginBottom: vs(20),
   },
   sectionTitle: {
     fontFamily: Fonts.primary,
-    fontSize: ms(16),
-    fontWeight: '700',
-    color: Colors.darkGray,
-    marginBottom: vs(12),
-  },
-
-  // Payment Method
-  methodContainer: {
-    gap: vs(12),
-  },
-  methodOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: s(14),
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    padding: s(16),
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: s(4),
-    elevation: 2,
-  },
-  methodOptionSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(59, 183, 126, 0.08)',
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.15,
-  },
-  methodImage: {
-    width: s(40),
-    height: s(40),
-    marginRight: s(14),
-  },
-  methodText: {
-    flex: 1,
-    fontFamily: Fonts.primary,
-    fontSize: ms(15),
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  methodTextSelected: {
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  methodCheckmark: {
-    width: s(24),
-    height: s(24),
-    backgroundColor: Colors.primary,
-    borderRadius: s(12),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  methodCheckmarkText: {
-    color: Colors.white,
     fontSize: ms(14),
-    fontWeight: '700',
+    fontWeight: '600',
+    color: Colors.darkGray,
+    marginBottom: vs(8),
   },
 
   // Input Card

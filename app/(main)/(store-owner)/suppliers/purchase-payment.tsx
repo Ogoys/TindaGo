@@ -360,7 +360,7 @@ const PurchasePaymentScreen = () => {
 
         // Still navigate to STORE-OWNER purchase details
         router.replace({
-          pathname: '/(main)/(store-owner)/profile/purchase-details',
+          pathname: '/(main)/(store-owner)/suppliers/purchase-details',
           params: { purchaseOrderId: poResult.purchaseOrderId }
         });
       }
@@ -416,7 +416,7 @@ const PurchasePaymentScreen = () => {
               onPress: () => {
                 // Navigate to STORE-OWNER purchase details
                 router.replace({
-                  pathname: '/(main)/(store-owner)/profile/purchase-details',
+                  pathname: '/(main)/(store-owner)/suppliers/purchase-details',
                   params: { purchaseOrderId: result.purchaseOrderId }
                 });
               },
@@ -474,7 +474,7 @@ const PurchasePaymentScreen = () => {
               onPress: () => {
                 // Navigate to STORE-OWNER purchase details
                 router.replace({
-                  pathname: '/(main)/(store-owner)/profile/purchase-details',
+                  pathname: '/(main)/(store-owner)/suppliers/purchase-details',
                   params: { purchaseOrderId: result.purchaseOrderId }
                 });
               },
@@ -560,7 +560,7 @@ const PurchasePaymentScreen = () => {
                 }
                 // Show preview - navigate with preview=true flag
                 router.push({
-                  pathname: '/(main)/(store-owner)/profile/purchase-invoice' as any,
+                  pathname: '/(main)/(store-owner)/suppliers/purchase-invoice' as any,
                   params: {
                     preview: 'true',
                     supplierName: orderData.supplierName,

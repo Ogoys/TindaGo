@@ -113,13 +113,13 @@ const PurchaseDetailsScreen = () => {
     // If we have supplier info, go back to supplier details
     if (fromSupplier) {
       router.push({
-        pathname: '/(main)/(store-owner)/profile/supplier-details' as any,
+        pathname: '/(main)/(store-owner)/suppliers/supplier-details' as any,
         params: { supplier: fromSupplier }
       });
     }
     // If we came from purchase history, go back to it
     else if (fromHistory) {
-      router.push('/(main)/(store-owner)/profile/purchase-order-history' as any);
+      router.push('/(main)/(store-owner)/suppliers/purchase-order-history' as any);
     }
     // Default: use router.back()
     else {

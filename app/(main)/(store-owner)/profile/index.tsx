@@ -172,15 +172,15 @@ export default function ProfileScreen() {
   };
 
   const handleRecordPurchaseOrder = () => {
-    router.push('/(main)/(store-owner)/profile/record-purchase-order');
+    router.push('/(main)/(store-owner)/suppliers/record-purchase-order');
   };
 
   const handlePurchaseOrderHistory = () => {
-    router.push('/(main)/(store-owner)/profile/purchase-order-history');
+    router.push('/(main)/(store-owner)/suppliers/purchase-order-history');
   };
 
   const handleSupplierDashboard = () => {
-    router.push('/(main)/(store-owner)/profile/supplier-dashboard');
+    router.push('/(main)/(store-owner)/suppliers/supplier-dashboard');
   };
 
   const handleRecordReturn = () => {
@@ -329,9 +329,9 @@ export default function ProfileScreen() {
             onPress={handleSalesHistory}
           />
           <SettingItem
-            title="Supplier Dashboard"
-            iconName="people"
-            onPress={handleSupplierDashboard}
+            title="View Earnings"
+            iconName="cash"
+            onPress={() => router.push('/(main)/(store-owner)/profile/view-earnings')}
           />
           <SettingItem
             title="Record Customer Return"

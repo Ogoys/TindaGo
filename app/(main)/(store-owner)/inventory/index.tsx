@@ -710,38 +710,6 @@ export default function InventoryDashboardScreen() {
           </View>
         )}
 
-        {/* Top Products */}
-        {topProducts.length > 0 && (
-          <View style={styles.topProductsSection}>
-            <Text style={styles.sectionTitle}>🏆 Top Products</Text>
-
-            {topProducts.map((product, index) => (
-              <View key={product.productId} style={styles.topProductCard}>
-                <View style={styles.topProductRank}>
-                  <Text style={styles.topProductRankText}>#{index + 1}</Text>
-                </View>
-                {product.imageUrl ? (
-                  <Image
-                    source={{ uri: product.imageUrl.startsWith('data:') ? product.imageUrl : `data:image/jpeg;base64,${product.imageUrl}` }}
-                    style={styles.topProductImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={[styles.topProductImage, styles.productImagePlaceholder]}>
-                    <Text style={styles.productImagePlaceholderText}>📦</Text>
-                  </View>
-                )}
-                <View style={styles.topProductInfo}>
-                  <Text style={styles.topProductName} numberOfLines={2}>{product.name}</Text>
-                  <View style={styles.topProductOrderBadge}>
-                    <Text style={styles.topProductOrderCount}>🛒 {product.orderCount}</Text>
-                    <Text style={styles.topProductOrderLabel}> order{product.orderCount !== 1 ? 's' : ''}</Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
 
         {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
@@ -1105,15 +1073,15 @@ const styles = StyleSheet.create({
   tableHeaderText: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(10),
+    fontSize: ms(9),
     color: '#FFFFFF',
     textAlign: 'center',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
 
   col1: {
-    width: '26%',
+    width: '23%',
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: s(4),
@@ -1122,37 +1090,37 @@ const styles = StyleSheet.create({
   col2: {
     width: '11%',
     textAlign: 'center',
-    paddingHorizontal: s(2),
+    paddingHorizontal: s(1),
   },
 
   col3: {
     width: '11%',
     textAlign: 'center',
-    paddingHorizontal: s(2),
+    paddingHorizontal: s(1),
   },
 
   col4: {
-    width: '13%',
+    width: '14%',
     textAlign: 'center',
-    paddingHorizontal: s(2),
+    paddingHorizontal: s(1),
   },
 
   col5: {
-    width: '13%',
+    width: '14%',
     textAlign: 'center',
-    paddingHorizontal: s(2),
+    paddingHorizontal: s(1),
   },
 
   col6: {
     width: '13%',
     textAlign: 'center',
-    paddingHorizontal: s(2),
+    paddingHorizontal: s(1),
   },
 
   col7: {
-    width: '13%',
+    width: '14%',
     textAlign: 'center',
-    paddingHorizontal: s(2),
+    paddingHorizontal: s(1),
   },
 
   tableRow: {
