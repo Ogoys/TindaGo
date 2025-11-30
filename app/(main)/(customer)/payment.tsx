@@ -414,8 +414,16 @@ const PaymentScreen = () => {
       return;
     }
 
-    if (cartItems.length === 0) {
+    // Skip cart validation if we're in debt settlement mode (paying existing debt)
+    if (!isDebtSettlementMode && cartItems.length === 0) {
       setErrorMessage('Your cart is empty.\nPlease add items to your cart.');
+      setShowErrorModal(true);
+      return;
+    }
+
+    // Validate debt settlement order exists
+    if (isDebtSettlementMode && !settlementOrder) {
+      setErrorMessage('Debt order not found.\nPlease try again from your debt history.');
       setShowErrorModal(true);
       return;
     }
@@ -980,6 +988,19 @@ const PaymentScreen = () => {
           </View>
         ) : (
           <>
+            {/* Debt Settlement Mode Banner */}
+            {isDebtSettlementMode && (
+              <View style={styles.debtSettlementBanner}>
+                <Text style={styles.debtSettlementIcon}>💳</Text>
+                <View style={styles.debtSettlementTextContainer}>
+                  <Text style={styles.debtSettlementTitle}>Settling Existing Debt</Text>
+                  <Text style={styles.debtSettlementSubtext}>
+                    Pay with GCash or PayMaya to settle this order
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* Bill Card - Figma: x: 20, y: 166, width: 400, height: 300 */}
             <View style={styles.billCard}>
 
@@ -1470,6 +1491,40 @@ const styles = StyleSheet.create({
     fontSize: ms(12),
     color: '#E65100',
     lineHeight: vs(18),
+  },
+
+  // Debt Settlement Mode Banner
+  debtSettlementBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    borderRadius: s(16),
+    padding: s(15),
+    marginHorizontal: s(20),
+    marginTop: vs(15),
+    marginBottom: vs(10),
+    borderWidth: 2,
+    borderColor: '#2196F3',
+  },
+  debtSettlementIcon: {
+    fontSize: ms(32),
+    marginRight: s(12),
+  },
+  debtSettlementTextContainer: {
+    flex: 1,
+  },
+  debtSettlementTitle: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: '#1976D2',
+    marginBottom: vs(4),
+  },
+  debtSettlementSubtext: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: '#1976D2',
+    opacity: 0.8,
   },
 });
 

@@ -30,9 +30,10 @@
     },
     "orders": {
       ".write": true,
-      ".indexOn": ["customerId", "storeId", "storeOwnerId", "status", "paymentStatus"]
+      ".indexOn": ["customerId", "storeId", "storeOwnerId", "status", "paymentStatus", "debtStatus"]
     },
     "purchase_orders": {
+      ".write": true,
       ".indexOn": ["storeOwnerId", "createdAt"]
     },
     "purchaseOrders": {
@@ -63,6 +64,7 @@
       ".indexOn": ["userId", "storeId"]
     },
     "wallets": {
+      ".write": true,
       ".indexOn": ["storeId"]
     },
     "payouts": {
@@ -77,6 +79,9 @@
           }
         }
       }
+    },
+    "processed_webhooks": {
+      ".write": true
     },
     ".write": "auth != null"
   }
