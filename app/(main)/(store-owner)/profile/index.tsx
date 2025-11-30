@@ -329,9 +329,9 @@ export default function ProfileScreen() {
             onPress={handleSalesHistory}
           />
           <SettingItem
-            title="Supplier Dashboard"
-            iconName="people"
-            onPress={handleSupplierDashboard}
+            title="View Earnings"
+            iconName="cash"
+            onPress={() => router.push('/(main)/(store-owner)/profile/view-earnings')}
           />
           <SettingItem
             title="Record Customer Return"

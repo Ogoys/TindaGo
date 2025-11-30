@@ -7,15 +7,17 @@ import { s, vs } from "@/constants/responsive";
 import { StoreRegistrationService } from '@/services';
 
 interface BankDetailsFormData {
-  paymentMethod: 'gcash' | 'paymaya' | 'bank_transfer';
-  accountName: string;
-  accountNumber: string;
+  gcashAccountName: string;
+  gcashAccountNumber: string;
+  paymayaAccountName: string;
+  paymayaAccountNumber: string;
 }
 
 interface BankDetailsErrors {
-  paymentMethod: string;
-  accountName: string;
-  accountNumber: string;
+  gcashAccountName: string;
+  gcashAccountNumber: string;
+  paymayaAccountName: string;
+  paymayaAccountNumber: string;
 }
 
 // FormInput component - defined outside to prevent re-creation on every render
@@ -63,62 +65,72 @@ export default function BankDetailsScreen() {
   }>();
 
   const [formData, setFormData] = useState<BankDetailsFormData>({
-    paymentMethod: 'gcash',
-    accountName: "",
-    accountNumber: "",
+    gcashAccountName: "",
+    gcashAccountNumber: "",
+    paymayaAccountName: "",
+    paymayaAccountNumber: "",
   });
 
   const [errors, setErrors] = useState<BankDetailsErrors>({
-    paymentMethod: "",
-    accountName: "",
-    accountNumber: "",
+    gcashAccountName: "",
+    gcashAccountNumber: "",
+    paymayaAccountName: "",
+    paymayaAccountNumber: "",
   });
 
   const [loading, setLoading] = useState(false);
 
   // Memoized handlers to prevent keyboard issues
-  const handleAccountNameChange = useCallback((text: string) => {
-    setFormData(prev => ({ ...prev, accountName: text }));
+  const handleGcashAccountNameChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, gcashAccountName: text }));
   }, []);
 
-  const handleAccountNumberChange = useCallback((text: string) => {
-    setFormData(prev => ({ ...prev, accountNumber: text }));
+  const handleGcashAccountNumberChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, gcashAccountNumber: text }));
+  }, []);
+
+  const handlePaymayaAccountNameChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, paymayaAccountName: text }));
+  }, []);
+
+  const handlePaymayaAccountNumberChange = useCallback((text: string) => {
+    setFormData(prev => ({ ...prev, paymayaAccountNumber: text }));
   }, []);
 
   const validateForm = (): boolean => {
     const newErrors: BankDetailsErrors = {
-      paymentMethod: "",
-      accountName: "",
-      accountNumber: "",
+      gcashAccountName: "",
+      gcashAccountNumber: "",
+      paymayaAccountName: "",
+      paymayaAccountNumber: "",
     };
 
-    // Payment method validation
-    if (!formData.paymentMethod) {
-      newErrors.paymentMethod = "Payment method is required";
+    // GCash Account Name validation
+    if (!formData.gcashAccountName.trim()) {
+      newErrors.gcashAccountName = "GCash account name is required";
+    } else if (formData.gcashAccountName.trim().length < 2) {
+      newErrors.gcashAccountName = "Account name must be at least 2 characters";
     }
 
-    // Account Name validation
-    if (!formData.accountName.trim()) {
-      newErrors.accountName = "Account name is required";
-    } else if (formData.accountName.trim().length < 2) {
-      newErrors.accountName = "Account name must be at least 2 characters";
+    // GCash Account Number validation
+    if (!formData.gcashAccountNumber.trim()) {
+      newErrors.gcashAccountNumber = "GCash number is required";
+    } else if (!/^09\d{9}$/.test(formData.gcashAccountNumber.trim().replace(/\s+/g, ''))) {
+      newErrors.gcashAccountNumber = "Please enter a valid 11-digit GCash number (09XXXXXXXXX)";
     }
 
-    // Account Number validation based on payment method
-    if (!formData.accountNumber.trim()) {
-      newErrors.accountNumber = "Account number is required";
-    } else {
-      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'paymaya') {
-        // Philippine mobile number format: 11 digits starting with 09
-        if (!/^09\d{9}$/.test(formData.accountNumber.trim().replace(/\s+/g, ''))) {
-          newErrors.accountNumber = `Please enter a valid 11-digit ${formData.paymentMethod.toUpperCase()} number (09XXXXXXXXX)`;
-        }
-      } else if (formData.paymentMethod === 'bank_transfer') {
-        // Bank account number: at least 10 digits
-        if (!/^\d{10,}$/.test(formData.accountNumber.trim().replace(/\s+/g, ''))) {
-          newErrors.accountNumber = "Please enter a valid bank account number (at least 10 digits)";
-        }
-      }
+    // PayMaya Account Name validation
+    if (!formData.paymayaAccountName.trim()) {
+      newErrors.paymayaAccountName = "PayMaya account name is required";
+    } else if (formData.paymayaAccountName.trim().length < 2) {
+      newErrors.paymayaAccountName = "Account name must be at least 2 characters";
+    }
+
+    // PayMaya Account Number validation
+    if (!formData.paymayaAccountNumber.trim()) {
+      newErrors.paymayaAccountNumber = "PayMaya number is required";
+    } else if (!/^09\d{9}$/.test(formData.paymayaAccountNumber.trim().replace(/\s+/g, ''))) {
+      newErrors.paymayaAccountNumber = "Please enter a valid 11-digit PayMaya number (09XXXXXXXXX)";
     }
 
     setErrors(newErrors);
@@ -143,9 +155,14 @@ export default function BankDetailsScreen() {
     try {
       // Use centralized service to update payment details with standardized status
       await StoreRegistrationService.updatePaymentDetails({
-        paymentMethod: formData.paymentMethod,
-        accountName: formData.accountName,
-        accountNumber: formData.accountNumber,
+        gcash: {
+          accountName: formData.gcashAccountName,
+          accountNumber: formData.gcashAccountNumber,
+        },
+        paymaya: {
+          accountName: formData.paymayaAccountName,
+          accountNumber: formData.paymayaAccountNumber,
+        },
       });
 
       Alert.alert(
@@ -233,82 +250,63 @@ export default function BankDetailsScreen() {
 
             {/* Figma: Section label "Add Payment Details" at x:20, y:272 */}
             <Text style={styles.sectionLabel}>Add Payment Details</Text>
+            <Text style={styles.paymentInfoText}>Both GCash and PayMaya accounts are required for customer payments</Text>
 
-            {/* Payment Method Selector */}
-            <View style={styles.paymentMethodSection}>
-              <Text style={styles.paymentMethodLabel}>Payment Method</Text>
-              <View style={styles.paymentMethodContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.paymentMethodButton,
-                    formData.paymentMethod === 'gcash' && styles.paymentMethodButtonActive
-                  ]}
-                  onPress={() => setFormData({ ...formData, paymentMethod: 'gcash' })}
-                >
-                  <Text style={[
-                    styles.paymentMethodText,
-                    formData.paymentMethod === 'gcash' && styles.paymentMethodTextActive
-                  ]}>GCash</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.paymentMethodButton,
-                    formData.paymentMethod === 'paymaya' && styles.paymentMethodButtonActive
-                  ]}
-                  onPress={() => setFormData({ ...formData, paymentMethod: 'paymaya' })}
-                >
-                  <Text style={[
-                    styles.paymentMethodText,
-                    formData.paymentMethod === 'paymaya' && styles.paymentMethodTextActive
-                  ]}>PayMaya</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.paymentMethodButton,
-                    formData.paymentMethod === 'bank_transfer' && styles.paymentMethodButtonActive
-                  ]}
-                  onPress={() => setFormData({ ...formData, paymentMethod: 'bank_transfer' })}
-                >
-                  <Text style={[
-                    styles.paymentMethodText,
-                    formData.paymentMethod === 'bank_transfer' && styles.paymentMethodTextActive
-                  ]}>Bank Transfer</Text>
-                </TouchableOpacity>
-              </View>
-              {errors.paymentMethod ? (
-                <Text style={styles.errorText}>{errors.paymentMethod}</Text>
-              ) : null}
-            </View>
-
-            {/* Form Fields */}
-            {/* Figma: Account Name field at x:20, y:314 */}
+            {/* GCash Section */}
+            <Text style={styles.paymentSectionTitle}>GCash Account</Text>
             <View>
               <FormInputField
-                label="Account Name"
-                placeholder="Enter account name"
-                value={formData.accountName}
-                onChangeText={handleAccountNameChange}
+                label="GCash Account Name"
+                placeholder="Enter GCash account name"
+                value={formData.gcashAccountName}
+                onChangeText={handleGcashAccountNameChange}
                 style={styles.accountNameField}
               />
-              {errors.accountName ? (
-                <Text style={styles.errorText}>{errors.accountName}</Text>
+              {errors.gcashAccountName ? (
+                <Text style={styles.errorText}>{errors.gcashAccountName}</Text>
               ) : null}
             </View>
 
-            {/* Figma: Account Number field at x:22, y:411 */}
             <View>
               <FormInputField
-                label={`${formData.paymentMethod === 'bank_transfer' ? 'Bank Account' : formData.paymentMethod.toUpperCase()} Number`}
-                placeholder={`Enter your ${formData.paymentMethod === 'bank_transfer' ? 'bank account' : formData.paymentMethod} number`}
-                value={formData.accountNumber}
-                onChangeText={handleAccountNumberChange}
+                label="GCash Number"
+                placeholder="Enter your GCash number (09XXXXXXXXX)"
+                value={formData.gcashAccountNumber}
+                onChangeText={handleGcashAccountNumberChange}
                 style={styles.accountNumberField}
                 keyboardType="numeric"
               />
-              {errors.accountNumber ? (
-                <Text style={styles.errorText}>{errors.accountNumber}</Text>
+              {errors.gcashAccountNumber ? (
+                <Text style={styles.errorText}>{errors.gcashAccountNumber}</Text>
+              ) : null}
+            </View>
+
+            {/* PayMaya Section */}
+            <Text style={styles.paymentSectionTitle}>PayMaya Account</Text>
+            <View>
+              <FormInputField
+                label="PayMaya Account Name"
+                placeholder="Enter PayMaya account name"
+                value={formData.paymayaAccountName}
+                onChangeText={handlePaymayaAccountNameChange}
+                style={styles.accountNameField}
+              />
+              {errors.paymayaAccountName ? (
+                <Text style={styles.errorText}>{errors.paymayaAccountName}</Text>
+              ) : null}
+            </View>
+
+            <View>
+              <FormInputField
+                label="PayMaya Number"
+                placeholder="Enter your PayMaya number (09XXXXXXXXX)"
+                value={formData.paymayaAccountNumber}
+                onChangeText={handlePaymayaAccountNumberChange}
+                style={styles.accountNumberField}
+                keyboardType="numeric"
+              />
+              {errors.paymayaAccountNumber ? (
+                <Text style={styles.errorText}>{errors.paymayaAccountNumber}</Text>
               ) : null}
             </View>
 
@@ -504,12 +502,12 @@ const styles = StyleSheet.create({
   // Specific field positioning based on Figma coordinates
   // Figma: Account Name at x:20, y:314 (relative to screen, so y:164 relative to card)
   accountNameField: {
-    marginTop: vs(42), // 164 - 122 = 42
+    marginTop: vs(12), // First field after section title
   },
 
   // Figma: Account Number at x:22, y:411 (relative to screen, so y:261 relative to card)
   accountNumberField: {
-    marginTop: vs(35), // Reduced from 97 to prevent cutoff
+    marginTop: vs(15), // Space between fields
   },
 
   // Figma: Email at x:22, y:508 (relative to screen, so y:358 relative to card)
@@ -525,7 +523,7 @@ const styles = StyleSheet.create({
   // Figma: Continue button at x:20, y:839, width:400, height:50 (relative to screen, so y:689 relative to card)
   continueButton: {
     marginHorizontal: s(20),
-    marginTop: vs(40), // Reduced from 234 to prevent cutoff
+    marginTop: vs(25),
     backgroundColor: '#3BB77E', // fill_3NDY2B
     borderRadius: s(20),
     height: vs(50),
@@ -608,5 +606,25 @@ const styles = StyleSheet.create({
     color: '#E92B45',
     marginTop: vs(5),
     marginLeft: s(20),
+  },
+
+  paymentInfoText: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontSize: s(13),
+    fontWeight: '400',
+    color: 'rgba(30, 30, 30, 0.7)',
+    marginHorizontal: s(20),
+    marginTop: vs(8),
+    marginBottom: vs(10),
+  },
+
+  paymentSectionTitle: {
+    fontFamily: 'Clash Grotesk Variable',
+    fontWeight: '600',
+    fontSize: s(16),
+    color: '#02545F',
+    marginHorizontal: s(20),
+    marginTop: vs(35),
+    marginBottom: vs(8),
   },
 });

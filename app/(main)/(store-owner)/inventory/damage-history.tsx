@@ -167,7 +167,7 @@ export default function DamageHistoryScreen() {
 
           <View style={styles.summaryStats}>
             <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: '#E92B45' }]}>
+              <Text style={[styles.statNumber, { color: '#E92B45' }]} numberOfLines={1}>
                 {filteredDamages.length}
               </Text>
               <Text style={styles.statLabel}>Records</Text>
@@ -176,7 +176,7 @@ export default function DamageHistoryScreen() {
             <View style={styles.statDivider} />
 
             <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: '#FF9800' }]}>
+              <Text style={[styles.statNumber, { color: '#FF9800' }]} numberOfLines={1}>
                 {calculateTotalItems()}
               </Text>
               <Text style={styles.statLabel}>Total Items</Text>
@@ -185,7 +185,7 @@ export default function DamageHistoryScreen() {
             <View style={styles.statDivider} />
 
             <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: '#E92B45' }]}>
+              <Text style={[styles.statNumber, { color: '#E92B45' }]} numberOfLines={1} adjustsFontSizeToFit>
                 ₱{calculateTotalLoss().toFixed(2)}
               </Text>
               <Text style={styles.statLabel}>Total Loss</Text>
@@ -525,12 +525,14 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
     flex: 1,
+    paddingHorizontal: s(4),
   },
   statNumber: {
     fontFamily: Fonts.primary,
     fontWeight: '700',
-    fontSize: ms(24),
+    fontSize: ms(20),
     marginBottom: vs(4),
+    textAlign: 'center',
   },
   statLabel: {
     fontFamily: Fonts.primary,

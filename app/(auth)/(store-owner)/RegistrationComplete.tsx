@@ -10,6 +10,7 @@ import { s, vs } from "../../../src/constants/responsive";
 import { useStoreRegistration } from '../../../src/hooks/useStoreRegistration';
 import { STORE_STATUS, STATUS_LABELS, STATUS_COLORS } from '../../../src/constants/StoreStatus';
 import { useUser } from '../../../src/contexts/UserContext';
+import { auth } from '../../../FirebaseConfig';
 
 export default function RegistrationCompleteScreen() {
   // Get user context for role checking
@@ -55,7 +56,7 @@ export default function RegistrationCompleteScreen() {
             text: "View Dashboard",
             onPress: () => {
               console.log('✅ User chose to view dashboard after approval');
-              router.replace("/(main)/(store-owner)/home");
+              navigateToDashboard();
             }
           },
           {
@@ -129,6 +130,23 @@ export default function RegistrationCompleteScreen() {
         }
       ]
     );
+  };
+
+  const navigateToDashboard = () => {
+    // Ensure user is authenticated before navigating
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert(
+        "Authentication Required",
+        "Please sign in to access your dashboard.",
+        [{ text: "OK", onPress: () => router.replace("/(auth)/signin") }]
+      );
+      return;
+    }
+
+    console.log('🚀 Navigating to dashboard - user authenticated:', currentUser.email);
+    // Use push instead of replace to allow back navigation if needed
+    router.push("/(main)/(store-owner)/home" as any);
   };
 
   const handleCheckStatus = () => {
@@ -257,7 +275,7 @@ export default function RegistrationCompleteScreen() {
               variant="primary"
               onPress={() => {
                 console.log('✅ Navigating to dashboard - store is approved/active');
-                router.replace("/(main)/(store-owner)/home");
+                navigateToDashboard();
               }}
               style={styles.primaryButton}
             />

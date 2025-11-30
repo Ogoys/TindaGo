@@ -233,7 +233,7 @@ export default function StoreOrdersScreen() {
   const filteredOrders = realOrders.filter(order => order.status === selectedFilter);
 
   const handleBack = () => {
-    router.back();
+    router.push('/(main)/(store-owner)/home');
   };
 
   const handleOrderPress = (orderId: string, status: FilterStatus) => {

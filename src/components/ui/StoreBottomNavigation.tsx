@@ -2,9 +2,10 @@ import { router, usePathname } from "expo-router";
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { s, vs } from "../../constants/responsive";
+import { Ionicons } from '@expo/vector-icons';
 
 interface StoreBottomNavigationProps {
-  activeTab?: "home" | "orders" | "index" | "profile";
+  activeTab?: "home" | "orders" | "suppliers" | "profile";
 }
 
 export default function StoreBottomNavigation({ activeTab = "home" }: StoreBottomNavigationProps) {
@@ -14,7 +15,7 @@ export default function StoreBottomNavigation({ activeTab = "home" }: StoreBotto
     activeTab ||
     (() => {
       if (pathname.includes("/orders")) return "orders";
-      if (pathname.includes("/wallet")) return "wallet";
+      if (pathname.includes("/supplier-dashboard")) return "suppliers";
       if (pathname.includes("/profile")) return "profile";
       return "home";
     })();
@@ -56,19 +57,15 @@ export default function StoreBottomNavigation({ activeTab = "home" }: StoreBotto
         </Text>
       </TouchableOpacity>
 
-      {/* WALLET TAB (replaces Category for store owners) */}
+      {/* SUPPLIER DASHBOARD TAB (replaces Wallet) */}
       <TouchableOpacity
         style={styles.walletTab}
-        onPress={() => router.push("/(main)/(store-owner)/wallet")}
+        onPress={() => router.push("/(main)/(store-owner)/supplier-dashboard")}
         activeOpacity={0.7}
       >
-        <Image
-          source={require("../../assets/images/store-owner-dashboard/wallet-icon.png")}
-          style={styles.walletIcon}
-          resizeMode="contain"
-        />
-        <Text style={[styles.tabLabel, currentTab === "index" && styles.tabLabelActive]}>
-          Wallet
+        <Ionicons name="people" size={s(26)} color="#1E1E1E" style={{ marginBottom: vs(3) }} />
+        <Text style={[styles.tabLabel, currentTab === "suppliers" && styles.tabLabelActive]}>
+          Suppliers
         </Text>
       </TouchableOpacity>
 
