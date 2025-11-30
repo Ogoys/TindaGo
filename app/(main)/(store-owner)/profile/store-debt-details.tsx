@@ -544,8 +544,9 @@ export default function StoreDebtDetailsScreen() {
           )}
         </View>
 
-        {/* Mark as Paid Button (only show if not paid) */}
-        {!isPaid && (
+        {/* Mark as Paid Button (only show for manual debt entries that are not paid) */}
+        {/* Customer-initiated debt orders should be paid through Xendit (GCash/PayMaya) */}
+        {!isPaid && (safeOrder as any).isManualDebt && (
           <TouchableOpacity
             style={[styles.markPaidButtonLarge, marking && styles.markPaidButtonDisabled]}
             onPress={handleMarkAsPaid}
@@ -558,6 +559,21 @@ export default function StoreDebtDetailsScreen() {
               <Text style={styles.markPaidButtonTextLarge}>Mark as Paid</Text>
             )}
           </TouchableOpacity>
+        )}
+
+        {/* Payment Instruction for Customer-Initiated Debt Orders */}
+        {!isPaid && !(safeOrder as any).isManualDebt && (
+          <View style={styles.paymentInstructionCard}>
+            <View style={styles.paymentInstructionIcon}>
+              <Text style={styles.paymentInstructionIconText}>💳</Text>
+            </View>
+            <View style={styles.paymentInstructionContent}>
+              <Text style={styles.paymentInstructionTitle}>Waiting for Payment</Text>
+              <Text style={styles.paymentInstructionText}>
+                Customer will pay through GCash or PayMaya. Payment status will automatically update once completed.
+              </Text>
+            </View>
+          </View>
         )}
 
         {/* Already Paid Section */}
@@ -1167,6 +1183,51 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: ms(14),
     color: '#3BB77E',
+  },
+
+  // Payment Instruction Card (for customer-initiated debt orders)
+  paymentInstructionCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF3E0',
+    borderRadius: s(16),
+    padding: s(16),
+    marginBottom: vs(20),
+    borderWidth: 2,
+    borderColor: '#FF9800',
+  },
+
+  paymentInstructionIcon: {
+    width: s(40),
+    height: s(40),
+    borderRadius: s(20),
+    backgroundColor: 'rgba(255, 152, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: s(12),
+  },
+
+  paymentInstructionIconText: {
+    fontSize: ms(20),
+  },
+
+  paymentInstructionContent: {
+    flex: 1,
+  },
+
+  paymentInstructionTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    fontSize: ms(16),
+    color: '#E65100',
+    marginBottom: vs(6),
+  },
+
+  paymentInstructionText: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: '#6B7280',
+    lineHeight: ms(13) * 1.5,
   },
 
   // Loading State

@@ -46,6 +46,8 @@ import PaymentMethodBadge from '../../../../src/components/common/PaymentMethodB
 const PurchaseDetailsScreen = () => {
   const params = useLocalSearchParams();
   const purchaseOrderId = params.purchaseOrderId as string | undefined;
+  const fromSupplier = params.fromSupplier as string | undefined; // Track if coming from supplier details
+  const fromHistory = params.fromHistory as string | undefined; // Track if coming from purchase history
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,6 +107,24 @@ const PurchaseDetailsScreen = () => {
       return '0.00';
     }
     return value.toFixed(2);
+  };
+
+  const handleBack = () => {
+    // If we have supplier info, go back to supplier details
+    if (fromSupplier) {
+      router.push({
+        pathname: '/(main)/(store-owner)/profile/supplier-details' as any,
+        params: { supplier: fromSupplier }
+      });
+    }
+    // If we came from purchase history, go back to it
+    else if (fromHistory) {
+      router.push('/(main)/(store-owner)/profile/purchase-order-history' as any);
+    }
+    // Default: use router.back()
+    else {
+      router.back();
+    }
   };
 
   const getStatusConfig = (status: PurchaseOrderStatus) => {
@@ -178,7 +198,7 @@ const PurchaseDetailsScreen = () => {
 
               if (result.success) {
                 Alert.alert('Success', 'Inventory updated successfully!', [
-                  { text: 'OK', onPress: () => router.back() }
+                  { text: 'OK', onPress: () => handleBack() }
                 ]);
               } else {
                 Alert.alert('Error', result.error || 'Failed to update inventory');
@@ -309,7 +329,7 @@ const PurchaseDetailsScreen = () => {
           <Text style={styles.errorText}>Purchase order not found</Text>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={handleBack}
             activeOpacity={0.7}
           >
             <Text style={styles.backButtonText}>Go Back</Text>
@@ -331,7 +351,7 @@ const PurchaseDetailsScreen = () => {
         {/* Back Button - Figma: x:20, y:79, size:30x30 */}
         <TouchableOpacity
           style={styles.backButtonCircle}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.7}
         >
           <Text style={styles.backIcon}>←</Text>

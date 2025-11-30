@@ -22,7 +22,7 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { auth } from '@/lib/firebase';
 import { getDamages } from '../../../../src/api/damages';
 import { Damage, DamageReason, DAMAGE_REASONS } from '../../../../src/models/Damage';
@@ -32,6 +32,10 @@ import { s, vs, ms } from '../../../../src/constants/responsive';
 import { getProductImageSource } from '../../../../src/lib/helpers/imageHelper';
 
 export default function DamageHistoryScreen() {
+  const params = useLocalSearchParams();
+  const fromInventory = params.fromInventory as string | undefined; // Track if coming from inventory
+  const fromProfile = params.fromProfile as string | undefined; // Track if coming from profile
+
   const [damages, setDamages] = useState<Damage[]>([]);
   const [filteredDamages, setFilteredDamages] = useState<Damage[]>([]);
   const [loading, setLoading] = useState(true);

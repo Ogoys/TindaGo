@@ -310,43 +310,88 @@ const PurchaseOrderHistoryScreen = () => {
   };
 
   const renderSummary = () => {
-    const totalSpent = filteredOrders.reduce((sum, order) => sum + order.totalCost, 0);
-    const pendingCount = filteredOrders.filter(o => o.status === 'pending').length;
-    const receivedCount = filteredOrders.filter(o => o.status === 'received').length;
-    const unpaidAmount = filteredOrders
+    // Calculate totals from ALL orders (for overall stats)
+    const allTotalSpent = purchaseOrders.reduce((sum, order) => sum + order.totalCost, 0);
+    const allTotalOrders = purchaseOrders.length;
+    const allPendingCount = purchaseOrders.filter(o => o.status === 'pending').length;
+    const allReceivedCount = purchaseOrders.filter(o => o.status === 'received').length;
+    const allUnpaidAmount = purchaseOrders
       .filter(o => o.paymentStatus === 'unpaid')
       .reduce((sum, order) => sum + order.totalCost, 0);
-    const overdueCount = filteredOrders.filter(o => getPaymentStatus(o) === 'overdue').length;
+    const allOverdueCount = purchaseOrders.filter(o => getPaymentStatus(o) === 'overdue').length;
+
+    // Calculate totals from filtered orders (for current view)
+    const filteredTotalSpent = filteredOrders.reduce((sum, order) => sum + order.totalCost, 0);
+    const filteredPendingCount = filteredOrders.filter(o => o.status === 'pending').length;
+    const filteredReceivedCount = filteredOrders.filter(o => o.status === 'received').length;
+    const filteredUnpaidAmount = filteredOrders
+      .filter(o => o.paymentStatus === 'unpaid')
+      .reduce((sum, order) => sum + order.totalCost, 0);
+    const filteredOverdueCount = filteredOrders.filter(o => getPaymentStatus(o) === 'overdue').length;
+
+    const isFiltered = searchQuery.trim() !== '' || filterStatus !== 'all' || paymentFilter !== 'all';
 
     return (
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Purchase Overview</Text>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>₱{totalSpent.toFixed(2)}</Text>
-            <Text style={styles.summaryLabel}>Total Spent</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: '#FF9800' }]}>{pendingCount}</Text>
-            <Text style={styles.summaryLabel}>Pending</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>{receivedCount}</Text>
-            <Text style={styles.summaryLabel}>Received</Text>
-          </View>
-        </View>
-        {unpaidAmount > 0 && (
-          <View style={styles.unpaidSection}>
-            <View style={styles.unpaidRow}>
-              <Text style={styles.unpaidLabel}>💳 Unpaid Amount:</Text>
-              <Text style={styles.unpaidAmount}>₱{unpaidAmount.toFixed(2)}</Text>
+      <>
+        {/* Overall Totals - Always shows all orders */}
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Overall Purchase Summary</Text>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>₱{allTotalSpent.toFixed(2)}</Text>
+              <Text style={styles.summaryLabel}>Total Spent</Text>
             </View>
-            {overdueCount > 0 && (
-              <Text style={styles.overdueWarning}>⚠️ {overdueCount} overdue payment{overdueCount > 1 ? 's' : ''}</Text>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{allTotalOrders}</Text>
+              <Text style={styles.summaryLabel}>Total Orders</Text>
+            </View>
+          </View>
+          <View style={[styles.summaryRow, { marginTop: vs(10) }]}>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: '#FF9800' }]}>{allPendingCount}</Text>
+              <Text style={styles.summaryLabel}>Pending</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>{allReceivedCount}</Text>
+              <Text style={styles.summaryLabel}>Received</Text>
+            </View>
+          </View>
+          {allUnpaidAmount > 0 && (
+            <View style={styles.unpaidSection}>
+              <View style={styles.unpaidRow}>
+                <Text style={styles.unpaidLabel}>💳 Unpaid Amount:</Text>
+                <Text style={styles.unpaidAmount}>₱{allUnpaidAmount.toFixed(2)}</Text>
+              </View>
+              {allOverdueCount > 0 && (
+                <Text style={styles.overdueWarning}>⚠️ {allOverdueCount} overdue payment{allOverdueCount > 1 ? 's' : ''}</Text>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Filtered Results Summary - Only shows when filtering is active */}
+        {isFiltered && filteredOrders.length > 0 && (
+          <View style={styles.filteredSummaryCard}>
+            <Text style={styles.filteredSummaryTitle}>📊 Filtered Results</Text>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryItem}>
+                <Text style={styles.filteredSummaryValue}>₱{filteredTotalSpent.toFixed(2)}</Text>
+                <Text style={styles.summaryLabel}>Filtered Total</Text>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text style={styles.filteredSummaryValue}>{filteredOrders.length}</Text>
+                <Text style={styles.summaryLabel}>Orders Shown</Text>
+              </View>
+            </View>
+            {filteredUnpaidAmount > 0 && (
+              <View style={styles.unpaidRow}>
+                <Text style={styles.unpaidLabel}>💳 Unpaid in Filter:</Text>
+                <Text style={styles.unpaidAmount}>₱{filteredUnpaidAmount.toFixed(2)}</Text>
+              </View>
             )}
           </View>
         )}
-      </View>
+      </>
     );
   };
 
@@ -360,7 +405,7 @@ const PurchaseOrderHistoryScreen = () => {
         key={order.id}
         style={styles.orderCard}
         onPress={() => {
-          router.push(`/(main)/(store-owner)/profile/purchase-details?purchaseOrderId=${order.id}` as any);
+          router.push(`/(main)/(store-owner)/profile/purchase-details?purchaseOrderId=${order.id}&fromHistory=true` as any);
         }}
         activeOpacity={0.7}
       >
@@ -1380,6 +1425,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: ms(15),
     color: Colors.white,
+  },
+
+  // Filtered Summary Card
+  filteredSummaryCard: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: s(16),
+    padding: s(15),
+    marginBottom: vs(20),
+    borderWidth: 2,
+    borderColor: '#2196F3',
+    shadowColor: 'rgba(33, 150, 243, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+
+  filteredSummaryTitle: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(15),
+    color: '#1976D2',
+    marginBottom: vs(12),
+  },
+
+  filteredSummaryValue: {
+    fontFamily: Fonts.primary,
+    fontWeight: '700',
+    fontSize: ms(18),
+    color: '#1976D2',
+    marginBottom: vs(4),
   },
 });
 

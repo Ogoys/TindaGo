@@ -481,6 +481,13 @@ const StoreDebtRecordsScreen = () => {
                 </Text>
               )}
             </TouchableOpacity>
+
+            {/* Manual Debt Indicator */}
+            {(order as any).isManualDebt && (
+              <View style={styles.manualDebtBadge}>
+                <Text style={styles.manualDebtText}>✏️ Manual</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -499,8 +506,8 @@ const StoreDebtRecordsScreen = () => {
           {/* Total Amount */}
           <Text style={styles.total}>P{formatCurrency(order.total)}</Text>
 
-          {/* Mark as Paid Button (only if not paid) */}
-          {!isPaid && (
+          {/* Mark as Paid Button (only for manual debt entries that are not paid) */}
+          {!isPaid && (order as any).isManualDebt && (
             <TouchableOpacity
               style={styles.markPaidButton}
               onPress={(e) => {
@@ -1014,6 +1021,23 @@ const styles = StyleSheet.create({
 
   debtToggleTextDisabled: {
     color: '#9CA3AF',
+  },
+
+  // Manual Debt Badge
+  manualDebtBadge: {
+    paddingHorizontal: s(8),
+    paddingVertical: vs(3),
+    borderRadius: s(6),
+    backgroundColor: '#E3F2FD',
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+
+  manualDebtText: {
+    fontSize: ms(9),
+    fontFamily: Fonts.primary,
+    fontWeight: '600',
+    color: '#1976D2',
   },
 
   // Right Section
