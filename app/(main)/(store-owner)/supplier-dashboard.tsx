@@ -1,2 +1,2 @@
-import SupplierDashboardScreen from './profile/supplier-dashboard';
+import SupplierDashboardScreen from './suppliers/supplier-dashboard';
 export default SupplierDashboardScreen;

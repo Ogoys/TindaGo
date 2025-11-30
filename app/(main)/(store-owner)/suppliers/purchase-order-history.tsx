@@ -405,7 +405,7 @@ const PurchaseOrderHistoryScreen = () => {
         key={order.id}
         style={styles.orderCard}
         onPress={() => {
-          router.push(`/(main)/(store-owner)/profile/purchase-details?purchaseOrderId=${order.id}&fromHistory=true` as any);
+          router.push(`/(main)/(store-owner)/suppliers/purchase-details?purchaseOrderId=${order.id}&fromHistory=true` as any);
         }}
         activeOpacity={0.7}
       >
@@ -740,7 +740,7 @@ const PurchaseOrderHistoryScreen = () => {
             {!searchQuery && filterStatus === 'all' && (
               <TouchableOpacity
                 style={styles.recordButton}
-                onPress={() => router.push('/(main)/(store-owner)/profile/record-purchase-order')}
+                onPress={() => router.push('/(main)/(store-owner)/suppliers/record-purchase-order')}
                 activeOpacity={0.7}
               >
                 <Text style={styles.recordButtonText}>Record Purchase Order</Text>
@@ -756,7 +756,7 @@ const PurchaseOrderHistoryScreen = () => {
       {filteredOrders.length > 0 && (
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => router.push('/(main)/(store-owner)/profile/record-purchase-order')}
+          onPress={() => router.push('/(main)/(store-owner)/suppliers/record-purchase-order')}
           activeOpacity={0.7}
         >
           <Text style={styles.fabText}>+</Text>

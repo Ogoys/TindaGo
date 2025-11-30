@@ -398,7 +398,7 @@ const SupplierDetailsScreen = () => {
           <TouchableOpacity
             style={styles.restockButton}
             onPress={() => router.push({
-              pathname: '/(main)/(store-owner)/profile/restock-from-supplier' as any,
+              pathname: '/(main)/(store-owner)/suppliers/restock-from-supplier' as any,
               params: {
                 supplierId: params.supplierId,
                 supplierName: supplierData.name,
@@ -498,7 +498,7 @@ const SupplierDetailsScreen = () => {
           <TouchableOpacity
             style={styles.viewAllOrdersButton}
             onPress={() => router.push({
-              pathname: '/(main)/(store-owner)/profile/purchase-order-history' as any,
+              pathname: '/(main)/(store-owner)/suppliers/purchase-order-history' as any,
               params: { supplier: supplierData.name }
             })}
             activeOpacity={0.7}

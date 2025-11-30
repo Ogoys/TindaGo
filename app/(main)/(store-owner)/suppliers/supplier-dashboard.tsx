@@ -226,21 +226,26 @@ const SupplierDashboardScreen = () => {
 
   const handleAddSupplier = () => {
     // Navigate to add supplier screen
-    router.push('/(main)/(store-owner)/profile/add-supplier');
+    router.push('/(main)/(store-owner)/suppliers/add-supplier');
   };
 
   const handleViewPurchaseHistory = (supplierName: string) => {
     router.push({
-      pathname: '/(main)/(store-owner)/profile/purchase-order-history',
+      pathname: '/(main)/(store-owner)/suppliers/purchase-order-history',
       params: { supplier: supplierName },
     });
   };
 
   const handleViewSupplierDetails = (supplierName: string) => {
     router.push({
-      pathname: '/(main)/(store-owner)/profile/supplier-details',
+      pathname: '/(main)/(store-owner)/suppliers/supplier-details',
       params: { supplier: supplierName },
     });
+  };
+
+  const handleBackToHome = () => {
+    // Navigate to home since this is a main tab
+    router.push('/(main)/(store-owner)/home');
   };
 
   const formatDate = (isoString: string | null) => {
@@ -264,7 +269,7 @@ const SupplierDashboardScreen = () => {
 
       {/* Header */}
       <View>
-        <ProfileScreenHeader title="Supplier Dashboard" />
+        <ProfileScreenHeader title="Supplier Dashboard" onBack={handleBackToHome} />
         <TouchableOpacity
           style={styles.refreshButton}
           onPress={handleHeaderRefresh}
@@ -344,7 +349,7 @@ const SupplierDashboardScreen = () => {
                 </Text>
                 <TouchableOpacity
                   style={styles.emptyStateButton}
-                  onPress={() => router.push('/(main)/(store-owner)/profile/record-purchase-order')}
+                  onPress={() => router.push('/(main)/(store-owner)/suppliers/record-purchase-order')}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.emptyStateButtonText}>Create Purchase Order</Text>
@@ -403,7 +408,7 @@ const SupplierDashboardScreen = () => {
 
                 <TouchableOpacity
                   style={styles.actionCard}
-                  onPress={() => router.push('/(main)/(store-owner)/profile/record-purchase-order')}
+                  onPress={() => router.push('/(main)/(store-owner)/suppliers/record-purchase-order')}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.actionIcon}>📝</Text>
@@ -416,7 +421,7 @@ const SupplierDashboardScreen = () => {
 
                 <TouchableOpacity
                   style={styles.actionCard}
-                  onPress={() => router.push('/(main)/(store-owner)/profile/purchase-order-history')}
+                  onPress={() => router.push('/(main)/(store-owner)/suppliers/purchase-order-history')}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.actionIcon}>📋</Text>

@@ -44,6 +44,10 @@ const AddSupplierScreen = () => {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const handleBackToSupplierDashboard = () => {
+    router.push('/(main)/(store-owner)/suppliers/supplier-dashboard');
+  };
+
   const handleSave = async () => {
     // Validation
     if (!supplierName.trim()) {
@@ -73,7 +77,7 @@ const AddSupplierScreen = () => {
       Alert.alert('Success', 'Supplier added successfully', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: handleBackToSupplierDashboard,
         },
       ]);
     } catch (error: any) {
@@ -88,10 +92,10 @@ const AddSupplierScreen = () => {
     if (supplierName || contact || address || city || postalCode || email || notes) {
       Alert.alert('Discard Changes?', 'You have unsaved changes. Are you sure you want to go back?', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+        { text: 'Discard', style: 'destructive', onPress: handleBackToSupplierDashboard },
       ]);
     } else {
-      router.back();
+      handleBackToSupplierDashboard();
     }
   };
 
@@ -104,7 +108,7 @@ const AddSupplierScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundGray} />
 
-      <ProfileScreenHeader title="Add Supplier" />
+      <ProfileScreenHeader title="Add Supplier" onBack={handleCancel} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
