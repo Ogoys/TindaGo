@@ -8,7 +8,6 @@
  * - Supplier Name (required)
  * - Contact Number (optional)
  * - Address (optional)
- * - Email (optional)
  * - Notes (optional)
  *
  * Baseline: 440x956 (standard TindaGo baseline)
@@ -40,7 +39,6 @@ const AddSupplierScreen = () => {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -55,12 +53,6 @@ const AddSupplierScreen = () => {
       return;
     }
 
-    // Email validation (if provided)
-    if (email.trim() && !isValidEmail(email)) {
-      Alert.alert('Validation Error', 'Please enter a valid email address');
-      return;
-    }
-
     try {
       setSaving(true);
 
@@ -70,7 +62,6 @@ const AddSupplierScreen = () => {
         address: address.trim() || undefined,
         city: city.trim() || undefined,
         postalCode: postalCode.trim() || undefined,
-        email: email.trim() || undefined,
         notes: notes.trim() || undefined,
       });
 
@@ -89,7 +80,7 @@ const AddSupplierScreen = () => {
   };
 
   const handleCancel = () => {
-    if (supplierName || contact || address || city || postalCode || email || notes) {
+    if (supplierName || contact || address || city || postalCode || notes) {
       Alert.alert('Discard Changes?', 'You have unsaved changes. Are you sure you want to go back?', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Discard', style: 'destructive', onPress: handleBackToSupplierDashboard },
@@ -99,10 +90,6 @@ const AddSupplierScreen = () => {
     }
   };
 
-  const isValidEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
 
   return (
     <View style={styles.container}>
@@ -154,21 +141,6 @@ const AddSupplierScreen = () => {
                 onChangeText={setContact}
                 keyboardType="phone-pad"
                 maxLength={20}
-              />
-            </View>
-
-            {/* Email */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., supplier@example.com"
-                placeholderTextColor={Colors.textSecondary}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                maxLength={100}
               />
             </View>
 
