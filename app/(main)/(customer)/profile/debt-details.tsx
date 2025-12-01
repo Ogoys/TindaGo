@@ -55,6 +55,7 @@ export default function DebtDetailsScreen() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [justPaid, setJustPaid] = useState(false); // Track if payment just completed
 
   // ✅ REAL-TIME listener for debt status updates (automatically shows "Paid" after Xendit payment)
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function DebtDetailsScreen() {
     console.log('[Debt Details] Setting up real-time listener for order:', orderId);
     const orderRef = ref(database, `orders/${orderId}`);
     let hasAlerted = false; // Prevent duplicate alerts
+    let previousDebtStatus: string | null = null; // Track previous status
 
     // Real-time listener - automatically updates when payment status changes
     const unsubscribe = onValue(orderRef, (snapshot) => {
@@ -84,6 +86,15 @@ export default function DebtDetailsScreen() {
         }
 
         console.log('[Debt Details] Order updated - debtStatus:', orderData.debtStatus, 'paymentStatus:', orderData.paymentStatus);
+
+        // ✅ Detect if payment just completed (status changed from unpaid to paid)
+        if (previousDebtStatus && previousDebtStatus !== 'paid' && orderData.debtStatus === 'paid') {
+          console.log('[Debt Details] Payment just completed! Showing success indicator');
+          setJustPaid(true);
+          // Clear the indicator after 5 seconds
+          setTimeout(() => setJustPaid(false), 5000);
+        }
+        previousDebtStatus = orderData.debtStatus;
 
         // ✅ Only update state (triggers re-render) - no loops, React handles state changes efficiently
         setOrder(orderData);
@@ -313,6 +324,17 @@ export default function DebtDetailsScreen() {
           {/* Title */}
           <Text style={styles.title}>Debt Details</Text>
         </View>
+
+        {/* ✅ Payment Success Banner (shown right after Xendit payment) */}
+        {justPaid && (
+          <View style={styles.paymentSuccessBanner}>
+            <Text style={styles.paymentSuccessIcon}>✅</Text>
+            <View style={styles.paymentSuccessTextContainer}>
+              <Text style={styles.paymentSuccessTitle}>Payment Successful!</Text>
+              <Text style={styles.paymentSuccessSubtext}>Your debt has been paid</Text>
+            </View>
+          </View>
+        )}
 
         {/* Debt Status Card */}
         <View style={styles.debtStatusCard}>
@@ -1134,5 +1156,42 @@ const styles = StyleSheet.create({
   // Bottom Padding
   bottomPadding: {
     height: vs(40),
+  },
+
+  // Payment Success Banner (after Xendit payment)
+  paymentSuccessBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9', // Light green
+    borderRadius: s(16),
+    padding: s(16),
+    marginBottom: vs(20),
+    borderWidth: 2,
+    borderColor: '#3BB77E',
+    shadowColor: 'rgba(59, 183, 126, 0.3)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  paymentSuccessIcon: {
+    fontSize: ms(32),
+    marginRight: s(12),
+  },
+  paymentSuccessTextContainer: {
+    flex: 1,
+  },
+  paymentSuccessTitle: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(16),
+    fontWeight: '600',
+    color: '#3BB77E',
+    marginBottom: vs(4),
+  },
+  paymentSuccessSubtext: {
+    fontFamily: Fonts.primary,
+    fontSize: ms(13),
+    color: '#3BB77E',
+    opacity: 0.8,
   },
 });

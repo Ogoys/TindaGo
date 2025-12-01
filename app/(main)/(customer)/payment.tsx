@@ -529,10 +529,46 @@ const PaymentScreen = () => {
           
           await Linking.openURL(paymentResponse.invoiceUrl);
 
-          // ✅ Don't listen here - let payment/success.tsx handle the redirect after Xendit
-          // This prevents duplicate navigation and loops
-          console.log('[Payment] Debt settlement payment opened - waiting for Xendit redirect');
-          return; // Exit; payment/success.tsx will handle navigation after payment
+          // ✅ Listen for payment status change and navigate to debt-details when paid
+          console.log('[Payment] Debt settlement payment opened - listening for payment confirmation');
+          
+          // Set up real-time listener for this specific order
+          const orderRef = ref(database, `orders/${ord.id}`);
+          const unsubscribe = onValue(orderRef, async (snapshot) => {
+            if (snapshot.exists()) {
+              const orderData = snapshot.val();
+              console.log('[Payment] Debt order status:', orderData.paymentStatus, 'debtStatus:', orderData.debtStatus);
+              
+              // Check if payment was marked PAID by webhook
+              if (orderData.paymentStatus === 'PAID' || orderData.paymentStatus === 'SETTLED') {
+                console.log('[Payment] ✅ Debt payment confirmed! Navigating to debt-details...');
+                unsubscribe(); // Stop listening
+                
+                // Clear pending order from AsyncStorage
+                await AsyncStorage.removeItem(`pending_customer_order_${user.id}`);
+                
+                // Navigate directly to debt-details
+                setProcessing(false);
+                router.replace({
+                  pathname: '/(main)/(customer)/profile/debt-details',
+                  params: { orderId: ord.id }
+                });
+              }
+            }
+          });
+          
+          // Store unsubscribe function for cleanup
+          unsubscribeRef.current = unsubscribe;
+          
+          // Timeout after 5 minutes
+          setTimeout(() => {
+            unsubscribe();
+            setProcessing(false);
+            console.log('[Payment] Timeout - stopped listening for debt payment');
+          }, 300000);
+          
+          // ✅ MUST return here to prevent falling through to new order creation!
+          return; // Exit - debt settlement complete
         } else {
           setProcessing(false);
           setErrorMessage('Cannot open payment page.\nPlease check your internet connection.');

@@ -62,7 +62,24 @@ export default function PaymentSuccessScreen() {
           const { orderId, orderNumber, isDebtSettlement } = JSON.parse(pendingOrderData);
           console.log('[Payment Success] Found pending order:', orderId, orderNumber, 'isDebtSettlement:', isDebtSettlement);
           
-          // Listen for payment status update (webhook might still be processing)
+          // ✅ For debt settlement, payment.tsx handles the flow
+          // Just redirect to debt-details immediately (payment.tsx listener already updated status)
+          if (isDebtSettlement) {
+            console.log('[Payment Success] Debt settlement - redirecting to debt-details (payment.tsx already handled status)');
+            
+            // Clear pending order
+            await AsyncStorage.removeItem(pendingOrderKey);
+            
+            // Navigate directly to debt-details
+            router.replace({
+              pathname: '/(main)/(customer)/profile/debt-details',
+              params: { orderId }
+            });
+            return; // Exit early for debt settlement
+          }
+          
+          // For NEW orders (not debt settlement), show modal after payment confirmation
+          console.log('[Payment Success] New order - waiting for payment confirmation');
           const orderRef = ref(database, `orders/${orderId}`);
           const unsubscribe = onValue(orderRef, async (snapshot) => {
             if (snapshot.exists()) {
@@ -71,66 +88,30 @@ export default function PaymentSuccessScreen() {
               
               if (orderData.paymentStatus === 'PAID' || orderData.paymentStatus === 'SETTLED') {
                 console.log('[Payment Success] Payment confirmed!');
-
-                // ✅ For debt settlement, ensure debt status is updated BEFORE navigating
-                if (isDebtSettlement) {
-                  console.log('[Payment Success] Debt settlement - updating debt status');
-                  try {
-                    await update(orderRef, {
-                      debtStatus: 'paid',
-                      debtPaidDate: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    });
-
-                    // ✅ Cancel all scheduled debt reminders
-                    await DebtReminderScheduler.cancelReminders(orderId);
-                    console.log('[Payment Success] Debt status updated to paid and reminders cancelled');
-                  } catch (error) {
-                    console.error('[Payment Success] Error updating debt status:', error);
-                  }
-                }
-
+                
                 // Clear pending order
                 await AsyncStorage.removeItem(pendingOrderKey);
                 // Stop listening
                 unsubscribe();
-
-                // ✅ Check if this is debt settlement or new order
-                if (isDebtSettlement) {
-                  // Debt settlement - redirect to debt-details
-                  console.log('[Payment Success] Debt settlement - redirecting to debt-details');
-                  router.replace({
-                    pathname: '/(main)/(customer)/profile/debt-details',
-                    params: { orderId }
-                  });
-                } else {
-                  // New order - show OrderCompleteModal
-                  console.log('[Payment Success] New order - showing OrderCompleteModal');
-                  setCompletedOrderId(orderId);
-                  setShowOrderModal(true);
-                  setIsCheckingPayment(false);
-                }
+                
+                // Show OrderCompleteModal
+                console.log('[Payment Success] New order - showing OrderCompleteModal');
+                setCompletedOrderId(orderId);
+                setShowOrderModal(true);
+                setIsCheckingPayment(false);
               }
             }
           });
           
-          // Timeout after 30 seconds
+          // Timeout after 30 seconds for new orders
           setTimeout(async () => {
             unsubscribe();
             await AsyncStorage.removeItem(pendingOrderKey);
             
-            if (isDebtSettlement) {
-              // Debt settlement - redirect to debt-details
-              router.replace({
-                pathname: '/(main)/(customer)/profile/debt-details',
-                params: { orderId }
-              });
-            } else {
-              // New order - show modal anyway
-              setCompletedOrderId(orderId);
-              setShowOrderModal(true);
-              setIsCheckingPayment(false);
-            }
+            // Show modal anyway
+            setCompletedOrderId(orderId);
+            setShowOrderModal(true);
+            setIsCheckingPayment(false);
           }, 30000);
         } else {
           console.log('[Payment Success] No pending order found - redirecting to home');
