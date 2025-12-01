@@ -9,13 +9,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ref, get, onValue } from 'firebase/database';
+import { ref, get, onValue, update } from 'firebase/database';
 import { database, auth } from '../../FirebaseConfig';
 import { Colors } from '../../src/constants/Colors';
 import { Fonts } from '../../src/constants/Fonts';
 import { s, vs } from '../../src/constants/responsive';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OrderCompleteModal } from '../../src/components/ui/OrderCompleteModal';
+import { DebtReminderScheduler } from '../../src/services/notifications/DebtReminderScheduler';
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();
@@ -70,11 +71,30 @@ export default function PaymentSuccessScreen() {
               
               if (orderData.paymentStatus === 'PAID' || orderData.paymentStatus === 'SETTLED') {
                 console.log('[Payment Success] Payment confirmed!');
+
+                // ✅ For debt settlement, ensure debt status is updated BEFORE navigating
+                if (isDebtSettlement) {
+                  console.log('[Payment Success] Debt settlement - updating debt status');
+                  try {
+                    await update(orderRef, {
+                      debtStatus: 'paid',
+                      debtPaidDate: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+
+                    // ✅ Cancel all scheduled debt reminders
+                    await DebtReminderScheduler.cancelReminders(orderId);
+                    console.log('[Payment Success] Debt status updated to paid and reminders cancelled');
+                  } catch (error) {
+                    console.error('[Payment Success] Error updating debt status:', error);
+                  }
+                }
+
                 // Clear pending order
                 await AsyncStorage.removeItem(pendingOrderKey);
                 // Stop listening
                 unsubscribe();
-                
+
                 // ✅ Check if this is debt settlement or new order
                 if (isDebtSettlement) {
                   // Debt settlement - redirect to debt-details

@@ -65,6 +65,7 @@ export default function DebtDetailsScreen() {
 
     console.log('[Debt Details] Setting up real-time listener for order:', orderId);
     const orderRef = ref(database, `orders/${orderId}`);
+    let hasAlerted = false; // Prevent duplicate alerts
 
     // Real-time listener - automatically updates when payment status changes
     const unsubscribe = onValue(orderRef, (snapshot) => {
@@ -83,14 +84,23 @@ export default function DebtDetailsScreen() {
         }
 
         console.log('[Debt Details] Order updated - debtStatus:', orderData.debtStatus, 'paymentStatus:', orderData.paymentStatus);
+
+        // ✅ Only update state (triggers re-render) - no loops, React handles state changes efficiently
         setOrder(orderData);
       } else {
-        Alert.alert('Error', 'Debt order not found');
-        router.back();
+        // Only show alert once
+        if (!hasAlerted) {
+          hasAlerted = true;
+          Alert.alert('Error', 'Debt order not found');
+          router.back();
+        }
       }
     }, (error) => {
       console.error('[Debt Details] Error listening to order:', error);
-      Alert.alert('Error', 'Failed to load debt details');
+      if (!hasAlerted) {
+        hasAlerted = true;
+        Alert.alert('Error', 'Failed to load debt details');
+      }
       setLoading(false);
     });
 

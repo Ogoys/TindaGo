@@ -529,43 +529,10 @@ const PaymentScreen = () => {
           
           await Linking.openURL(paymentResponse.invoiceUrl);
 
-          // Listen for payment status updates on this order
-          const orderRef = ref(database, `orders/${ord.id}`);
-          const unsubscribe = onValue(orderRef, async (snapshot) => {
-            if (snapshot.exists()) {
-              const updated = snapshot.val();
-              if (updated?.paymentStatus === 'PAID' || updated?.paymentStatus === 'SETTLED') {
-                // Ensure debt fields are set to paid (webhook may also do this)
-                try {
-                  await update(orderRef, {
-                    debtStatus: 'paid',
-                    debtPaidDate: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  });
-                  
-                  // ✅ Cancel all scheduled reminders for this order
-                  await DebtReminderScheduler.cancelReminders(ord.id);
-                } catch {}
-
-                // ✅ Clear pending order from AsyncStorage
-                await AsyncStorage.removeItem(`pending_customer_order_${user.id}`);
-                // Stop listening
-                unsubscribe();
-
-                // ✅ Navigate to debt-details to show paid status
-                console.log('[Payment] Debt settlement completed - navigating to debt-details');
-                router.replace({
-                  pathname: '/(main)/(customer)/profile/debt-details',
-                  params: { orderId: ord.id }
-                });
-              }
-            }
-          });
-
-          // Store unsubscribe function for cleanup
-          unsubscribeRef.current = unsubscribe;
-          setPendingOrderNumber(ord.orderNumber || ord.id);
-          return; // Exit; rest of flow is for cart-based orders
+          // ✅ Don't listen here - let payment/success.tsx handle the redirect after Xendit
+          // This prevents duplicate navigation and loops
+          console.log('[Payment] Debt settlement payment opened - waiting for Xendit redirect');
+          return; // Exit; payment/success.tsx will handle navigation after payment
         } else {
           setProcessing(false);
           setErrorMessage('Cannot open payment page.\nPlease check your internet connection.');
