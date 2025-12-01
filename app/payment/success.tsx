@@ -6,17 +6,22 @@
  * and redirects accordingly.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { ref, get, onValue } from 'firebase/database';
+import { database, auth } from '../../FirebaseConfig';
 import { Colors } from '../../src/constants/Colors';
 import { Fonts } from '../../src/constants/Fonts';
 import { s, vs } from '../../src/constants/responsive';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { auth } from '../../FirebaseConfig';
+import { OrderCompleteModal } from '../../src/components/ui/OrderCompleteModal';
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [completedOrderId, setCompletedOrderId] = useState('');
+  const [isCheckingPayment, setIsCheckingPayment] = useState(true);
 
   useEffect(() => {
     const handleRedirect = async () => {
@@ -44,9 +49,72 @@ export default function PaymentSuccessScreen() {
             pathname: '/(main)/(store-owner)/suppliers/purchase-details',
             params: { purchaseOrderId: pendingPurchaseOrderId }
           });
+          return;
+        }
+
+        // Check for customer order payment
+        console.log('[Payment Success] Checking for pending customer order');
+        const pendingOrderKey = `pending_customer_order_${currentUser.uid}`;
+        const pendingOrderData = await AsyncStorage.getItem(pendingOrderKey);
+        
+        if (pendingOrderData) {
+          const { orderId, orderNumber, isDebtSettlement } = JSON.parse(pendingOrderData);
+          console.log('[Payment Success] Found pending order:', orderId, orderNumber, 'isDebtSettlement:', isDebtSettlement);
+          
+          // Listen for payment status update (webhook might still be processing)
+          const orderRef = ref(database, `orders/${orderId}`);
+          const unsubscribe = onValue(orderRef, async (snapshot) => {
+            if (snapshot.exists()) {
+              const orderData = snapshot.val();
+              console.log('[Payment Success] Order status:', orderData.paymentStatus);
+              
+              if (orderData.paymentStatus === 'PAID' || orderData.paymentStatus === 'SETTLED') {
+                console.log('[Payment Success] Payment confirmed!');
+                // Clear pending order
+                await AsyncStorage.removeItem(pendingOrderKey);
+                // Stop listening
+                unsubscribe();
+                
+                // ✅ Check if this is debt settlement or new order
+                if (isDebtSettlement) {
+                  // Debt settlement - redirect to debt-details
+                  console.log('[Payment Success] Debt settlement - redirecting to debt-details');
+                  router.replace({
+                    pathname: '/(main)/(customer)/profile/debt-details',
+                    params: { orderId }
+                  });
+                } else {
+                  // New order - show OrderCompleteModal
+                  console.log('[Payment Success] New order - showing OrderCompleteModal');
+                  setCompletedOrderId(orderId);
+                  setShowOrderModal(true);
+                  setIsCheckingPayment(false);
+                }
+              }
+            }
+          });
+          
+          // Timeout after 30 seconds
+          setTimeout(async () => {
+            unsubscribe();
+            await AsyncStorage.removeItem(pendingOrderKey);
+            
+            if (isDebtSettlement) {
+              // Debt settlement - redirect to debt-details
+              router.replace({
+                pathname: '/(main)/(customer)/profile/debt-details',
+                params: { orderId }
+              });
+            } else {
+              // New order - show modal anyway
+              setCompletedOrderId(orderId);
+              setShowOrderModal(true);
+              setIsCheckingPayment(false);
+            }
+          }, 30000);
         } else {
-          console.log('[Payment Success] Customer order payment - redirecting to customer home');
-          // Navigate back to customer home - the payment listener will show the modal
+          console.log('[Payment Success] No pending order found - redirecting to home');
+          // No pending order, just go home
           router.replace('/(main)/(customer)/home');
         }
       } catch (error) {
@@ -64,15 +132,32 @@ export default function PaymentSuccessScreen() {
     return () => clearTimeout(timer);
   }, [router]);
 
+  const handleCloseModal = () => {
+    setShowOrderModal(false);
+    // Navigate to home after modal closes
+    router.replace('/(main)/(customer)/home');
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.title}>Payment Processing</Text>
-        <Text style={styles.subtitle}>
-          Please wait while we confirm your payment...
-        </Text>
+        {isCheckingPayment && (
+          <>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.title}>Payment Processing</Text>
+            <Text style={styles.subtitle}>
+              Please wait while we confirm your payment...
+            </Text>
+          </>
+        )}
       </View>
+      
+      {/* Order Complete Modal */}
+      <OrderCompleteModal
+        visible={showOrderModal}
+        onClose={handleCloseModal}
+        orderId={completedOrderId}
+      />
     </View>
   );
 }

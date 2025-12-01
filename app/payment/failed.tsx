@@ -5,23 +5,90 @@
  * It shows an error message and navigates back to the payment screen.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../../FirebaseConfig';
 import { Colors } from '../../src/constants/Colors';
 import { Fonts } from '../../src/constants/Fonts';
 import { s, vs } from '../../src/constants/responsive';
 
 export default function PaymentFailedScreen() {
   const router = useRouter();
+  const [isPurchaseOrder, setIsPurchaseOrder] = useState(false);
+  const [purchaseOrderId, setPurchaseOrderId] = useState<string | null>(null);
+  const [isDebtSettlement, setIsDebtSettlement] = useState(false);
+  const [customerOrderId, setCustomerOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkPaymentType = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        // Check if this is a purchase order payment
+        const pendingNavKey = `pending_purchase_order_navigation_${currentUser.uid}`;
+        const pendingPurchaseOrderId = await AsyncStorage.getItem(pendingNavKey);
+        
+        if (pendingPurchaseOrderId) {
+          console.log('[Payment Failed] Purchase order payment detected');
+          setIsPurchaseOrder(true);
+          setPurchaseOrderId(pendingPurchaseOrderId);
+          // Clear the pending navigation
+          await AsyncStorage.removeItem(pendingNavKey);
+          return;
+        }
+
+        // Check if this is a customer order payment (or debt settlement)
+        const pendingOrderKey = `pending_customer_order_${currentUser.uid}`;
+        const pendingOrderData = await AsyncStorage.getItem(pendingOrderKey);
+        
+        if (pendingOrderData) {
+          const { orderId, isDebtSettlement: isDebt } = JSON.parse(pendingOrderData);
+          console.log('[Payment Failed] Customer order payment detected, isDebtSettlement:', isDebt);
+          setCustomerOrderId(orderId);
+          setIsDebtSettlement(isDebt || false);
+          // Clear the pending order
+          await AsyncStorage.removeItem(pendingOrderKey);
+        }
+      } catch (error) {
+        console.error('[Payment Failed] Error checking payment type:', error);
+      }
+    };
+
+    checkPaymentType();
+  }, []);
 
   const handleRetry = () => {
-    // Go back to payment screen to retry
-    router.replace('/(main)/(customer)/payment');
+    if (isPurchaseOrder && purchaseOrderId) {
+      // Navigate to purchase details where they can retry payment
+      router.replace({
+        pathname: '/(main)/(store-owner)/suppliers/purchase-details',
+        params: { purchaseOrderId }
+      });
+    } else if (isDebtSettlement && customerOrderId) {
+      // Navigate back to debt details to retry payment
+      router.replace({
+        pathname: '/(main)/(customer)/profile/debt-details',
+        params: { orderId: customerOrderId }
+      });
+    } else {
+      // Go back to customer payment screen to retry
+      router.replace('/(main)/(customer)/payment');
+    }
   };
 
   const handleGoHome = () => {
-    router.replace('/(main)/(customer)/home');
+    if (isPurchaseOrder) {
+      // Navigate to suppliers/purchase orders page
+      router.replace('/(main)/(store-owner)/suppliers');
+    } else if (isDebtSettlement) {
+      // Navigate to debt history page
+      router.replace('/(main)/(customer)/profile/debt-history');
+    } else {
+      router.replace('/(main)/(customer)/home');
+    }
   };
 
   return (
@@ -43,12 +110,24 @@ export default function PaymentFailedScreen() {
 
         {/* Retry Button */}
         <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={styles.retryButtonText}>
+            {isPurchaseOrder 
+              ? 'View Purchase Order' 
+              : isDebtSettlement 
+                ? 'View Debt Details' 
+                : 'Try Again'}
+          </Text>
         </TouchableOpacity>
 
         {/* Home Button */}
         <TouchableOpacity style={styles.homeButton} onPress={handleGoHome}>
-          <Text style={styles.homeButtonText}>Back to Home</Text>
+          <Text style={styles.homeButtonText}>
+            {isPurchaseOrder 
+              ? 'Back to Suppliers' 
+              : isDebtSettlement 
+                ? 'Back to Debt History' 
+                : 'Back to Home'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
