@@ -549,12 +549,15 @@ const PaymentScreen = () => {
 
                 // ✅ Clear pending order from AsyncStorage
                 await AsyncStorage.removeItem(`pending_customer_order_${user.id}`);
-                // Show success modal
-                setCompletedOrderId(ord.id);
-                setShowSuccessModal(true);
-                setProcessing(false);
                 // Stop listening
                 unsubscribe();
+
+                // ✅ Navigate to debt-details to show paid status
+                console.log('[Payment] Debt settlement completed - navigating to debt-details');
+                router.replace({
+                  pathname: '/(main)/(customer)/profile/debt-details',
+                  params: { orderId: ord.id }
+                });
               }
             }
           });

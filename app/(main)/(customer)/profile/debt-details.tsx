@@ -30,7 +30,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ref, get, update } from 'firebase/database';
+import { ref, get, update, onValue } from 'firebase/database';
 import { database } from '../../../../FirebaseConfig';
 import type { Order, OrderItem } from '../../../../src/models/Order';
 import { s, vs, ms } from '../../../../src/constants/responsive';
@@ -56,44 +56,49 @@ export default function DebtDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
 
-  // Fetch order data from Firebase
+  // ✅ REAL-TIME listener for debt status updates (automatically shows "Paid" after Xendit payment)
   useEffect(() => {
-    const fetchOrderData = async () => {
-      if (!orderId) {
-        setLoading(false);
-        return;
-      }
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const orderRef = ref(database, `orders/${orderId}`);
-        const snapshot = await get(orderRef);
+    console.log('[Debt Details] Setting up real-time listener for order:', orderId);
+    const orderRef = ref(database, `orders/${orderId}`);
 
-        if (snapshot.exists()) {
-          const orderData = { ...snapshot.val(), id: orderId };
+    // Real-time listener - automatically updates when payment status changes
+    const unsubscribe = onValue(orderRef, (snapshot) => {
+      setLoading(false);
 
-          // Calculate if overdue
-          if (orderData.debtStatus === 'pending' && orderData.debtDueDate) {
-            const dueDate = new Date(orderData.debtDueDate);
-            const today = new Date();
-            if (today > dueDate) {
-              orderData.debtStatus = 'overdue';
-            }
+      if (snapshot.exists()) {
+        const orderData = { ...snapshot.val(), id: orderId };
+
+        // Calculate if overdue
+        if (orderData.debtStatus === 'pending' && orderData.debtDueDate) {
+          const dueDate = new Date(orderData.debtDueDate);
+          const today = new Date();
+          if (today > dueDate) {
+            orderData.debtStatus = 'overdue';
           }
-
-          setOrder(orderData);
-        } else {
-          Alert.alert('Error', 'Debt order not found');
-          router.back();
         }
-      } catch (error) {
-        console.error('Error fetching order:', error);
-        Alert.alert('Error', 'Failed to load debt details');
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchOrderData();
+        console.log('[Debt Details] Order updated - debtStatus:', orderData.debtStatus, 'paymentStatus:', orderData.paymentStatus);
+        setOrder(orderData);
+      } else {
+        Alert.alert('Error', 'Debt order not found');
+        router.back();
+      }
+    }, (error) => {
+      console.error('[Debt Details] Error listening to order:', error);
+      Alert.alert('Error', 'Failed to load debt details');
+      setLoading(false);
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      console.log('[Debt Details] Cleaning up listener for order:', orderId);
+      unsubscribe();
+    };
   }, [orderId]);
 
   // Format date
