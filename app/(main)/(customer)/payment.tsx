@@ -30,6 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ref, get, onValue, query, orderByChild, equalTo, update, runTransaction } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { database } from '../../../FirebaseConfig';
 import { useUser } from '../../../src/contexts/UserContext';
 import { Colors } from '../../../src/constants/Colors';
@@ -174,6 +175,8 @@ const PaymentScreen = () => {
           // Clear cart
           if (user) {
             await clearCart(user.id);
+            // ✅ Clear pending order from AsyncStorage
+            await AsyncStorage.removeItem(`pending_customer_order_${user.id}`);
           }
           // Use the orderId from the snapshot (Firebase key)
           setCompletedOrderId(snapshot.key || pendingOrderNumber);
@@ -514,6 +517,16 @@ const PaymentScreen = () => {
         // Open Xendit invoice
         const supported = await Linking.canOpenURL(paymentResponse.invoiceUrl);
         if (supported) {
+          // ✅ Save order info to AsyncStorage for payment/success.tsx (DEBT SETTLEMENT)
+          await AsyncStorage.setItem(
+            `pending_customer_order_${user.id}`,
+            JSON.stringify({ 
+              orderId: ord.id, 
+              orderNumber: ord.orderNumber || ord.id,
+              isDebtSettlement: true // Flag for debt settlement
+            })
+          );
+          
           await Linking.openURL(paymentResponse.invoiceUrl);
 
           // Listen for payment status updates on this order
@@ -534,6 +547,8 @@ const PaymentScreen = () => {
                   await DebtReminderScheduler.cancelReminders(ord.id);
                 } catch {}
 
+                // ✅ Clear pending order from AsyncStorage
+                await AsyncStorage.removeItem(`pending_customer_order_${user.id}`);
                 // Show success modal
                 setCompletedOrderId(ord.id);
                 setShowSuccessModal(true);
@@ -678,6 +693,16 @@ const PaymentScreen = () => {
         // Open Xendit payment page in browser
         const supported = await Linking.canOpenURL(paymentResponse.invoiceUrl);
         if (supported) {
+          // ✅ Save order info to AsyncStorage for payment/success.tsx (NEW ORDER)
+          await AsyncStorage.setItem(
+            `pending_customer_order_${user.id}`,
+            JSON.stringify({ 
+              orderId, 
+              orderNumber,
+              isDebtSettlement: false // New order, not debt settlement
+            })
+          );
+          
           await Linking.openURL(paymentResponse.invoiceUrl);
 
           // Store pending order number and set up listener
@@ -726,6 +751,8 @@ const PaymentScreen = () => {
                 
                 // Clear cart
                 await clearCart(user.id);
+                // ✅ Clear pending order from AsyncStorage
+                await AsyncStorage.removeItem(`pending_customer_order_${user.id}`);
                 // Show success modal with real orderId (Firebase key)
                 setCompletedOrderId(orderId);
                 setShowSuccessModal(true);
