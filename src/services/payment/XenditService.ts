@@ -94,13 +94,20 @@ class PaymentService {
    */
   async createPayment(request: PaymentRequest): Promise<PaymentResponse> {
     try {
-      // Validate phone number if GCash/PayMaya
+      // For customer payments (GCash/PayMaya), phone number should be OPTIONAL.
+      // If a phone is provided, we still validate/format it. If it's missing,
+      // we simply skip validation and let the backend/Xendit handle it.
       if (request.paymentMethod === 'gcash' || request.paymentMethod === 'paymaya') {
-        const phoneValidation = this.validateAndFormatPhone(request.customerPhone);
-        if (!phoneValidation.valid) {
-          return { success: false, error: phoneValidation.error || 'Invalid phone number' };
+        if (request.customerPhone && request.customerPhone.trim() !== '') {
+          const phoneValidation = this.validateAndFormatPhone(request.customerPhone);
+          if (!phoneValidation.valid) {
+            return { success: false, error: phoneValidation.error || 'Invalid phone number' };
+          }
+          request.customerPhone = phoneValidation.formatted!;
+        } else {
+          // Explicitly send empty string when no phone is available
+          request.customerPhone = '';
         }
-        request.customerPhone = phoneValidation.formatted!;
       }
 
       console.log('[XenditService] Calling admin API:', ADMIN_API_BASE, 'with order:', request.orderNumber);
