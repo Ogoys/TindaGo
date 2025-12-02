@@ -45,7 +45,8 @@
       "Bash(git push:*)",
       "Bash(git merge:*)",
       "Bash(head:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
