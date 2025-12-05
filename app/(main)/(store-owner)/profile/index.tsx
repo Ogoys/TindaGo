@@ -167,6 +167,10 @@ export default function ProfileScreen() {
     router.push('/(main)/(store-owner)/profile/sales-history');
   };
 
+  const handleWalkInSalesHistory = () => {
+    router.push('/(main)/(store-owner)/profile/walk-in-sales-history');
+  };
+
   const handleReviews = () => {
     router.push('/(main)/(store-owner)/profile/reviews');
   };
@@ -327,6 +331,16 @@ export default function ProfileScreen() {
             title="Sales History"
             iconName="bar-chart"
             onPress={handleSalesHistory}
+          />
+          <SettingItem
+            title="Record Walk-in Sale"
+            iconName="receipt"
+            onPress={handleRecordWalkInSale}
+          />
+          <SettingItem
+            title="Walk-in Sales History"
+            iconName="time"
+            onPress={handleWalkInSalesHistory}
           />
           <SettingItem
             title="View Earnings"

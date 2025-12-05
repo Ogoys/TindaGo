@@ -544,9 +544,9 @@ export default function StoreDebtDetailsScreen() {
           )}
         </View>
 
-        {/* Mark as Paid Button (only show for manual debt entries that are not paid) */}
-        {/* Customer-initiated debt orders should be paid through Xendit (GCash/PayMaya) */}
-        {!isPaid && (safeOrder as any).isManualDebt && (
+        {/* Mark as Paid Button (show for ALL pending debts) */}
+        {/* Store owners can mark debts as paid when customers pay in cash at the store */}
+        {!isPaid && (
           <TouchableOpacity
             style={[styles.markPaidButtonLarge, marking && styles.markPaidButtonDisabled]}
             onPress={handleMarkAsPaid}
@@ -565,12 +565,12 @@ export default function StoreDebtDetailsScreen() {
         {!isPaid && !(safeOrder as any).isManualDebt && (
           <View style={styles.paymentInstructionCard}>
             <View style={styles.paymentInstructionIcon}>
-              <Text style={styles.paymentInstructionIconText}>💳</Text>
+              <Text style={styles.paymentInstructionIconText}>💡</Text>
             </View>
             <View style={styles.paymentInstructionContent}>
-              <Text style={styles.paymentInstructionTitle}>Waiting for Payment</Text>
+              <Text style={styles.paymentInstructionTitle}>Payment Options</Text>
               <Text style={styles.paymentInstructionText}>
-                Customer will pay through GCash or PayMaya. Payment status will automatically update once completed.
+                Customer can pay through GCash/PayMaya online, or pay in cash at your store. Click "Mark as Paid" when cash payment is received.
               </Text>
             </View>
           </View>

@@ -506,8 +506,8 @@ const StoreDebtRecordsScreen = () => {
           {/* Total Amount */}
           <Text style={styles.total}>P{formatCurrency(order.total)}</Text>
 
-          {/* Mark as Paid Button (only for manual debt entries that are not paid) */}
-          {!isPaid && (order as any).isManualDebt && (
+          {/* Mark as Paid Button (for ALL pending/overdue debts) */}
+          {!isPaid && (order.debtStatus === 'pending' || order.debtStatus === 'overdue') && (
             <TouchableOpacity
               style={styles.markPaidButton}
               onPress={(e) => {
