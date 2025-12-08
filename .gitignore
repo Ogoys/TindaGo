@@ -43,6 +43,8 @@ app-example
 
 # Claude Code (IDE-specific, not part of app)
 .claude/
+.mcp.json
+CLAUDE.md
 
 # Documentation (keep separate from codebase)
 doc/
