@@ -41,5 +41,8 @@ yarn-error.*
 
 app-example
 
-# Claude Code MCP settings (contains API keys)
-.claude/mcp-settings.json
+# Claude Code (IDE-specific, not part of app)
+.claude/
+
+# Documentation (keep separate from codebase)
+doc/
