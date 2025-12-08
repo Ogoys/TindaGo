@@ -233,8 +233,8 @@ export default function StoresMapScreen() {
             
             if (hasLocation && canShowOnMap) {
               // Get coordinates from whichever structure exists
-              let coordinates;
-              let address;
+              let coordinates: { latitude: number; longitude: number } | undefined;
+              let address: string | undefined;
               
               if (hasLocationNew) {
                 coordinates = {
@@ -256,10 +256,13 @@ export default function StoresMapScreen() {
                 address = store.address || store.businessInfo?.address || 'Address not available';
               }
               
+              // Skip if coordinates not set (safety check)
+              if (!coordinates) return;
+              
               const storeLocation: StoreLocation = {
                 id: storeId,
                 storeName,
-                address,
+                address: address || 'Address not available',
                 coordinates,
                 logo: store.businessInfo?.logo || store.logo,
                 isOpen: store.isOpen ?? true,

@@ -2047,6 +2047,13 @@ const styles = StyleSheet.create({
   },
   
   // Empty Container
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: vs(60),
+  },
+  
   emptyIcon: {
     fontSize: s(60),
     marginBottom: vs(16),

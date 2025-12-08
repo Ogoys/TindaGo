@@ -4,7 +4,7 @@
     "slug": "TindaGO",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/TindaGo.png",
     "scheme": "tindago",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,7 +13,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./assets/images/TindaGo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -31,7 +31,10 @@
           "apiKey": "AIzaSyAL7kC_3jIPra7L-AqmSKudve-KNWFllpA"
         }
       },
-      "package": "com.tindagoproject.TindaGO"
+      "package": "com.tindagoproject.TindaGO",
+      "buildToolsVersion": "36.0.0",
+      "compileSdkVersion": 36,
+      "targetSdkVersion": 36
     },
     "web": {
       "bundler": "metro",
@@ -43,8 +46,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/TindaGo.png",
+          "imageWidth": 300,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }

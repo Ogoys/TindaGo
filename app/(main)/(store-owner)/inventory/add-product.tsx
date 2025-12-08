@@ -1891,6 +1891,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: vs(60),
+  },
+  
   loadingText: {
     marginTop: vs(15),
     fontSize: ms(16),

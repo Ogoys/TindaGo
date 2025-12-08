@@ -16,15 +16,13 @@
       }
     },
     "preview": {
-      "developmentClient": true,
       "distribution": "internal",
-      "environment": "preview",
       "android": {
         "buildType": "apk"
       },
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-        "ENV_NAME": "preview"
+        "NODE_OPTIONS": "--max-old-space-size=4096"
       }
     },
     "production": {

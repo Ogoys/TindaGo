@@ -28,7 +28,7 @@ export interface RefundTransaction {
   customerId: string;
   customerName: string;
   amount: number;
-  method: 'cash' | 'gcash' | 'paymaya' | 'loan';
+  method: 'cash' | 'gcash' | 'paymaya' | 'loan' | 'replace_product' | 'no_refund';
   status: RefundStatus;
   // For GCash/PayMaya
   accountNumber?: string;

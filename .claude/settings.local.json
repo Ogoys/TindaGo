@@ -46,7 +46,11 @@
       "Bash(git merge:*)",
       "Bash(head:*)",
       "Bash(findstr:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(eas build:*)",
+      "Bash(eas build:logs:*)",
+      "Bash(if exist \"dist-test\" rmdir /s /q \"dist-test\")",
+      "Bash(if exist \"dist-test2\" rmdir /s /q \"dist-test2\")"
     ],
     "deny": [],
     "ask": []

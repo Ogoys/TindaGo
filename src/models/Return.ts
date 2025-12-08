@@ -15,7 +15,7 @@ export type ReturnReason =
 
 export type ReturnCondition = 'sellable' | 'unsellable';
 
-export type RefundMethod = 'cash' | 'replace_product' | 'no_refund';
+export type RefundMethod = 'cash' | 'replace_product' | 'no_refund' | 'loan';
 
 export type ReturnStatus = 'pending' | 'resolved' | 'rejected';
 
@@ -61,6 +61,7 @@ export interface Return {
   // Refund
   refundMethod: RefundMethod;
   totalRefund: number;
+  loanPaymentDate?: string; // For loan refund method
 
   // Status
   status: ReturnStatus;
@@ -120,6 +121,11 @@ export const REFUND_METHODS: { value: RefundMethod; label: string; description: 
     value: 'no_refund',
     label: 'No Refund (Goodwill)',
     description: 'Return without refund'
+  },
+  {
+    value: 'loan',
+    label: 'Store Credit',
+    description: 'Credit for future purchases'
   },
 ];
 

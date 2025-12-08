@@ -256,7 +256,7 @@ export default function ReturnRequestScreen() {
     // Check all selected items have valid quantity and reason
     for (const [productId, item] of selectedItems.entries()) {
       // Get the order item to check available quantity
-      const orderItem = order.items.find(i => i.productId === productId);
+      const orderItem = order?.items.find(i => i.productId === productId);
       if (!orderItem) continue;
       
       const quantityReturned = orderItem.quantityReturned || 0;
@@ -314,9 +314,9 @@ export default function ReturnRequestScreen() {
       // Prepare return request data with final reasons (custom text takes priority)
       const returnItems = Array.from(selectedItems.values()).map(item => {
         const customReason = customReasons.get(item.productId);
-        const finalReason = customReason && customReason.trim()
+        const finalReason = (customReason && customReason.trim()
           ? customReason.trim()
-          : item.returnReason;
+          : item.returnReason) as ReturnReason;
 
         return {
           productId: item.productId,
