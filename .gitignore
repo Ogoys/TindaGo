@@ -47,3 +47,4 @@ app-example
 # Documentation (keep separate from codebase)
 doc/
 CLAUDE.md
+.mcp.json
