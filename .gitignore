@@ -36,9 +36,6 @@ yarn-error.*
 .env*.local
 .env
 
-# API keys and sensitive config
-app.json
-
 # typescript
 *.tsbuildinfo
 
